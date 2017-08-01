@@ -1,0 +1,12 @@
+3rdparty:
+---------
+    git://sigrok.org/libserialport
+
+library stack:
+--------------
+
+    apiserver     libskysense-cli
+        libskysense-ll
+libserialport     somegpiolib???
+---------------------------------
+ indoor PCB        outdoor PCB       [HW layer]

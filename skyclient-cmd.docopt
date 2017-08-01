@@ -1,0 +1,21 @@
+Skysense console client.
+
+Usage:
+    skyclient list-devs
+    skyclient monitor <interval-ms>       [(<addr> <port>)]
+    skyclient show-dev-params             [(<addr> <port>)]
+    skyclient set-dev-param <key> <value> [(<addr> <port>)]
+    skyclient start-charge                [(<addr> <port>)]
+    skyclient stop-charge                 [(<addr> <port>)]
+    skyclient open-cover                  [(<addr> <port>)]
+    skyclient close-cover                 [(<addr> <port>)]
+    skyclient show-charging-state         [(<addr> <port>)]
+    skyclient set-autoscan <autoscan>     [(<addr> <port>)]
+    skyclient reset                       [(<addr> <port>)]
+    skyclient dev-info                    [(<addr> <port>)]
+
+Options:
+    Skysense console client communicates with local and remote devices.
+    Almost each command has non obligatory <addr> and <port> to execute
+    command remotely on a server.  If <addr> and <port> are not specified
+    local devices will be used.

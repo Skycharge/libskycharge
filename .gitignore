@@ -1,0 +1,7 @@
+*.o
+skyclient
+skyserver
+docopt-tool
+cscope.*
+skyclient-cmd.*
+!skyclient-cmd.docopt
