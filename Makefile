@@ -6,11 +6,12 @@ LEX  := flex
 
 SRCS := $(wildcard *.c)
 BINS := skyserver skyclient
+LIBS := -lzmq -lpthread -ldl
 
 all: $(BINS)
 
 skyserver: skyserver.o libskysense.o libskysense-loc.o libskysense-rem.o
-	$(CC) $(LFLAGS) -o $@ $^ -lzmq -lpthread
+	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 docopt-gen:
 	$(MAKE) -C docopt
@@ -31,7 +32,7 @@ skyclient.o: skyclient-cmd.h
 
 skyclient: skyclient.o libskysense.o libskysense-loc.o libskysense-rem.o \
 	   skyclient-cmd.tab.o skyclient-cmd.lex.o
-	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ -lzmq -lpthread
+	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS)
 
 clean:
 	$(RM) $(BINS) *.o *~ \
