@@ -109,8 +109,8 @@ static void sky_print_charging_state(struct sky_charging_state *state)
 {
 	printf("Device in state: %s\n",
 	       sky_devstate_to_str(state->dev_hw_state));
-	printf("Voltage: %.3f\n", state->voltage);
-	printf("Current: %.3f\n", state->current);
+	printf("Voltage: %d mV\n", state->voltage);
+	printf("Current: %d mA\n", state->current);
 }
 
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)

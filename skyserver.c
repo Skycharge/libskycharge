@@ -30,17 +30,13 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
 	struct sky_charging_state_rsp msg;
 	struct sky_server *serv = data;
-	int16_t vol, cur;
 	int rc;
 
-	vol = float_to_fix88(state->voltage);
-	cur = float_to_fix88(state->current);
-
-	msg.hdr.type = le32toh(SKY_CHARGING_STATE_EV);
+	msg.hdr.type = htole16(SKY_CHARGING_STATE_EV);
 	msg.hdr.error = 0;
-	msg.dev_hw_state = le32toh(state->dev_hw_state);
-	msg.current = le16toh(cur);
-	msg.voltage = le16toh(vol);
+	msg.dev_hw_state = htole16(state->dev_hw_state);
+	msg.current = htole16(state->current);
+	msg.voltage = htole16(state->voltage);
 
 	rc = zmq_send(serv->zock.pub, &msg, sizeof(msg), 0);
 	if (rc != sizeof(msg))
@@ -240,14 +236,9 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 		rsp->hdr.type  = htole16(SKY_CHARGING_STATE_RSP);
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
-			int16_t vol, cur;
-
-			vol = float_to_fix88(state.voltage);
-			cur = float_to_fix88(state.current);
-
-			rsp->dev_hw_state = htole16(state.dev_hw_state);
-			rsp->current = htole16(cur);
-			rsp->voltage = htole16(vol);
+			rsp->dev_hw_state = htole32(state.dev_hw_state);
+			rsp->current = htole16(state.current);
+			rsp->voltage = htole16(state.voltage);
 		}
 
 		break;
@@ -269,7 +260,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_autoscan(serv->lib, le32toh(req->autoscan));
+		rc = sky_autoscan(serv->lib, le16toh(req->autoscan));
 
 		rsp->type  = htole16(SKY_SET_AUTOSCAN_RSP);
 		rsp->error = htole16(-rc);

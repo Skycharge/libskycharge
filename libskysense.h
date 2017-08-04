@@ -111,8 +111,8 @@ struct sky_dev {
  */
 struct sky_charging_state {
 	enum sky_dev_hw_state dev_hw_state;
-	float current;
-	float voltage;
+	unsigned short current;
+	unsigned short voltage;
 };
 
 /**

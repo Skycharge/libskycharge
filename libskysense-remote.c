@@ -141,7 +141,7 @@ static int skyrem_complex_req_rsp(struct skyrem_lib *lib,
 		rc = -ECONNRESET;
 		goto out;
 	}
-	if (le32toh(rsp->type) != rsp_type) {
+	if (le16toh(rsp->type) != rsp_type) {
 		/* Malformed response, incorrect response type */
 		rc = -ECONNRESET;
 		goto out;
@@ -167,7 +167,7 @@ static int skyrem_simple_req_rsp(struct skyrem_lib *lib,
 	if (rc < 0)
 		return rc;
 
-	return le32toh(rsp.error);
+	return le16toh(rsp.error);
 }
 
 static int skyrem_libopen(const struct sky_lib_conf *conf,
@@ -216,11 +216,11 @@ static int skyrem_devinfo(struct sky_lib *lib_, struct sky_dev *dev)
 		/* Malformed response */
 		return -ECONNRESET;
 	}
-	rc = le32toh(rsp.hdr.error);
+	rc = le16toh(rsp.hdr.error);
 	if (rc)
 		return rc;
 
-	dev->dev_type = le32toh(rsp.dev_type);
+	dev->dev_type = le16toh(rsp.dev_type);
 	memcpy(dev->portname, rsp.portname, sizeof(rsp.portname));
 
 	return 0;
@@ -250,7 +250,7 @@ static int skyrem_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 	if (sz < 0)
 		return sz;
 
-	rc = le32toh(rsp_uni.rsp.hdr.error);
+	rc = le16toh(rsp_uni.rsp.hdr.error);
 	if (rc)
 		return rc;
 
@@ -322,13 +322,13 @@ static int skyrem_chargingstate(struct sky_lib *lib_,
 		/* Malformed response */
 		return -ECONNRESET;
 	}
-	rc = le32toh(rsp.hdr.error);
+	rc = le16toh(rsp.hdr.error);
 	if (rc)
 		return rc;
 
-	state->dev_hw_state = le32toh(rsp.dev_hw_state);
-	state->voltage = fix88_to_float(le16toh(rsp.voltage));
-	state->current = fix88_to_float(le16toh(rsp.current));
+	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->voltage = le16toh(rsp.voltage);
+	state->current = le16toh(rsp.current);
 
 	return 0;
 }
@@ -407,13 +407,13 @@ static int skyrem_subscription_work(struct sky_lib *lib_,
 		/* Malformed response */
 		return -ECONNRESET;
 	}
-	rc = le32toh(rsp.hdr.error);
+	rc = le16toh(rsp.hdr.error);
 	if (rc)
 		return rc;
 
-	state->dev_hw_state = le32toh(rsp.dev_hw_state);
-	state->voltage = fix88_to_float(le16toh(rsp.voltage));
-	state->current = fix88_to_float(le16toh(rsp.current));
+	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->voltage = le16toh(rsp.voltage);
+	state->current = le16toh(rsp.current);
 
 	return 0;
 }

@@ -99,22 +99,12 @@ struct sky_dev_info_rsp {
 
 struct sky_charging_state_rsp {
 	struct sky_rsp_hdr hdr;
-	le32 dev_hw_state;
-	le16 voltage;  /* fixed point 8:8 */
-	le16 current;  /* fixed point 8:8 */
-	le32 unused;
+	le16 voltage;  /* mV */
+	le16 current;  /* mA */
+	le16 dev_hw_state;
+	le16 unused;
 };
 
 #pragma GCC diagnostic pop
-
-static inline int16_t float_to_fix88(float f)
-{
-	return f * (1<<8);
-}
-
-static inline float fix88_to_float(int16_t v)
-{
-	return (float)v / (1<<8);
-}
 
 #endif /* PROTO_H */
