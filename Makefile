@@ -10,7 +10,7 @@ LIBS := -lzmq -lpthread -ldl
 
 all: $(BINS)
 
-skyserver: skyserver.o libskysense.o libskysense-loc.o libskysense-rem.o
+skyserver: skyserver.o libskysense.o libskysense-local.o libskysense-remote.o
 	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 docopt-gen:
@@ -30,7 +30,7 @@ skyclient-cmd.lex.c: skyclient-cmd.l
 
 skyclient.o: skyclient-cmd.h
 
-skyclient: skyclient.o libskysense.o libskysense-loc.o libskysense-rem.o \
+skyclient: skyclient.o libskysense.o libskysense-local.o libskysense-remote.o \
 	   skyclient-cmd.tab.o skyclient-cmd.lex.o
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS)
 
