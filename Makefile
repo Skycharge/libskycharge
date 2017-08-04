@@ -6,7 +6,7 @@ LEX  := flex
 
 SRCS := $(wildcard *.c)
 BINS := skyserver skyclient
-LIBS := -lzmq -lpthread -ldl
+LIBS := -lzmq -lserialport -lpthread -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
 	            libskysense-remote.o libskysense-dummy.o
