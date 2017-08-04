@@ -1,7 +1,7 @@
 *.o
 skyclient
 skyserver
-docopt-tool
+docopt-gen
 cscope.*
 skyclient-cmd.*
 !skyclient-cmd.docopt
