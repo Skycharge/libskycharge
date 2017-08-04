@@ -33,5 +33,6 @@ struct sky_lib {
 
 extern struct sky_lib_ops sky_remote_lib_ops;
 extern struct sky_lib_ops sky_local_lib_ops;
+extern struct sky_lib_ops sky_dummy_lib_ops;
 
 #endif /* LIBSKYSENSE_PRI_H */

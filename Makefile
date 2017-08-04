@@ -8,9 +8,12 @@ SRCS := $(wildcard *.c)
 BINS := skyserver skyclient
 LIBS := -lzmq -lpthread -ldl
 
+LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
+	            libskysense-remote.o libskysense-dummy.o
+
 all: $(BINS)
 
-skyserver: skyserver.o libskysense.o libskysense-local.o libskysense-remote.o
+skyserver: skyserver.o $(LIBSKYSENSE-SRCS)
 	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 docopt-gen:
@@ -30,7 +33,7 @@ skyclient-cmd.lex.c: skyclient-cmd.l
 
 skyclient.o: skyclient-cmd.h
 
-skyclient: skyclient.o libskysense.o libskysense-local.o libskysense-remote.o \
+skyclient: skyclient.o $(LIBSKYSENSE-SRCS) \
 	   skyclient-cmd.tab.o skyclient-cmd.lex.o
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS)
 
