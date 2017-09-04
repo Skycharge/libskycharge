@@ -182,6 +182,56 @@ struct skyloc_lib {
 	struct sky_dev dev;
 };
 
+static int skyloc_devslist(struct sky_dev **head)
+{
+	struct sky_dev *dev, *prev = NULL;
+	struct sp_port **ports = NULL;
+	enum sp_return sprc;
+	int i, rc;
+
+	sprc = sp_list_ports(&ports);
+	if (sprc < 0)
+		return sprc_to_errno(sprc);
+
+	*head = NULL;
+
+	for (i = 0; ports[i]; i++) {
+		const char *desc = sp_get_port_description(ports[i]);
+
+		if (strncasecmp(desc, "skysense", 8))
+			continue;
+
+		dev = calloc(1, sizeof(*dev));
+		if (dev == NULL) {
+			rc = -ENOMEM;
+			goto err;
+		}
+		if (*head == NULL)
+			*head = dev;
+		if (prev)
+			prev->next = dev;
+		prev = dev;
+		strncpy(dev->portname, sp_get_port_name(ports[i]),
+			sizeof(dev->portname));
+		/* XXX: TODO */
+		dev->dev_type = SKY_INDOOR;
+	}
+	rc = 0;
+
+out:
+	sp_free_port_list(ports);
+
+	return rc;
+
+err:
+	while (*head) {
+		dev = *head;
+		*head = (*head)->next;
+		free(dev);
+	}
+	goto out;
+}
+
 static int skyloc_libopen(const struct sky_lib_conf *conf,
 			  struct sky_lib **lib_)
 {
@@ -420,6 +470,7 @@ static int skyloc_coverclose(struct sky_lib *lib_)
 }
 
 struct sky_lib_ops sky_local_lib_ops = {
+	.devslist = skyloc_devslist,
 	.libopen = skyloc_libopen,
 	.libclose = skyloc_libclose,
 	.devinfo = skyloc_devinfo,

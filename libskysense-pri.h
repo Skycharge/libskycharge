@@ -5,6 +5,7 @@
 #include "types.h"
 
 struct sky_lib_ops {
+	int (*devslist)(struct sky_dev **head);
 	int (*libopen)(const struct sky_lib_conf *conf, struct sky_lib **lib);
 	void (*libclose)(struct sky_lib *lib);
 	int (*devinfo)(struct sky_lib *lib, struct sky_dev *dev);

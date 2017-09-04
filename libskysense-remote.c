@@ -170,6 +170,12 @@ static int skyrem_simple_req_rsp(struct skyrem_lib *lib,
 	return le16toh(rsp.error);
 }
 
+static int skyrem_devslist(struct sky_dev **head)
+{
+	/* See libskysense-local.c */
+	return -EOPNOTSUPP;
+}
+
 static int skyrem_libopen(const struct sky_lib_conf *conf,
 			  struct sky_lib **lib_)
 {
@@ -486,6 +492,7 @@ static int skyrem_coverclose(struct sky_lib *lib_)
 }
 
 struct sky_lib_ops sky_remote_lib_ops = {
+	.devslist = skyrem_devslist,
 	.libopen = skyrem_libopen,
 	.libclose = skyrem_libclose,
 	.devinfo = skyrem_devinfo,

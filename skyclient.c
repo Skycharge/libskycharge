@@ -97,6 +97,13 @@ static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
 			sky_err("sky_devslist(): %s\n", strerror(-rc));
 			exit(-1);
 		}
+		/* Take first available port */
+		if (*devs == NULL) {
+			sky_err("sky_devslist(): No sky devices found\n");
+			exit(-1);
+		}
+		strncpy(conf.local.portname, (*devs)->portname,
+			sizeof(conf.local.portname));
 	}
 	rc = sky_libopen(&conf, lib);
 	if (rc) {
