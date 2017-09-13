@@ -13,6 +13,23 @@ struct skydum_lib {
 	struct sky_dev dev;
 };
 
+static int skydum_devslist(struct sky_dev **head)
+{
+	struct sky_dev *dev;
+
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
+		return -ENOMEM;
+
+	dev->next = NULL;
+	dev->dev_type = SKY_INDOOR;
+	strcpy(dev->portname, "port0");
+
+	*head = dev;
+
+	return 0;
+}
+
 static int skydum_libopen(const struct sky_lib_conf *conf,
 			  struct sky_lib **lib_)
 {
@@ -116,8 +133,8 @@ static int skydum_subscription_work(struct sky_lib *lib_,
 	struct skydum_lib *lib;
 
 	lib = container_of(lib_, struct skydum_lib, lib);
-	lib->state.current += 0.1;
-	lib->state.voltage += 0.2;
+	lib->state.current += 1;
+	lib->state.voltage += 2;
 	lib->state.dev_hw_state += 1;
 	if (lib->state.dev_hw_state == 4)
 		lib->state.dev_hw_state = 5;
@@ -163,6 +180,7 @@ static int skydum_coverclose(struct sky_lib *lib_)
 }
 
 struct sky_lib_ops sky_dummy_lib_ops = {
+	.devslist = skydum_devslist,
 	.libopen = skydum_libopen,
 	.libclose = skydum_libclose,
 	.devinfo = skydum_devinfo,
