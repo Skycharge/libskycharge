@@ -7,10 +7,14 @@
 #include "libskysense-pri.h"
 #include "types.h"
 
+static const struct sky_lib_ops *local_ops =
+	/* XXX &sky_local_lib_ops; */
+	&sky_dummy_lib_ops;
+
 int sky_devslist(struct sky_dev **head)
 {
 	/* Forward to local implementation */
-	return sky_local_lib_ops.devslist(head);
+	return local_ops->devslist(head);
 }
 
 void sky_devsfree(struct sky_dev *head)
@@ -26,12 +30,11 @@ void sky_devsfree(struct sky_dev *head)
 
 int sky_libopen(const struct sky_lib_conf *conf, struct sky_lib **lib_)
 {
-	struct sky_lib_ops *ops;
+	const struct sky_lib_ops *ops;
 	int rc;
 
 	if (conf->conn_type == SKY_LOCAL)
-		ops = &sky_local_lib_ops;
-		/* XXX ops = &sky_dummy_lib_ops; */
+		ops = local_ops;
 	else if (conf->conn_type == SKY_REMOTE)
 		ops = &sky_remote_lib_ops;
 	else
