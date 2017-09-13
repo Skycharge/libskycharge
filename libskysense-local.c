@@ -151,6 +151,12 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	cmd_buf[2] = cmd;
 	cmd_buf[len + 3] = 0x00;
 
+	/* That is required not to hang on reading */
+	sprc = sp_flush(lib->port, SP_BUF_BOTH);
+	if (sprc < 0) {
+		rc = sprc_to_errno(sprc);
+		goto out;
+	}
 	sprc = sp_blocking_write(lib->port, cmd_buf, len + 4, 0);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
