@@ -167,7 +167,7 @@ static int skyrem_simple_req_rsp(struct skyrem_lib *lib,
 	if (rc < 0)
 		return rc;
 
-	return le16toh(rsp.error);
+	return -le16toh(rsp.error);
 }
 
 static int skyrem_devslist(struct sky_dev **head)
@@ -222,7 +222,7 @@ static int skyrem_devinfo(struct sky_lib *lib_, struct sky_dev *dev)
 		/* Malformed response */
 		return -ECONNRESET;
 	}
-	rc = le16toh(rsp.hdr.error);
+	rc = -le16toh(rsp.hdr.error);
 	if (rc)
 		return rc;
 
@@ -256,7 +256,7 @@ static int skyrem_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 	if (sz < 0)
 		return sz;
 
-	rc = le16toh(rsp_uni.rsp.hdr.error);
+	rc = -le16toh(rsp_uni.rsp.hdr.error);
 	if (rc)
 		return rc;
 
@@ -328,7 +328,7 @@ static int skyrem_chargingstate(struct sky_lib *lib_,
 		/* Malformed response */
 		return -ECONNRESET;
 	}
-	rc = le16toh(rsp.hdr.error);
+	rc = -le16toh(rsp.hdr.error);
 	if (rc)
 		return rc;
 
@@ -413,7 +413,7 @@ static int skyrem_subscription_work(struct sky_lib *lib_,
 		/* Malformed response */
 		return -ECONNRESET;
 	}
-	rc = le16toh(rsp.hdr.error);
+	rc = -le16toh(rsp.hdr.error);
 	if (rc)
 		return rc;
 
