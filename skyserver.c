@@ -297,7 +297,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 
 		rc = sky_devinfo(serv->lib, &dev);
 
-		rsp->hdr.type  = htole16(SKY_DEV_INFO_REQ);
+		rsp->hdr.type  = htole16(SKY_DEV_INFO_RSP);
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
 			rsp->dev_type = htole16(dev.dev_type);
