@@ -30,6 +30,14 @@ enum {
 	FROM_BUF = 1
 };
 
+struct skyloc_lib {
+	struct sky_lib lib;
+	struct sp_port *port;
+	struct sky_charging_state state;
+	struct sky_dev_conf conf;
+	struct sky_dev dev;
+};
+
 static inline int sprc_to_errno(enum sp_return sprc)
 {
 	switch (sprc) {
@@ -113,7 +121,7 @@ out:
 	return len;
 }
 
-static int skycmd_serial_cmd(struct sp_port *port, uint8_t cmd,
+static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 			     unsigned req_num, int rsp_num,
 			     ...)
 {
@@ -139,7 +147,7 @@ static int skycmd_serial_cmd(struct sp_port *port, uint8_t cmd,
 	cmd_buf[2] = cmd;
 	cmd_buf[len + 3] = 0x00;
 
-	sprc = sp_blocking_write(port, cmd_buf, len + 4, 0);
+	sprc = sp_blocking_write(lib->port, cmd_buf, len + 4, 0);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
 		goto out;
@@ -154,7 +162,7 @@ static int skycmd_serial_cmd(struct sp_port *port, uint8_t cmd,
 			rc = -EINVAL;
 			goto out;
 		}
-		sprc = sp_blocking_read(port, rsp_buf, len + 4, 0);
+		sprc = sp_blocking_read(lib->port, rsp_buf, len + 4, 0);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			goto out;
@@ -175,14 +183,6 @@ out:
 
 	return rc;
 }
-
-struct skyloc_lib {
-	struct sky_lib lib;
-	struct sp_port *port;
-	struct sky_charging_state state;
-	struct sky_dev_conf conf;
-	struct sky_dev dev;
-};
 
 static int skyloc_devslist(struct sky_dev **head)
 {
@@ -287,7 +287,7 @@ static int skyloc_devinfo(struct sky_lib *lib_, struct sky_dev *dev)
 static int skyloc_serial_get_param(struct skyloc_lib *lib,
 				   uint8_t param, uint16_t *val)
 {
-	return skycmd_serial_cmd(lib->port, SKY_GET_PARAMETER_CMD,
+	return skycmd_serial_cmd(lib, SKY_GET_PARAMETER_CMD,
 			1, 2,
 			sizeof(param), &param,
 			sizeof(param), &param, sizeof(*val), val);
@@ -308,7 +308,7 @@ static int skyloc_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 	lib = container_of(lib_, struct skyloc_lib, lib);
 
 	/* Fetch params from EEPROM */
-	rc = skycmd_serial_cmd(lib->port, SKY_READ_DATA_FROM_EEP_CMD, 0, 0);
+	rc = skycmd_serial_cmd(lib, SKY_READ_DATA_FROM_EEP_CMD, 0, 0);
 	if (rc)
 		return rc;
 
@@ -327,7 +327,7 @@ static int skyloc_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 static int skyloc_serial_set_param(struct skyloc_lib *lib,
 				   uint8_t param, uint16_t val)
 {
-	return skycmd_serial_cmd(lib->port, SKY_SET_PARAMETER_CMD,
+	return skycmd_serial_cmd(lib, SKY_SET_PARAMETER_CMD,
 			2, 2,
 			sizeof(param), &param, sizeof(val), &val,
 			sizeof(param), &param, sizeof(val), &val);
@@ -355,7 +355,7 @@ static int skyloc_confset(struct sky_lib *lib_, struct sky_dev_conf *conf)
 			return rc;
 	}
 	/* Commit params to EEPROM */
-	return skycmd_serial_cmd(lib->port, SKY_SAVE_DATA_TO_EEP_CMD, 0, 0);
+	return skycmd_serial_cmd(lib, SKY_SAVE_DATA_TO_EEP_CMD, 0, 0);
 }
 
 static int skyloc_chargingstate(struct sky_lib *lib_,
@@ -368,17 +368,17 @@ static int skyloc_chargingstate(struct sky_lib *lib_,
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
 
-	rc = skycmd_serial_cmd(lib->port, SKY_GET_VOLTAGE_CMD,
+	rc = skycmd_serial_cmd(lib, SKY_GET_VOLTAGE_CMD,
 			       0, 1,
 			       sizeof(vol), &vol);
 	if (rc)
 		return rc;
-	rc = skycmd_serial_cmd(lib->port, SKY_GET_CURRENT_CMD,
+	rc = skycmd_serial_cmd(lib, SKY_GET_CURRENT_CMD,
 			       0, 1,
 			       sizeof(cur), &cur);
 	if (rc)
 		return rc;
-	rc = skycmd_serial_cmd(lib->port, SKY_GET_STATUS_CMD,
+	rc = skycmd_serial_cmd(lib, SKY_GET_STATUS_CMD,
 			       0, 1,
 			       sizeof(status), &status);
 	if (rc)
@@ -414,7 +414,7 @@ static int skyloc_reset(struct sky_lib *lib_)
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
 
-	return skycmd_serial_cmd(lib->port, SKY_RESET_CMD, 0, -1);
+	return skycmd_serial_cmd(lib, SKY_RESET_CMD, 0, -1);
 }
 
 static int skyloc_autoscan(struct sky_lib *lib_, unsigned autoscan)
@@ -425,7 +425,7 @@ static int skyloc_autoscan(struct sky_lib *lib_, unsigned autoscan)
 	lib = container_of(lib_, struct skyloc_lib, lib);
 	ascan = autoscan;
 
-	return skycmd_serial_cmd(lib->port, SKY_AUTOMATIC_SCAN_CMD,
+	return skycmd_serial_cmd(lib, SKY_AUTOMATIC_SCAN_CMD,
 				 1, 1,
 				 sizeof(ascan), &ascan,
 				 sizeof(ascan), &ascan);
@@ -455,7 +455,7 @@ static int skyloc_chargestop(struct sky_lib *lib_)
 	low  = 0;
 	high = 1;
 
-	return skycmd_serial_cmd(lib->port, SKY_COUPLE_DEACTIVATE_CMD,
+	return skycmd_serial_cmd(lib, SKY_COUPLE_DEACTIVATE_CMD,
 				 2, 2,
 				 sizeof(low), &low, sizeof(high), &high,
 				 sizeof(low), &low, sizeof(high), &high);
