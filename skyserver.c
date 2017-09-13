@@ -320,7 +320,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 emergency:
 	emergency_rsp.error = htole16(-rc);
 	if (req_type == SKY_UNKNOWN_REQRSP || req_type >= SKY_LAST_REQRSP)
-		emergency_rsp.type = 0;
+		emergency_rsp.type = SKY_UNKNOWN_REQRSP;
 	else
 		emergency_rsp.type = htole16(req_type + 1);
 
