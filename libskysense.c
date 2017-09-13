@@ -53,6 +53,7 @@ int sky_libopen(const struct sky_lib_conf *conf, struct sky_lib **lib_)
 
 void sky_libclose(struct sky_lib *lib)
 {
+	(void)sky_unsubscribe(lib);
 	lib->ops.libclose(lib);
 }
 
