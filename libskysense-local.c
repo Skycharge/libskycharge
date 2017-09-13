@@ -114,7 +114,7 @@ out:
 }
 
 static int skycmd_serial_cmd(struct sp_port *port, uint8_t cmd,
-			     size_t req_num, size_t rsp_num,
+			     unsigned req_num, int rsp_num,
 			     ...)
 {
 	char cmd_buf[8], rsp_buf[8];
@@ -144,27 +144,29 @@ static int skycmd_serial_cmd(struct sp_port *port, uint8_t cmd,
 		rc = sprc_to_errno(sprc);
 		goto out;
 	}
-	len = skycmd_args_inbytes(ap, rsp_num);
-	if (len < 0) {
-		rc = len;
-		goto out;
-	}
-	if (len > sizeof(rsp_buf) - 4) {
-		rc = -EINVAL;
-		goto out;
-	}
-	sprc = sp_blocking_read(port, rsp_buf, len + 4, 0);
-	if (sprc < 0) {
-		rc = sprc_to_errno(sprc);
-		goto out;
-	}
-	for (off = 3, args = 0; args < rsp_num; args++) {
-		rc = skycmd_arg_copy(ap, FROM_BUF, rsp_buf, off,
-				     len + 4 - 1);
-		if (rc < 0)
+	if (rsp_num >= 0) {
+		len = skycmd_args_inbytes(ap, rsp_num);
+		if (len < 0) {
+			rc = len;
 			goto out;
+		}
+		if (len > sizeof(rsp_buf) - 4) {
+			rc = -EINVAL;
+			goto out;
+		}
+		sprc = sp_blocking_read(port, rsp_buf, len + 4, 0);
+		if (sprc < 0) {
+			rc = sprc_to_errno(sprc);
+			goto out;
+		}
+		for (off = 3, args = 0; args < rsp_num; args++) {
+			rc = skycmd_arg_copy(ap, FROM_BUF, rsp_buf, off,
+					     len + 4 - 1);
+			if (rc < 0)
+				goto out;
 
-		off += rc;
+			off += rc;
+		}
 	}
 	rc = 0;
 
@@ -412,7 +414,7 @@ static int skyloc_reset(struct sky_lib *lib_)
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
 
-	return skycmd_serial_cmd(lib->port, SKY_RESET_CMD, 0, 0);
+	return skycmd_serial_cmd(lib->port, SKY_RESET_CMD, 0, -1);
 }
 
 static int skyloc_autoscan(struct sky_lib *lib_, unsigned autoscan)
