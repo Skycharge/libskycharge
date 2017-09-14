@@ -290,7 +290,7 @@ static int skyloc_devinfo(struct sky_lib *lib_, struct sky_dev *dev)
 	lib = container_of(lib_, struct skyloc_lib, lib);
 	strncpy(dev->portname, sp_get_port_name(lib->port),
 		sizeof(dev->portname));
-	/* TODO: */
+	/* XXX: TODO: */
 	dev->dev_type = SKY_INDOOR;
 
 	return 0;

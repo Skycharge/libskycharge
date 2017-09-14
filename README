@@ -10,3 +10,14 @@ library stack:
 libserialport     somegpiolib???
 ---------------------------------
  indoor PCB        outdoor PCB       [HW layer]
+
+
+To discuss:
+
+HW
+
+1. Hang on read on stop/start charge when auto in wrong mode.
+2. No current info on manual charging.
+
+3. Proper charging of LiPo battaries.
+4. Communication thru charging wires.
