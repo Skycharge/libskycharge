@@ -450,7 +450,12 @@ static int skyloc_chargestart(struct sky_lib *lib_)
 	uint8_t l, h;
 	int rc;
 
-	/* Firstly switch to manual charging or will hang on scan */
+	/*
+	 * Firstly switch to manual charging or will hang on scan.
+	 * XXX
+	 * XXX Obviously this should be fixed on HW side.
+	 * XXX
+	 */
 	rc = skyloc_autoscan(lib_, 0);
 	if (rc)
 		return rc;
@@ -502,6 +507,17 @@ static int skyloc_chargestop(struct sky_lib *lib_)
 {
 	struct skyloc_lib *lib;
 	uint8_t l, h;
+	int rc;
+
+	/*
+	 * Firstly switch to manual charging or will hang on scan.
+	 * XXX
+	 * XXX Obviously this should be fixed on HW side.
+	 * XXX
+	 */
+	rc = skyloc_autoscan(lib_, 0);
+	if (rc)
+		return rc;
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
 
