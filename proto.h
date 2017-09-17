@@ -54,7 +54,7 @@ enum sky_proto_type {
 	SKY_CHARGING_STATE_EV  = 128
 };
 
-#define DEFAULT_TIMEOUT 5000
+#define DEFAULT_TIMEOUT 30000
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wpadded"
