@@ -163,11 +163,11 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 		goto out;
 	}
 	if (rsp_num >= 0) {
-		len = skycmd_args_inbytes(ap, rsp_num);
-		if (len < 0) {
-			rc = len;
+		rc = skycmd_args_inbytes(ap, rsp_num);
+		if (rc < 0)
 			goto out;
-		}
+
+		len = rc;
 		if (len > sizeof(rsp_buf) - 4) {
 			rc = -EINVAL;
 			goto out;
