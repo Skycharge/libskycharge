@@ -1,0 +1,41 @@
+Source: skysense
+Section: admin
+Priority: optional
+Maintainer: Skysense <skysense@skysense.com>
+Build-Depends: autotools-dev,
+               debhelper (>= 9),
+               dh-autoreconf,
+               dpkg-dev (>= 1.16.1),
+			   bison,
+			   flex,
+			   libzmq3-dev,
+			   libserialport-dev
+Standards-Version: 3.9.5
+
+Package: skysense-cli
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+		 libzmq5,
+		 libserialport0
+Description: command line utility to control charging pad
+ This package contains Skysense command line utility
+
+Package: skysensed
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+		 libzmq5,
+		 libserialport0
+Description: server to control charging pad
+ This package contains Skysense server
+
+Package: skysense-dbg
+Architecture: any
+Section: debug
+Priority: extra
+Depends: skysense-cli (= ${binary:Version}),
+         skysensed (= ${binary:Version}),
+		 ${misc:Depends}
+Description: debugging symbols for Skysense utils and server
+ This package contains debugging symbols for Skysense utils and server

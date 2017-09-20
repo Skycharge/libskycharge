@@ -1,0 +1,1 @@
+SUBSYSTEM=="tty", ATTRS{product}=="SkySense*", SYMLINK="skysenseUSB", TAG+="systemd", ENV{SYSTEMD_WANTS}="skysensed.service"

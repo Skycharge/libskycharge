@@ -1,0 +1,5 @@
+skysense (0.0.1) stretch; urgency=low
+
+  * Initial version of Skysense utils and server.
+
+ -- Roman Pen <r.peniaev@gmail.com>  Wed, 20 Sep 2017 18:27:34 +0100
