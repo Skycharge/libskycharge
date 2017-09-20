@@ -506,8 +506,8 @@ static int sky_server_loop(struct sky_server *serv, const char *addr, int port)
 		.interval_msecs = 1000,
 		.data = serv
 	};
+	void *ident = NULL, *req = NULL; /* make gcc happy */
 	int ident_len = 0, req_len;
-	void *ident = NULL, *req;
 	struct sky_rsp_hdr *rsp;
 	size_t rsp_len;
 	int rc;
