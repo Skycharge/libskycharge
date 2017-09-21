@@ -8,8 +8,8 @@
 #include "types.h"
 
 static const struct sky_lib_ops *local_ops =
-	/* XXX &sky_local_lib_ops; */
-	&sky_dummy_lib_ops;
+	&sky_local_lib_ops;
+	/* &sky_dummy_lib_ops; */
 
 int sky_devslist(struct sky_dev **head)
 {
