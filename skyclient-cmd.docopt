@@ -1,18 +1,18 @@
-Skysense console client.
+Skysense charging pad command line tool.
 
 Usage:
-    skyclient list-devs
-    skyclient monitor <interval-ms>       [(<addr> <port>)]
-    skyclient show-dev-params             [(<addr> <port>)]
-    skyclient set-dev-param <key> <value> [(<addr> <port>)]
-    skyclient start-charge                [(<addr> <port>)]
-    skyclient stop-charge                 [(<addr> <port>)]
-    skyclient open-cover                  [(<addr> <port>)]
-    skyclient close-cover                 [(<addr> <port>)]
-    skyclient show-charging-state         [(<addr> <port>)]
-    skyclient set-autoscan <autoscan>     [(<addr> <port>)]
-    skyclient reset                       [(<addr> <port>)]
-    skyclient dev-info                    [(<addr> <port>)]
+    skysense-cli list-devs
+    skysense-cli monitor <interval-ms>       [(<addr> <port>)]
+    skysense-cli show-dev-params             [(<addr> <port>)]
+    skysense-cli set-dev-param <key> <value> [(<addr> <port>)]
+    skysense-cli start-charge                [(<addr> <port>)]
+    skysense-cli stop-charge                 [(<addr> <port>)]
+    skysense-cli open-cover                  [(<addr> <port>)]
+    skysense-cli close-cover                 [(<addr> <port>)]
+    skysense-cli show-charging-state         [(<addr> <port>)]
+    skysense-cli set-autoscan <autoscan>     [(<addr> <port>)]
+    skysense-cli reset                       [(<addr> <port>)]
+    skysense-cli dev-info                    [(<addr> <port>)]
 
 Options:
     Skysense console client communicates with local and remote devices.

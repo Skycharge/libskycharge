@@ -1,6 +1,6 @@
 *.o
-skyclient
-skyserver
+skysense-cli
+skysensed
 docopt-gen
 cscope.*
 skyclient-cmd.*

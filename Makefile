@@ -5,7 +5,7 @@ YACC := bison
 LEX  := flex
 
 SRCS := $(wildcard *.c)
-BINS := skyserver skyclient
+BINS := skysensed skysense-cli
 LIBS := -lzmq -lserialport -lpthread -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
@@ -13,13 +13,25 @@ LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
 
 all: $(BINS)
 
-skyserver: skyserver.o $(LIBSKYSENSE-SRCS)
-	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+##
+## docopt-gen
+##
 
 docopt-gen:
 	$(MAKE) -C docopt
 	cp docopt/docopt docopt-gen
 	$(MAKE) -C docopt clean
+
+##
+## skyserver (skysensed)
+##
+
+skysensed: skyserver.o $(LIBSKYSENSE-SRCS)
+	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+
+##
+## skyclient (skysense-cli)
+##
 
 skyclient-cmd.h skyclient-cmd.y skyclient-cmd.l: docopt-gen skyclient-cmd.docopt
 	$(RM) skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y
@@ -33,8 +45,8 @@ skyclient-cmd.lex.c: skyclient-cmd.l
 
 skyclient.o: skyclient-cmd.h
 
-skyclient: skyclient.o $(LIBSKYSENSE-SRCS) \
-	   skyclient-cmd.tab.o skyclient-cmd.lex.o
+skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
+	      skyclient-cmd.tab.o skyclient-cmd.lex.o
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS)
 
 clean:
