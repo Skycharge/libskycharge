@@ -1,7 +1,9 @@
+*~
 *.o
 skysense-cli
 skysensed
 docopt-gen
 cscope.*
 skyclient-cmd.*
+skyserver-cmd.*
 !skyclient-cmd.docopt

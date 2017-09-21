@@ -4,9 +4,13 @@
 #include <endian.h>
 #include <limits.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <signal.h>
 
 #include <zmq.h>
 
+#include "skyserver-cmd.h"
 #include "libskysense.h"
 #include "proto.h"
 #include "types.h"
@@ -25,6 +29,74 @@ struct sky_server {
 #define sky_err(fmt, ...) \
 	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
 		__func__, ##__VA_ARGS__)
+
+static int sky_pidfile_create(const char *pidfile, int pid)
+{
+	int rc, fd, n;
+	char buf[16];
+
+	fd = open(pidfile, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0600);
+	if (fd < 0) {
+		sky_err("sky_pidfile_create: failed open(%s) errno=%d\n",
+			pidfile, errno);
+
+		return -1;
+	}
+	n = snprintf(buf, sizeof(buf), "%u\n", pid);
+	rc = write(fd, buf, n);
+	if (rc < 0) {
+		sky_err("sky_pidfile_create: failed write(%s) errno=%d\n",
+			pidfile, errno);
+		close(fd);
+
+		return -1;
+	}
+	close(fd);
+
+	return 0;
+}
+
+/*
+ * This routine is aimed to be used instead of standard call daemon(),
+ * because we want to create pidfile from a parent process not to race
+ * with a systemd PIDFile handler.
+ */
+static int sky_daemonize(const char *pidfile)
+{
+	int pid, rc;
+
+	pid = fork();
+	if (pid == -1) {
+		sky_err("sky_daemonize: fork() failed, errno=%d\n", errno);
+		return -1;
+	}
+	else if (pid != 0) {
+		if (pidfile) {
+			/*
+			 * Yes, we write pid from a parent to avoid any races
+			 * inside systemd PIDFile handlers.  In case of errors
+			 * child is gracefully killed.
+			 */
+
+			rc = sky_pidfile_create(pidfile, pid);
+			if (rc) {
+				kill(pid, SIGTERM);
+
+				return -1;
+			}
+		}
+		/* Parent exits */
+		exit(0);
+	}
+	if (setsid() == -1) {
+		sky_err("sky_daemonize: setsid() failed, errno=%d\n", errno);
+		return -1;
+	}
+	pid = chdir("/");
+	(void)pid;
+
+	return 0;
+}
 
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
@@ -499,7 +571,8 @@ static int sky_zocket_send(void *zock, const void *ident, int ident_len,
 	return rc;
 }
 
-static int sky_server_loop(struct sky_server *serv, const char *addr, int port)
+static int sky_server_loop(struct sky_server *serv, const char *addr,
+			   const char *portstr)
 {
 	struct sky_subscription subsc = {
 		.on_state = sky_on_charging_state,
@@ -512,7 +585,7 @@ static int sky_server_loop(struct sky_server *serv, const char *addr, int port)
 	size_t rsp_len;
 	int rc;
 
-	rc = sky_zocket_create(serv, addr, port);
+	rc = sky_zocket_create(serv, addr, atoi(portstr));
 	if (rc)
 		return rc;
 
@@ -548,9 +621,6 @@ destroy_zock:
 	return rc;
 }
 
-#define ADDR "127.0.0.1"
-#define PORT 5555
-
 int main(int argc, char *argv[])
 {
 	struct sky_lib_conf conf = {
@@ -559,8 +629,14 @@ int main(int argc, char *argv[])
 	struct sky_server serv = {
 	};
 	struct sky_dev *devs;
+	struct cli cli;
 	int rc;
 
+	rc = cli_parse(argc, argv, &cli);
+	if (rc) {
+		fprintf(stderr, "%s\n", cli_usage);
+		return -1;
+	}
 	rc = sky_devslist(&devs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
@@ -571,13 +647,17 @@ int main(int argc, char *argv[])
 		sizeof(conf.local.portname));
 	sky_devsfree(devs);
 
+	if (cli.daemon)
+		sky_daemonize(cli.pidf);
+
 	rc = sky_libopen(&conf, &serv.lib);
 	if (rc) {
 		sky_err("sky_libpopen(): %s\n", strerror(-rc));
 		return rc;
 	}
-	rc = sky_server_loop(&serv, ADDR, PORT);
+	rc = sky_server_loop(&serv, cli.addr, cli.port);
 	sky_libclose(serv.lib);
+	cli_free(&cli);
 
 	return rc;
 }

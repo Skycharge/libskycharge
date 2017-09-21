@@ -26,7 +26,20 @@ docopt-gen:
 ## skyserver (skysensed)
 ##
 
-skysensed: skyserver.o $(LIBSKYSENSE-SRCS)
+skyserver-cmd.h skyserver-cmd.y skyserver-cmd.l: docopt-gen skyserver-cmd.docopt
+	$(RM) skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y
+	./docopt-gen skyserver-cmd.docopt
+
+skyserver-cmd.tab.c: skyserver-cmd.y
+	$(YACC) -o $@ --defines skyserver-cmd.y
+
+skyserver-cmd.lex.c: skyserver-cmd.l
+	$(LEX) -o $@ skyserver-cmd.l
+
+skyserver.o: skyserver-cmd.h
+
+skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
+	   skyserver-cmd.tab.o skyserver-cmd.lex.o
 	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 ##
@@ -52,4 +65,6 @@ skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
 clean:
 	$(RM) $(BINS) *.o *~ \
 		skyclient-cmd.lex.c skyclient-cmd.tab.* \
-		skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y
+		skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y \
+		skyserver-cmd.lex.c skyserver-cmd.tab.* \
+		skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y

@@ -1,0 +1,8 @@
+Skysense charging pad server.
+
+Usage:
+    skysensed <addr> <port> [(--daemon (--pidfile <pidf>))]
+
+Options:
+    Skysense server which executes commands received from TCP/IP network.
+	Can be run as a service (daemon).
