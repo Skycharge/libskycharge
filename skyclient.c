@@ -236,12 +236,6 @@ int main(int argc, char *argv[])
 		}
 
 		sky_print_charging_state(&state);
-	} else if (cli.setautoscan) {
-		rc = sky_autoscan(lib, strtol(cli.autoscan, NULL, 10));
-		if (rc) {
-			sky_err("sky_autoscan(): %s\n", strerror(-rc));
-			exit(-1);
-		}
 	} else if (cli.reset) {
 		rc = sky_reset(lib);
 		if (rc) {

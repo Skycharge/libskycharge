@@ -154,11 +154,6 @@ static int skydum_reset(struct sky_lib *lib_)
 	return -EINVAL;
 }
 
-static int skydum_autoscan(struct sky_lib *lib_, unsigned autoscan)
-{
-	return 0;
-}
-
 static int skydum_chargestart(struct sky_lib *lib_)
 {
 	return 0;
@@ -191,7 +186,6 @@ struct sky_lib_ops sky_dummy_lib_ops = {
 	.unsubscribe = skydum_unsubscribe,
 	.subscription_work = skydum_subscription_work,
 	.reset = skydum_reset,
-	.autoscan = skydum_autoscan,
 	.chargestart = skydum_chargestart,
 	.chargestop = skydum_chargestop,
 	.coveropen = skydum_coveropen,

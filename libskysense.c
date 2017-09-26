@@ -156,11 +156,6 @@ int sky_reset(struct sky_lib *lib)
 	return lib->ops.reset(lib);
 }
 
-int sky_autoscan(struct sky_lib *lib, unsigned autoscan)
-{
-	return lib->ops.autoscan(lib, autoscan);
-}
-
 int sky_chargestart(struct sky_lib *lib)
 {
 	return lib->ops.chargestart(lib);

@@ -303,21 +303,6 @@ int sky_unsubscribe(struct sky_lib *lib);
 int sky_reset(struct sky_lib *lib);
 
 /**
- * sky_autoscan() - Sets auto or manual scan for a device.
- * @lib:	Library context.
- * @automscan:	1 if auto scan, 0 if manual.
- *
- * Sets auto scan.
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EPERM  if operation is not permitted.
- * -ECONNRESET connection reset by peer (in case of remote connection)
- */
-int sky_autoscan(struct sky_lib *lib, unsigned autoscan);
-
-/**
  * sky_chargestart() - Starts device charge.
  * @lib:	Library context.
  *

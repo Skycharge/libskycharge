@@ -38,14 +38,11 @@ enum sky_proto_type {
 	SKY_CHARGING_STATE_REQ = 13,
 	SKY_CHARGING_STATE_RSP = 14,
 
-	SKY_SET_AUTOSCAN_REQ   = 15,
-	SKY_SET_AUTOSCAN_RSP   = 16,
+	SKY_RESET_DEV_REQ      = 15,
+	SKY_RESET_DEV_RSP      = 16,
 
-	SKY_RESET_DEV_REQ      = 17,
-	SKY_RESET_DEV_RSP      = 18,
-
-	SKY_DEV_INFO_REQ       = 19,
-	SKY_DEV_INFO_RSP       = 20,
+	SKY_DEV_INFO_REQ       = 17,
+	SKY_DEV_INFO_RSP       = 18,
 
 	SKY_LAST_REQRSP,
 
@@ -84,11 +81,6 @@ struct sky_set_dev_params_req {
 	le16 padding;
 	le32 dev_params_bits;
 	le32 dev_params[];
-};
-
-struct sky_set_autoscan_req {
-	struct sky_req_hdr hdr;
-	le16 autoscan;
 };
 
 struct sky_dev_info_rsp {

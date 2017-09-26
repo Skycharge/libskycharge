@@ -315,30 +315,6 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 
 		break;
 	}
-	case SKY_SET_AUTOSCAN_REQ: {
-		struct sky_set_autoscan_req *req = req_;
-		struct sky_rsp_hdr *rsp;
-
-		if (req_len < sizeof(*req)) {
-			sky_err("malformed request\n");
-			rc = -EINVAL;
-			goto emergency;
-		}
-
-		len = sizeof(*rsp);
-		rsp = rsp_void = calloc(1, len);
-		if (!rsp) {
-			rc = -ENOMEM;
-			goto emergency;
-		}
-
-		rc = sky_autoscan(serv->lib, le16toh(req->autoscan));
-
-		rsp->type  = htole16(SKY_SET_AUTOSCAN_RSP);
-		rsp->error = htole16(-rc);
-
-		break;
-	}
 	case SKY_RESET_DEV_REQ: {
 		struct sky_rsp_hdr *rsp;
 

@@ -445,97 +445,14 @@ static int skyloc_autoscan(struct sky_lib *lib_, unsigned autoscan)
 
 static int skyloc_chargestart(struct sky_lib *lib_)
 {
-	struct skyloc_lib *lib;
-	uint16_t ohm1, ohm2;
-	uint8_t l, h;
-	int rc;
-
-	/*
-	 * Firstly switch to manual charging or will hang on scan.
-	 * XXX
-	 * XXX Obviously this should be fixed on HW side.
-	 * XXX
-	 */
-	rc = skyloc_autoscan(lib_, 0);
-	if (rc)
-		return rc;
-
-	lib = container_of(lib_, struct skyloc_lib, lib);
-
-	for (l = 0; l < 8; l++) {
-		for (h = l + 1; h < 9; h++) {
-			rc = skycmd_serial_cmd(lib, SKY_COUPLE_SCAN_CMD,
-			       2, 3,
-			       sizeof(l), &l, sizeof(h), &h,
-			       sizeof(l), &l, sizeof(h), &h, sizeof(ohm1), &ohm1);
-			if (rc)
-				return rc;
-
-			if (ohm1 > MAX_OHM)
-				/* No load */
-				continue;
-			if (ohm1 < MIN_OHM)
-				/* Short */
-				continue;
-
-			rc = skycmd_serial_cmd(lib, SKY_COUPLE_SCAN_CMD,
-			       2, 3,
-			       sizeof(h), &h, sizeof(l), &l,
-			       sizeof(h), &h, sizeof(l), &l, sizeof(ohm2), &ohm2);
-			if (rc)
-				return rc;
-
-			goto found_dev;
-		}
-	}
-
-	return -ENODEV;
-
-found_dev:
-	if (ohm2 < ohm1) {
-		/* Swap */
-		l = l^h; h = l^h; l = h^l;
-	}
-
-	return skycmd_serial_cmd(lib, SKY_COUPLE_ACTIVATE_CMD,
-			       2, 2,
-			       sizeof(l), &l, sizeof(h), &h,
-			       sizeof(l), &l, sizeof(h), &h);
+	/* Start charging enabling autoscan */
+	return skyloc_autoscan(lib_, 1);
 }
 
 static int skyloc_chargestop(struct sky_lib *lib_)
 {
-	struct skyloc_lib *lib;
-	uint8_t l, h;
-	int rc;
-
-	/*
-	 * Firstly switch to manual charging or will hang on scan.
-	 * XXX
-	 * XXX Obviously this should be fixed on HW side.
-	 * XXX
-	 */
-	rc = skyloc_autoscan(lib_, 0);
-	if (rc)
-		return rc;
-
-	lib = container_of(lib_, struct skyloc_lib, lib);
-
-	/**
-	 * Firmware specs says the following:
-	 *   deactivates all active pairs, including the one indicated.
-	 *
-	 * Library should not care about any state, thus I rely on a
-	 * firmware, which "deactivates all active pairs".  So I simply
-	 * pass garbage.
-	 */
-	l = 0;
-	h = 0;
-
-	return skycmd_serial_cmd(lib, SKY_COUPLE_DEACTIVATE_CMD,
-				 2, 2,
-				 sizeof(l), &l, sizeof(h), &h,
-				 sizeof(l), &l, sizeof(h), &h);
+	/* Stop charging disabling autoscan */
+	return skyloc_autoscan(lib_, 0);
 }
 
 static int skyloc_coveropen(struct sky_lib *lib_)
@@ -560,7 +477,6 @@ struct sky_lib_ops sky_local_lib_ops = {
 	.unsubscribe = skyloc_unsubscribe,
 	.subscription_work = skyloc_subscription_work,
 	.reset = skyloc_reset,
-	.autoscan = skyloc_autoscan,
 	.chargestart = skyloc_chargestart,
 	.chargestop = skyloc_chargestop,
 	.coveropen = skyloc_coveropen,

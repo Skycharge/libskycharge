@@ -17,7 +17,6 @@ struct sky_lib_ops {
 	int (*subscription_work)(struct sky_lib *lib,
 				 struct sky_charging_state *state);
 	int (*reset)(struct sky_lib *lib);
-	int (*autoscan)(struct sky_lib *lib, unsigned automscan);
 	int (*chargestart)(struct sky_lib *lib);
 	int (*chargestop)(struct sky_lib *lib);
 	int (*coveropen)(struct sky_lib *lib);

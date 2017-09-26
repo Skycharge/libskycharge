@@ -435,18 +435,6 @@ static int skyrem_reset(struct sky_lib *lib_)
 				     &req, sizeof(req));
 }
 
-static int skyrem_autoscan(struct sky_lib *lib_, unsigned autoscan)
-{
-	struct sky_set_autoscan_req req;
-	struct skyrem_lib *lib;
-
-	lib = container_of(lib_, struct skyrem_lib, lib);
-	req.autoscan = htole16(autoscan);
-
-	return skyrem_simple_req_rsp(lib, SKY_SET_AUTOSCAN_REQ,
-				     &req.hdr, sizeof(req));
-}
-
 static int skyrem_chargestart(struct sky_lib *lib_)
 {
 	struct sky_req_hdr req;
@@ -503,7 +491,6 @@ struct sky_lib_ops sky_remote_lib_ops = {
 	.unsubscribe = skyrem_unsubscribe,
 	.subscription_work = skyrem_subscription_work,
 	.reset = skyrem_reset,
-	.autoscan = skyrem_autoscan,
 	.chargestart = skyrem_chargestart,
 	.chargestop = skyrem_chargestop,
 	.coveropen = skyrem_coveropen,
