@@ -209,9 +209,11 @@ static int skyloc_devslist(struct sky_dev **head)
 	*head = NULL;
 
 	for (i = 0; ports[i]; i++) {
-		const char *desc = sp_get_port_description(ports[i]);
+		const char *desc, *name;
 
-		if (strncasecmp(desc, "skysense", 8))
+		desc = sp_get_port_description(ports[i]);
+		name = sp_get_port_name(ports[i]);
+		if (!desc || !name || strncasecmp(desc, "skysense", 8))
 			continue;
 
 		dev = calloc(1, sizeof(*dev));
@@ -224,8 +226,7 @@ static int skyloc_devslist(struct sky_dev **head)
 		if (prev)
 			prev->next = dev;
 		prev = dev;
-		strncpy(dev->portname, sp_get_port_name(ports[i]),
-			sizeof(dev->portname));
+		strncpy(dev->portname, name, sizeof(dev->portname));
 		/* XXX: TODO */
 		dev->dev_type = SKY_INDOOR;
 	}
