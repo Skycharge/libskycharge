@@ -65,17 +65,17 @@ static inline int sprc_to_errno(enum sp_return sprc)
 	}
 }
 
-static int skycmd_arg_copy(va_list ap, int dir, void *buf,
+static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 			   size_t off, size_t maxlen)
 {
 	uint16_t val16, *val16p;
 	uint8_t *val8p;
 	uint8_t sz;
 
-	sz = va_arg(ap, int);
+	sz = va_arg(*ap, int);
 	switch (sz) {
 	case 1:
-		val8p = va_arg(ap, typeof(val8p));
+		val8p = va_arg(*ap, typeof(val8p));
 		if (off + 1 > maxlen)
 			return -EINVAL;
 		if (dir == TO_BUF)
@@ -85,7 +85,7 @@ static int skycmd_arg_copy(va_list ap, int dir, void *buf,
 
 		return 1;
 	case 2:
-		val16p = va_arg(ap, typeof(val16p));
+		val16p = va_arg(*ap, typeof(val16p));
 		if (off + 2 > maxlen)
 			return -EINVAL;
 		if (dir == TO_BUF) {
@@ -111,7 +111,7 @@ static int skycmd_args_inbytes(va_list ap, size_t num)
 
 	va_copy(ap_cpy, ap);
 	for (len = 0, i = 0; i < num; i++) {
-		rc = skycmd_arg_copy(ap_cpy, TO_BUF, buf, 0, sizeof(buf));
+		rc = skycmd_arg_copy(&ap_cpy, TO_BUF, buf, 0, sizeof(buf));
 		if (rc < 0) {
 			len = rc;
 			goto out;
@@ -137,7 +137,7 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	va_start(ap, rsp_num);
 	pthread_mutex_lock(&lib->mutex);
 	for (len = 0, off = 3, args = 0; args < req_num; args++) {
-		rc = skycmd_arg_copy(ap, TO_BUF, cmd_buf, off,
+		rc = skycmd_arg_copy(&ap, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
 		if (rc < 0)
 			goto out;
@@ -178,7 +178,7 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 			goto out;
 		}
 		for (off = 3, args = 0; args < rsp_num; args++) {
-			rc = skycmd_arg_copy(ap, FROM_BUF, rsp_buf, off,
+			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
 					     len + 4 - 1);
 			if (rc < 0)
 				goto out;
