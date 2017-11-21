@@ -1,3 +1,11 @@
+skysense (0.0.2) stretch; urgency=low
+
+  * Completely remove autoscan from proto and library API.
+  * libskysense-local: Fix wrong args iteration and check port desc on NULL.
+  * libskysense-local: Do not flush, hang happens because of (!!!) a kernel bug.
+
+ -- Roman Pen <r.peniaev@gmail.com>  Tue, 21 Nov 2017 08:10:34 +0200
+
 skysense (0.0.1) stretch; urgency=low
 
   * Initial version of Skysense utils and server.
