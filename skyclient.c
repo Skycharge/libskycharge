@@ -6,6 +6,8 @@
 #include <string.h>
 #include <assert.h>
 #include <unistd.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "libskysense.h"
 #include "skyclient-cmd.h"
@@ -114,10 +116,25 @@ static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
 
 static void sky_print_charging_state(struct sky_charging_state *state)
 {
-	printf("Device in state: %s\n",
-	       sky_devstate_to_str(state->dev_hw_state));
-	printf("Voltage: %d mV\n", state->voltage);
-	printf("Current: %d mA\n", state->current);
+	char timestr[64];
+	struct timeval tv;
+	struct tm *tm;
+	size_t len;
+
+	gettimeofday(&tv, NULL);
+	tm = localtime(&tv.tv_sec);
+	if (tm == NULL) {
+		sky_err("localtime(): %s\n", strerror(errno));
+		exit(-1);
+	}
+	len = strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S.%d", tm);
+	snprintf(timestr + len, sizeof(timestr) - len,
+		 ".%03ld", tv.tv_usec/1000);
+
+	printf("Timestamp: %s\n", timestr);
+	printf("Dev state: %s\n", sky_devstate_to_str(state->dev_hw_state));
+	printf("  Voltage: %d mV\n", state->voltage);
+	printf("  Current: %d mA\n", state->current);
 }
 
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
