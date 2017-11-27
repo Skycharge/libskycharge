@@ -250,6 +250,7 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 			  struct sky_lib **lib_)
 {
 	struct skyloc_lib *lib;
+	struct sp_port_config* spconf;
 	enum sp_return sprc;
 
 	lib = calloc(1, sizeof(*lib));
@@ -264,12 +265,40 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 	if (sprc)
 		goto free_port;
 
-	pthread_mutex_init(&lib->mutex, NULL);
+	sprc = sp_new_config(&spconf);
+	if (sprc)
+		goto close_port;
 
+	sprc = sp_get_config(lib->port, spconf);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config_flowcontrol(spconf, SP_FLOWCONTROL_NONE);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config_parity(spconf, SP_PARITY_NONE);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config_bits(spconf, 8);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config(lib->port, spconf);
+	if (sprc)
+		goto free_conf;
+
+	sp_free_config(spconf);
+	pthread_mutex_init(&lib->mutex, NULL);
 	*lib_ = &lib->lib;
 
 	return 0;
 
+free_conf:
+	sp_free_config(spconf);
+close_port:
+	sp_close(lib->port);
 free_port:
 	sp_free_port(lib->port);
 free_lib:
