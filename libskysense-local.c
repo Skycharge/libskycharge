@@ -257,21 +257,25 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 		return -ENOMEM;
 
 	sprc = sp_get_port_by_name(conf->local.portname, &lib->port);
-	if (sprc) {
-		free(lib);
-		return sprc_to_errno(sprc);
-	}
+	if (sprc)
+		goto free_lib;
+
 	sprc = sp_open(lib->port, SP_MODE_READ_WRITE);
-	if (sprc) {
-		sp_free_port(lib->port);
-		free(lib);
-		return sprc_to_errno(sprc);
-	}
+	if (sprc)
+		goto free_port;
+
 	pthread_mutex_init(&lib->mutex, NULL);
 
 	*lib_ = &lib->lib;
 
 	return 0;
+
+free_port:
+	sp_free_port(lib->port);
+free_lib:
+	free(lib);
+
+	return sprc_to_errno(sprc);
 }
 
 static void skyloc_libclose(struct sky_lib *lib_)
