@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <sys/file.h>
 
 #include <libserialport.h>
 
@@ -38,7 +39,7 @@ struct skyloc_lib {
 	struct sky_charging_state state;
 	struct sky_dev_conf conf;
 	struct sky_dev dev;
-	pthread_mutex_t mutex;
+	int lockfd;
 };
 
 static inline int sprc_to_errno(enum sp_return sprc)
@@ -135,7 +136,6 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	va_list ap;
 
 	va_start(ap, rsp_num);
-	pthread_mutex_lock(&lib->mutex);
 	for (len = 0, off = 3, args = 0; args < req_num; args++) {
 		rc = skycmd_arg_copy(&ap, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
@@ -151,45 +151,50 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	cmd_buf[2] = cmd;
 	cmd_buf[len + 3] = 0x00;
 
-	/* That is required not to hang on reading */
+	rc = flock(lib->lockfd, LOCK_EX);
+	if (rc < 0) {
+		rc = -errno;
+		goto out_unlock;
+	}
 	sprc = sp_flush(lib->port, SP_BUF_BOTH);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
-		goto out;
+		goto out_unlock;
 	}
 	sprc = sp_blocking_write(lib->port, cmd_buf, len + 4, 0);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
-		goto out;
+		goto out_unlock;
 	}
 	if (rsp_num >= 0) {
 		rc = skycmd_args_inbytes(ap, rsp_num);
 		if (rc < 0)
-			goto out;
+			goto out_unlock;
 
 		len = rc;
 		if (len > sizeof(rsp_buf) - 4) {
 			rc = -EINVAL;
-			goto out;
+			goto out_unlock;
 		}
 		sprc = sp_blocking_read(lib->port, rsp_buf, len + 4, 0);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
-			goto out;
+			goto out_unlock;
 		}
 		for (off = 3, args = 0; args < rsp_num; args++) {
 			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
 					     len + 4 - 1);
 			if (rc < 0)
-				goto out;
+				goto out_unlock;
 
 			off += rc;
 		}
 	}
 	rc = 0;
 
+out_unlock:
+	(void)flock(lib->lockfd, LOCK_UN);
 out:
-	pthread_mutex_unlock(&lib->mutex);
 	va_end(ap);
 
 	return rc;
@@ -289,8 +294,18 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 	if (sprc)
 		goto free_conf;
 
+	/*
+	 * TODO: this is very ugly, but shitty libserialport does not
+	 * provide any way to get fd or any lock mechanism.  So we have
+	 * to do locking ourselves.
+	 */
+	lib->lockfd = open(conf->local.portname, O_RDWR);
+	if (lib->lockfd < 0) {
+		sprc = SP_ERR_FAIL;
+		goto free_conf;
+	}
+
 	sp_free_config(spconf);
-	pthread_mutex_init(&lib->mutex, NULL);
 	*lib_ = &lib->lib;
 
 	return 0;
@@ -312,6 +327,7 @@ static void skyloc_libclose(struct sky_lib *lib_)
 	struct skyloc_lib *lib;
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
+	close(lib->lockfd);
 	sp_close(lib->port);
 	sp_free_port(lib->port);
 	free(lib);
