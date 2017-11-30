@@ -154,7 +154,7 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	rc = flock(lib->lockfd, LOCK_EX);
 	if (rc < 0) {
 		rc = -errno;
-		goto out_unlock;
+		goto out;
 	}
 	sprc = sp_flush(lib->port, SP_BUF_BOTH);
 	if (sprc < 0) {
