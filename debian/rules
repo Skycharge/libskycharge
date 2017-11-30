@@ -6,11 +6,11 @@
 override_dh_installudev:
 	dh_installudev -pskysensed --name=skysense
 override_dh_installinit:
-	dh_installinit -pskysensed --name=skysensed --no-start --noscripts
+	dh_installinit -pskysensed --name=skysensed --noscripts
 override_dh_systemd_enable:
 	dh_systemd_enable -pskysensed --name=skysensed skysensed.service
 override_dh_systemd_start:
-	dh_systemd_start -pskysensed --no-start skysensed.service
+	dh_systemd_start -pskysensed --restart-after-upgrade skysensed.service
 
 override_dh_strip:
 	dh_strip --dbg-package=skysense-dbg
