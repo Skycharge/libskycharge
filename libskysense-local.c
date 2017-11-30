@@ -39,6 +39,7 @@ struct skyloc_lib {
 	struct sky_charging_state state;
 	struct sky_dev_conf conf;
 	struct sky_dev dev;
+	pthread_mutex_t mutex;
 	int lockfd;
 };
 
@@ -156,6 +157,7 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 		rc = -errno;
 		goto out;
 	}
+	pthread_mutex_lock(&lib->mutex);
 	sprc = sp_flush(lib->port, SP_BUF_BOTH);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
@@ -194,6 +196,7 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 
 out_unlock:
 	(void)flock(lib->lockfd, LOCK_UN);
+	pthread_mutex_unlock(&lib->mutex);
 out:
 	va_end(ap);
 
@@ -306,6 +309,7 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 	}
 
 	sp_free_config(spconf);
+	pthread_mutex_init(&lib->mutex, NULL);
 	*lib_ = &lib->lib;
 
 	return 0;
