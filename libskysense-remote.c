@@ -17,16 +17,16 @@ struct zocket {
 	void *pub;
 };
 
-struct skyrem_lib {
-	struct sky_lib lib;
+struct skyrem_dev {
+	struct sky_dev dev;
 	struct zocket zock;
 };
 
-static int skyrem_send_recv(struct skyrem_lib *lib,
+static int skyrem_send_recv(struct skyrem_dev *dev,
 			    void *req, size_t req_len,
 			    void **rsp)
 {
-	struct zocket *z = &lib->zock;
+	struct zocket *z = &dev->zock;
 	void *zock, *buf;
 	char zaddr[128];
 	uint32_t timeo;
@@ -35,8 +35,8 @@ static int skyrem_send_recv(struct skyrem_lib *lib,
 	int rc;
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      lib->lib.conf.remote.hostname,
-		      lib->lib.conf.remote.cmdport);
+		      dev->dev.conf.remote.hostname,
+		      dev->dev.conf.remote.cmdport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
@@ -102,7 +102,7 @@ out:
 	return rc;
 }
 
-static int skyrem_complex_req_rsp(struct skyrem_lib *lib,
+static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 				  enum sky_proto_type req_type,
 				  struct sky_req_hdr *req_, size_t req_len,
 				  struct sky_rsp_hdr *rsp_, size_t rsp_len)
@@ -128,7 +128,7 @@ static int skyrem_complex_req_rsp(struct skyrem_lib *lib,
 	rsp_type = req_type + 1;
 	req_->type = htole16(req_type);
 
-	rc = skyrem_send_recv(lib, req_, req_len, (void **)&rsp);
+	rc = skyrem_send_recv(dev, req_, req_len, (void **)&rsp);
 	if (rc < 0)
 		return rc;
 	if (rc < sizeof(*rsp)) {
@@ -154,7 +154,7 @@ out:
 	return rc;
 }
 
-static int skyrem_simple_req_rsp(struct skyrem_lib *lib,
+static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 				 enum sky_proto_type req_type,
 				 struct sky_req_hdr *req,
 				 size_t req_len)
@@ -162,7 +162,7 @@ static int skyrem_simple_req_rsp(struct skyrem_lib *lib,
 	struct sky_rsp_hdr rsp;
 	int rc;
 
-	rc = skyrem_complex_req_rsp(lib, req_type, req, req_len,
+	rc = skyrem_complex_req_rsp(dev, req_type, req, req_len,
 				    &rsp, sizeof(rsp));
 	if (rc < 0)
 		return rc;
@@ -172,48 +172,48 @@ static int skyrem_simple_req_rsp(struct skyrem_lib *lib,
 
 static int skyrem_devslist(struct sky_dev_desc **head)
 {
-	/* See libskysense-local.c */
+	/* See devskysense-local.c */
 	return -EOPNOTSUPP;
 }
 
-static int skyrem_libopen(const struct sky_lib_conf *conf,
-			  struct sky_lib **lib_)
+static int skyrem_devopen(const struct sky_dev_conf *conf,
+			  struct sky_dev **dev_)
 {
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = calloc(1, sizeof(*lib));
-	if (!lib)
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return -ENOMEM;
 
-	lib->zock.ctx = zmq_ctx_new();
-	if (!lib->zock.ctx) {
-		free(lib);
+	dev->zock.ctx = zmq_ctx_new();
+	if (!dev->zock.ctx) {
+		free(dev);
 		return -ENOMEM;
 	}
-	*lib_ = &lib->lib;
+	*dev_ = &dev->dev;
 
 	return 0;
 }
 
-static void skyrem_libclose(struct sky_lib *lib_)
+static void skyrem_devclose(struct sky_dev *dev_)
 {
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
-	zmq_ctx_term(lib->zock.ctx);
-	free(lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
+	zmq_ctx_term(dev->zock.ctx);
+	free(dev);
 }
 
-static int skyrem_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
+static int skyrem_devinfo(struct sky_dev *dev_, struct sky_dev_desc *devdesc)
 {
 	struct sky_dev_info_rsp rsp;
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 	int rc;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	rc = skyrem_complex_req_rsp(lib, SKY_DEV_INFO_REQ, &req, sizeof(req),
+	rc = skyrem_complex_req_rsp(dev, SKY_DEV_INFO_REQ, &req, sizeof(req),
 				    &rsp.hdr, sizeof(rsp));
 	if (rc < 0)
 		return rc;
@@ -226,13 +226,13 @@ static int skyrem_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
 	if (rc)
 		return rc;
 
-	dev->dev_type = le16toh(rsp.dev_type);
-	memcpy(dev->portname, rsp.portname, sizeof(rsp.portname));
+	devdesc->dev_type = le16toh(rsp.dev_type);
+	memcpy(devdesc->portname, rsp.portname, sizeof(rsp.portname));
 
 	return 0;
 }
 
-static int skyrem_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
+static int skyrem_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 {
 	struct {
 		struct sky_get_dev_params_rsp rsp;
@@ -241,16 +241,16 @@ static int skyrem_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 	} rsp_uni;
 
 	struct sky_get_dev_params_req req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 	int rc, sz, i, ind;
 
 	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 	req.dev_params_bits = htole32(params->dev_params_bits);
 
-	sz = skyrem_complex_req_rsp(lib, SKY_GET_DEV_PARAMS_REQ,
+	sz = skyrem_complex_req_rsp(dev, SKY_GET_DEV_PARAMS_REQ,
 				    &req.hdr, sizeof(req),
 				    &rsp_uni.rsp.hdr, sizeof(rsp_uni));
 	if (sz < 0)
@@ -277,7 +277,7 @@ static int skyrem_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 	return 0;
 }
 
-static int skyrem_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
+static int skyrem_paramsset(struct sky_dev *dev_, struct sky_dev_params *params)
 {
 	struct {
 		struct sky_set_dev_params_req req;
@@ -285,13 +285,13 @@ static int skyrem_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
 				dev_params[SKY_NUM_DEVPARAM];
 	} req_uni;
 
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 	int sz, i, ind;
 
 	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 	req_uni.req.dev_params_bits = htole32(params->dev_params_bits);
 
 	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
@@ -304,21 +304,21 @@ static int skyrem_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
 	}
 	sz = sizeof(req_uni.req) + sizeof(req_uni.dev_params[0]) * ind;
 
-	return skyrem_simple_req_rsp(lib, SKY_SET_DEV_PARAMS_REQ,
+	return skyrem_simple_req_rsp(dev, SKY_SET_DEV_PARAMS_REQ,
 				     &req_uni.req.hdr, sz);
 }
 
-static int skyrem_chargingstate(struct sky_lib *lib_,
+static int skyrem_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
 	struct sky_charging_state_rsp rsp;
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 	int rc;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	rc = skyrem_complex_req_rsp(lib, SKY_CHARGING_STATE_REQ,
+	rc = skyrem_complex_req_rsp(dev, SKY_CHARGING_STATE_REQ,
 				    &req, sizeof(req),
 				    &rsp.hdr, sizeof(rsp));
 	if (rc < 0)
@@ -339,23 +339,23 @@ static int skyrem_chargingstate(struct sky_lib *lib_,
 	return 0;
 }
 
-static int skyrem_subscribe(struct sky_lib *lib_)
+static int skyrem_subscribe(struct sky_dev *dev_)
 {
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 	char zaddr[128];
 	uint32_t timeo;
 	void *sub;
 	int rc;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      lib->lib.conf.remote.hostname,
-		      lib->lib.conf.remote.subport);
+		      dev->dev.conf.remote.hostname,
+		      dev->dev.conf.remote.subport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
-	sub = zmq_socket(lib->zock.ctx, ZMQ_SUB);
+	sub = zmq_socket(dev->zock.ctx, ZMQ_SUB);
 	if (!sub)
 		return -ENOMEM;
 
@@ -382,31 +382,31 @@ static int skyrem_subscribe(struct sky_lib *lib_)
 		return rc;
 	}
 
-	lib->zock.sub = sub;
+	dev->zock.sub = sub;
 
 	return 0;
 }
 
-static void skyrem_unsubscribe(struct sky_lib *lib_)
+static void skyrem_unsubscribe(struct sky_dev *dev_)
 {
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
-	zmq_close(lib->zock.sub);
-	lib->zock.sub = NULL;
+	dev = container_of(dev_, struct skyrem_dev, dev);
+	zmq_close(dev->zock.sub);
+	dev->zock.sub = NULL;
 }
 
-static int skyrem_subscription_work(struct sky_lib *lib_,
+static int skyrem_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
 	struct sky_charging_state_rsp rsp;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 	int rc;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
 	/* TODO: we can sleep here forever */
-	rc = zmq_recv(lib->zock.sub, &rsp, sizeof(rsp), 0);
+	rc = zmq_recv(dev->zock.sub, &rsp, sizeof(rsp), 0);
 	if (rc < 0)
 		return -errno;
 	if (rc != sizeof(rsp)) {
@@ -424,65 +424,65 @@ static int skyrem_subscription_work(struct sky_lib *lib_,
 	return 0;
 }
 
-static int skyrem_reset(struct sky_lib *lib_)
+static int skyrem_reset(struct sky_dev *dev_)
 {
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	return skyrem_simple_req_rsp(lib, SKY_RESET_DEV_REQ,
+	return skyrem_simple_req_rsp(dev, SKY_RESET_DEV_REQ,
 				     &req, sizeof(req));
 }
 
-static int skyrem_chargestart(struct sky_lib *lib_)
+static int skyrem_chargestart(struct sky_dev *dev_)
 {
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	return skyrem_simple_req_rsp(lib, SKY_START_CHARGE_REQ,
+	return skyrem_simple_req_rsp(dev, SKY_START_CHARGE_REQ,
 				     &req, sizeof(req));
 }
 
-static int skyrem_chargestop(struct sky_lib *lib_)
+static int skyrem_chargestop(struct sky_dev *dev_)
 {
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	return skyrem_simple_req_rsp(lib, SKY_STOP_CHARGE_REQ,
+	return skyrem_simple_req_rsp(dev, SKY_STOP_CHARGE_REQ,
 				     &req, sizeof(req));
 }
 
-static int skyrem_coveropen(struct sky_lib *lib_)
+static int skyrem_coveropen(struct sky_dev *dev_)
 {
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	return skyrem_simple_req_rsp(lib, SKY_OPEN_COVER_REQ,
+	return skyrem_simple_req_rsp(dev, SKY_OPEN_COVER_REQ,
 				     &req, sizeof(req));
 }
 
-static int skyrem_coverclose(struct sky_lib *lib_)
+static int skyrem_coverclose(struct sky_dev *dev_)
 {
 	struct sky_req_hdr req;
-	struct skyrem_lib *lib;
+	struct skyrem_dev *dev;
 
-	lib = container_of(lib_, struct skyrem_lib, lib);
+	dev = container_of(dev_, struct skyrem_dev, dev);
 
-	return skyrem_simple_req_rsp(lib, SKY_CLOSE_COVER_REQ,
+	return skyrem_simple_req_rsp(dev, SKY_CLOSE_COVER_REQ,
 				     &req, sizeof(req));
 }
 
-struct sky_lib_ops sky_remote_lib_ops = {
+struct sky_dev_ops sky_remote_dev_ops = {
 	.devslist = skyrem_devslist,
-	.libopen = skyrem_libopen,
-	.libclose = skyrem_libclose,
+	.devopen = skyrem_devopen,
+	.devclose = skyrem_devclose,
 	.devinfo = skyrem_devinfo,
 	.paramsget = skyrem_paramsget,
 	.paramsset = skyrem_paramsset,

@@ -7,9 +7,9 @@
 #include "libskysense-pri.h"
 #include "types.h"
 
-static const struct sky_lib_ops *local_ops =
-	&sky_local_lib_ops;
-	/* &sky_dummy_lib_ops; */
+static const struct sky_dev_ops *local_ops =
+	&sky_local_dev_ops;
+	/* &sky_dummy_dev_ops; */
 
 int sky_devslist(struct sky_dev_desc **head)
 {
@@ -30,53 +30,53 @@ void sky_devsfree(struct sky_dev_desc *head)
 	}
 }
 
-int sky_libopen(const struct sky_lib_conf *conf, struct sky_lib **lib_)
+int sky_devopen(const struct sky_dev_conf *conf, struct sky_dev **dev_)
 {
-	const struct sky_lib_ops *ops;
+	const struct sky_dev_ops *ops;
 	int rc;
 
 	if (conf->contype == SKY_LOCAL)
 		ops = local_ops;
 	else if (conf->contype == SKY_REMOTE)
-		ops = &sky_remote_lib_ops;
+		ops = &sky_remote_dev_ops;
 	else
 		return -EINVAL;
 
-	rc = ops->libopen(conf, lib_);
+	rc = ops->devopen(conf, dev_);
 	if (!rc) {
-		struct sky_lib *lib = *lib_;
+		struct sky_dev *dev = *dev_;
 
-		lib->ops  = *ops;
-		lib->conf = *conf;
+		dev->ops  = *ops;
+		dev->conf = *conf;
 	}
 
 	return rc;
 }
 
-void sky_libclose(struct sky_lib *lib)
+void sky_devclose(struct sky_dev *dev)
 {
-	(void)sky_unsubscribe(lib);
-	lib->ops.libclose(lib);
+	(void)sky_unsubscribe(dev);
+	dev->ops.devclose(dev);
 }
 
-int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev)
+int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc)
 {
-	return lib->ops.devinfo(lib, dev);
+	return dev->ops.devinfo(dev, devdesc);
 }
 
-int sky_paramsget(struct sky_lib *lib, struct sky_dev_params *params)
+int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params)
 {
-	return lib->ops.paramsget(lib, params);
+	return dev->ops.paramsget(dev, params);
 }
 
-int sky_paramsset(struct sky_lib *lib, struct sky_dev_params *params)
+int sky_paramsset(struct sky_dev *dev, struct sky_dev_params *params)
 {
-	return lib->ops.paramsset(lib, params);
+	return dev->ops.paramsset(dev, params);
 }
 
-int sky_chargingstate(struct sky_lib *lib, struct sky_charging_state *state)
+int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state)
 {
-	return lib->ops.chargingstate(lib, state);
+	return dev->ops.chargingstate(dev, state);
 }
 
 static inline unsigned long long msecs_epoch(void)
@@ -94,20 +94,20 @@ static inline unsigned long long msecs_epoch(void)
 static void *subscription_work(void *data)
 {
 	struct sky_charging_state state;
-	struct sky_lib *lib = data;
+	struct sky_dev *dev = data;
 	unsigned long long ms;
 	int rc;
 
-	while (!lib->unsubscribed) {
+	while (!dev->unsubscribed) {
 		ms = msecs_epoch();
-		rc = lib->ops.subscription_work(lib, &state);
+		rc = dev->ops.subscription_work(dev, &state);
 		ms = msecs_epoch() - ms;
 		if (!rc)
 			/* Notify subscribers only in case of success */
-			lib->subsc.on_state(lib->subsc.data, &state);
+			dev->subsc.on_state(dev->subsc.data, &state);
 
-		if (ms < lib->subsc.interval_msecs) {
-			ms = lib->subsc.interval_msecs - ms;
+		if (ms < dev->subsc.interval_msecs) {
+			ms = dev->subsc.interval_msecs - ms;
 			usleep(ms * 1000);
 		}
 	}
@@ -115,65 +115,65 @@ static void *subscription_work(void *data)
 	return NULL;
 }
 
-int sky_subscribe(struct sky_lib *lib,
+int sky_subscribe(struct sky_dev *dev,
 		  struct sky_subscription *subsc)
 {
 	int rc;
 
-	if (lib->thread)
+	if (dev->thread)
 		return -EEXIST;
 	if (subsc->on_state == NULL || !subsc->interval_msecs)
 		return -EINVAL;
 
-	memcpy(&lib->subsc, subsc, sizeof(*subsc));
+	memcpy(&dev->subsc, subsc, sizeof(*subsc));
 
-	rc = lib->ops.subscribe(lib);
+	rc = dev->ops.subscribe(dev);
 	if (rc)
 		return rc;
-	rc = pthread_create(&lib->thread, NULL, subscription_work, lib);
+	rc = pthread_create(&dev->thread, NULL, subscription_work, dev);
 	if (rc)
-		lib->ops.unsubscribe(lib);
+		dev->ops.unsubscribe(dev);
 
 	return -rc;
 }
 
-int sky_unsubscribe(struct sky_lib *lib)
+int sky_unsubscribe(struct sky_dev *dev)
 {
-	if (!lib->thread)
+	if (!dev->thread)
 		return -ENOENT;
 
-	lib->unsubscribed = true;
-	pthread_join(lib->thread, NULL);
+	dev->unsubscribed = true;
+	pthread_join(dev->thread, NULL);
 
-	lib->unsubscribed = false;
-	lib->thread = 0;
+	dev->unsubscribed = false;
+	dev->thread = 0;
 
-	lib->ops.unsubscribe(lib);
+	dev->ops.unsubscribe(dev);
 
 	return 0;
 }
 
-int sky_reset(struct sky_lib *lib)
+int sky_reset(struct sky_dev *dev)
 {
-	return lib->ops.reset(lib);
+	return dev->ops.reset(dev);
 }
 
-int sky_chargestart(struct sky_lib *lib)
+int sky_chargestart(struct sky_dev *dev)
 {
-	return lib->ops.chargestart(lib);
+	return dev->ops.chargestart(dev);
 }
 
-int sky_chargestop(struct sky_lib *lib)
+int sky_chargestop(struct sky_dev *dev)
 {
-	return lib->ops.chargestop(lib);
+	return dev->ops.chargestop(dev);
 }
 
-int sky_coveropen(struct sky_lib *lib)
+int sky_coveropen(struct sky_dev *dev)
 {
-	return lib->ops.coveropen(lib);
+	return dev->ops.coveropen(dev);
 }
 
-int sky_coverclose(struct sky_lib *lib)
+int sky_coverclose(struct sky_dev *dev)
 {
-	return lib->ops.coverclose(lib);
+	return dev->ops.coverclose(dev);
 }

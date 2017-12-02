@@ -4,35 +4,35 @@
 #include "libskysense.h"
 #include "types.h"
 
-struct sky_lib_ops {
+struct sky_dev_ops {
 	int (*devslist)(struct sky_dev_desc **head);
-	int (*libopen)(const struct sky_lib_conf *conf, struct sky_lib **lib);
-	void (*libclose)(struct sky_lib *lib);
-	int (*devinfo)(struct sky_lib *lib, struct sky_dev_desc *dev);
-	int (*paramsget)(struct sky_lib *lib, struct sky_dev_params *params);
-	int (*paramsset)(struct sky_lib *lib, struct sky_dev_params *params);
-	int (*chargingstate)(struct sky_lib *lib, struct sky_charging_state *state);
-	int (*subscribe)(struct sky_lib *lib);
-	void (*unsubscribe)(struct sky_lib *lib);
-	int (*subscription_work)(struct sky_lib *lib,
+	int (*devopen)(const struct sky_dev_conf *conf, struct sky_dev **dev);
+	void (*devclose)(struct sky_dev *dev);
+	int (*devinfo)(struct sky_dev *dev, struct sky_dev_desc *devdesc);
+	int (*paramsget)(struct sky_dev *dev, struct sky_dev_params *params);
+	int (*paramsset)(struct sky_dev *dev, struct sky_dev_params *params);
+	int (*chargingstate)(struct sky_dev *dev, struct sky_charging_state *state);
+	int (*subscribe)(struct sky_dev *dev);
+	void (*unsubscribe)(struct sky_dev *dev);
+	int (*subscription_work)(struct sky_dev *dev,
 				 struct sky_charging_state *state);
-	int (*reset)(struct sky_lib *lib);
-	int (*chargestart)(struct sky_lib *lib);
-	int (*chargestop)(struct sky_lib *lib);
-	int (*coveropen)(struct sky_lib *lib);
-	int (*coverclose)(struct sky_lib *lib);
+	int (*reset)(struct sky_dev *dev);
+	int (*chargestart)(struct sky_dev *dev);
+	int (*chargestop)(struct sky_dev *dev);
+	int (*coveropen)(struct sky_dev *dev);
+	int (*coverclose)(struct sky_dev *dev);
 };
 
-struct sky_lib {
-	struct sky_lib_ops ops;
-	struct sky_lib_conf conf;
+struct sky_dev {
+	struct sky_dev_ops ops;
+	struct sky_dev_conf conf;
 	struct sky_subscription subsc;
 	bool unsubscribed;
 	pthread_t thread;
 };
 
-extern struct sky_lib_ops sky_remote_lib_ops;
-extern struct sky_lib_ops sky_local_lib_ops;
-extern struct sky_lib_ops sky_dummy_lib_ops;
+extern struct sky_dev_ops sky_remote_dev_ops;
+extern struct sky_dev_ops sky_local_dev_ops;
+extern struct sky_dev_ops sky_dummy_dev_ops;
 
 #endif /* LIBSKYSENSE_PRI_H */

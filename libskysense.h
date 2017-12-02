@@ -9,9 +9,9 @@ extern "C" {
 #endif
 
 /**
- * struct sky_lib - Opaque library context.
+ * struct sky_dev - Opaque device context.
  */
-struct sky_lib;
+struct sky_dev;
 
 /**
  * enum sky_con_type - Connection type.
@@ -81,9 +81,9 @@ enum sky_dev_param {
 };
 
 /**
- * struct sky_lib_conf - Library configuration options.
+ * struct sky_dev_conf - Device configuration options.
  */
-struct sky_lib_conf {
+struct sky_dev_conf {
 	enum sky_con_type contype;
 	union {
 		struct {
@@ -159,14 +159,14 @@ int sky_devslist(struct sky_dev_desc **list);
 void sky_devsfree(struct sky_dev_desc *list);
 
 /**
- * sky_libopen() - Opens a library and returns its context.
+ * sky_devopen() - Opens a device and returns its context.
  * @conf:      Configuration options.
- * @lib:       Output pointer for storing library context.
+ * @dev:       Output pointer for storing device context.
  *
  * Function establishes connection either to local or to remote device,
  * see @conf->contype member.	 In case of successful connection valid
- * library context will be returned in @lib argument.  Do not forget to
- * close the library with calling sky_libclose().
+ * device context will be returned in @dev argument.  Do not forget to
+ * close the device with calling sky_devclose().
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
@@ -175,20 +175,20 @@ void sky_devsfree(struct sky_dev_desc *list);
  * -ECONNREFUSED no-one listening on the remote address (remote connection)
  * -ENOMEM if memory allocation failed.
  */
-int sky_libopen(const struct sky_lib_conf *conf, struct sky_lib **lib);
+int sky_devopen(const struct sky_dev_conf *conf, struct sky_dev **dev);
 
 /**
- * sky_libclose() - Closes a library context.
- * @lib:	Library context to be closed.
+ * sky_devclose() - Closes a device context.
+ * @dev:	Device context to be closed.
  *
  * Function disconnects from a device and frees all corresponding memory.
  */
-void sky_libclose(struct sky_lib *lib);
+void sky_devclose(struct sky_dev *dev);
 
 /**
  * sky_devinfo() - Returns device information.
- * @lib:	Library context.
- * @dev:	Device structure to be filled in.
+ * @dev:		Device context.
+ * @devdesc:	Device structure to be filled in.
  *
  * Function fills in information about a device to which connection is
  * established (local or remote).
@@ -202,11 +202,11 @@ void sky_libclose(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev);
+int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc);
 
 /**
  * sky_paramsget() - Fetches device configuration parameters.
- * @lib:	Library context.
+ * @dev:	Device context.
  * @params:	Device params to be filled in.
  *
  * Accesses the hardware and fetches current parameters of a device.
@@ -220,11 +220,11 @@ int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_paramsget(struct sky_lib *lib, struct sky_dev_params *params);
+int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params);
 
 /**
  * sky_paramsset() - Saves device configuration parameters.
- * @lib:	Library context.
+ * @dev:	Device context.
  * @params:	Device params to be saved.
  *
  * Accesses the hardware and saves parameters of a device.
@@ -238,11 +238,11 @@ int sky_paramsget(struct sky_lib *lib, struct sky_dev_params *params);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_paramsset(struct sky_lib *lib, struct sky_dev_params *params);
+int sky_paramsset(struct sky_dev *dev, struct sky_dev_params *params);
 
 /**
  * sky_chargingstate() - Charging device state.
- * @lib:	Library context.
+ * @dev:	Device context.
  * @state:	Charging device state.
  *
  * Returns charging state of a device.
@@ -253,11 +253,11 @@ int sky_paramsset(struct sky_lib *lib, struct sky_dev_params *params);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_chargingstate(struct sky_lib *lib, struct sky_charging_state *state);
+int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state);
 
 /**
  * sky_subscribe() - Subscribe on @sky_charging_state update events.
- * @lib:	Library context.
+ * @dev:	Device context.
  * @sub:	Subscription configuration.
  *
  * Subscribes on @sky_charging_state update events.
@@ -272,11 +272,11 @@ int sky_chargingstate(struct sky_lib *lib, struct sky_charging_state *state);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_subscribe(struct sky_lib *lib, struct sky_subscription *sub);
+int sky_subscribe(struct sky_dev *dev, struct sky_subscription *sub);
 
 /**
  * sky_unsubscribe() - Unsubscribe from @sky_charging_state update events.
- * @lib:	Library context.
+ * @dev:	Device context.
  *
  * Unsbscribes from @sky_charging_state update events.
  * Beware:
@@ -289,11 +289,11 @@ int sky_subscribe(struct sky_lib *lib, struct sky_subscription *sub);
  * -ENOENT was not subscribed
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_unsubscribe(struct sky_lib *lib);
+int sky_unsubscribe(struct sky_dev *dev);
 
 /**
  * sky_reset() - Resets device.
- * @lib:	Library context.
+ * @dev:	Device context.
  *
  * Resets device.
  *
@@ -303,11 +303,11 @@ int sky_unsubscribe(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_reset(struct sky_lib *lib);
+int sky_reset(struct sky_dev *dev);
 
 /**
  * sky_chargestart() - Starts device charge.
- * @lib:	Library context.
+ * @dev:	Device context.
  *
  * Starts device charge.
  *
@@ -317,11 +317,11 @@ int sky_reset(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_chargestart(struct sky_lib *lib);
+int sky_chargestart(struct sky_dev *dev);
 
 /**
  * sky_chargestop() - Stops device charge.
- * @lib:	Library context.
+ * @dev:	Device context.
  *
  * Stops device charge.
  *
@@ -331,11 +331,11 @@ int sky_chargestart(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_chargestop(struct sky_lib *lib);
+int sky_chargestop(struct sky_dev *dev);
 
 /**
  * sky_coveropen() - Opens a charging pad cover.
- * @lib:	Library context.
+ * @dev:	Device context.
  *
  * Opens a charging pad cover.	Device must be @SKY_OUTDOOR.
  *
@@ -346,11 +346,11 @@ int sky_chargestop(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_coveropen(struct sky_lib *lib);
+int sky_coveropen(struct sky_dev *dev);
 
 /**
  * sky_coverclose() - Closes a charging pad cover.
- * @lib:	Library context.
+ * @dev:	Device context.
  *
  * Closes a charging pad cover.	 Device must be @SKY_OUTDOOR.
  *
@@ -361,7 +361,7 @@ int sky_coveropen(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_coverclose(struct sky_lib *lib);
+int sky_coverclose(struct sky_dev *dev);
 
 #ifdef __cplusplus
 }

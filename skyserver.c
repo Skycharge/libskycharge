@@ -22,7 +22,7 @@ struct zocket {
 };
 
 struct sky_server {
-	struct sky_lib *lib;
+	struct sky_dev *dev;
 	struct zocket zock;
 };
 
@@ -167,7 +167,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			rc = -ENOMEM;
 			goto emergency;
 		}
-		rc = sky_paramsget(serv->lib, &params);
+		rc = sky_paramsget(serv->dev, &params);
 
 		rsp->hdr.type  = htole16(SKY_GET_DEV_PARAMS_RSP);
 		rsp->hdr.error = htole16(-rc);
@@ -217,7 +217,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			params.dev_params[i] = le32toh(req->dev_params[ind++]);
 		}
 
-		rc = sky_paramsset(serv->lib, &params);
+		rc = sky_paramsset(serv->dev, &params);
 
 		rsp->type  = htole16(SKY_SET_DEV_PARAMS_RSP);
 		rsp->error = htole16(-rc);
@@ -234,7 +234,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_chargestart(serv->lib);
+		rc = sky_chargestart(serv->dev);
 
 		rsp->type  = htole16(SKY_START_CHARGE_RSP);
 		rsp->error = htole16(-rc);
@@ -251,7 +251,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_chargestop(serv->lib);
+		rc = sky_chargestop(serv->dev);
 
 		rsp->type  = htole16(SKY_STOP_CHARGE_RSP);
 		rsp->error = htole16(-rc);
@@ -268,7 +268,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_coveropen(serv->lib);
+		rc = sky_coveropen(serv->dev);
 
 		rsp->type  = htole16(SKY_OPEN_COVER_RSP);
 		rsp->error = htole16(-rc);
@@ -285,7 +285,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_coveropen(serv->lib);
+		rc = sky_coveropen(serv->dev);
 
 		rsp->type  = htole16(SKY_CLOSE_COVER_RSP);
 		rsp->error = htole16(-rc);
@@ -303,7 +303,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_chargingstate(serv->lib, &state);
+		rc = sky_chargingstate(serv->dev, &state);
 
 		rsp->hdr.type  = htole16(SKY_CHARGING_STATE_RSP);
 		rsp->hdr.error = htole16(-rc);
@@ -325,7 +325,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_reset(serv->lib);
+		rc = sky_reset(serv->dev);
 
 		rsp->type  = htole16(SKY_RESET_DEV_RSP);
 		rsp->error = htole16(-rc);
@@ -343,7 +343,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		rc = sky_devinfo(serv->lib, &dev);
+		rc = sky_devinfo(serv->dev, &dev);
 
 		rsp->hdr.type  = htole16(SKY_DEV_INFO_RSP);
 		rsp->hdr.error = htole16(-rc);
@@ -565,7 +565,7 @@ static int sky_server_loop(struct sky_server *serv, const char *addr,
 	if (rc)
 		return rc;
 
-	rc = sky_subscribe(serv->lib, &subsc);
+	rc = sky_subscribe(serv->dev, &subsc);
 	if (rc) {
 		sky_err("sky_subscribe(): %s\n", strerror(-rc));
 		goto destroy_zock;
@@ -590,7 +590,7 @@ static int sky_server_loop(struct sky_server *serv, const char *addr,
 		free(req);
 	}
 
-	sky_unsubscribe(serv->lib);
+	sky_unsubscribe(serv->dev);
 destroy_zock:
 	sky_zocket_destroy(serv);
 
@@ -599,7 +599,7 @@ destroy_zock:
 
 int main(int argc, char *argv[])
 {
-	struct sky_lib_conf conf = {
+	struct sky_dev_conf conf = {
 		.contype = SKY_LOCAL,
 	};
 	struct sky_server serv = {
@@ -626,13 +626,13 @@ int main(int argc, char *argv[])
 	if (cli.daemon)
 		sky_daemonize(cli.pidf);
 
-	rc = sky_libopen(&conf, &serv.lib);
+	rc = sky_devopen(&conf, &serv.dev);
 	if (rc) {
-		sky_err("sky_libpopen(): %s\n", strerror(-rc));
+		sky_err("sky_devpopen(): %s\n", strerror(-rc));
 		return rc;
 	}
 	rc = sky_server_loop(&serv, cli.addr, cli.port);
-	sky_libclose(serv.lib);
+	sky_devclose(serv.dev);
 	cli_free(&cli);
 
 	return rc;

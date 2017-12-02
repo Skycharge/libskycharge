@@ -80,10 +80,10 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 	}
 }
 
-static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
+static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			    struct sky_dev_desc **devdescs)
 {
-	struct sky_lib_conf conf;
+	struct sky_dev_conf conf;
 	int rc;
 
 	if (cli->addr && cli->port) {
@@ -107,9 +107,9 @@ static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
 		strncpy(conf.local.portname, (*devdescs)->portname,
 			sizeof(conf.local.portname));
 	}
-	rc = sky_libopen(&conf, lib);
+	rc = sky_devopen(&conf, dev);
 	if (rc) {
-		sky_err("sky_libopen(): %s\n", strerror(-rc));
+		sky_err("sky_devopen(): %s\n", strerror(-rc));
 		exit(-1);
 	}
 }
@@ -146,7 +146,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 int main(int argc, char *argv[])
 {
 	struct sky_dev_desc *devdescs = NULL;
-	struct sky_lib *lib = NULL;
+	struct sky_dev *dev = NULL;
 	struct cli cli;
 	int rc, i;
 
@@ -156,7 +156,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	sky_prepare_lib(&cli, &lib, &devdescs);
+	sky_prepare_dev(&cli, &dev, &devdescs);
 
 	if (cli.listdevs) {
 		struct sky_dev_desc *devdesc;
@@ -172,7 +172,7 @@ int main(int argc, char *argv[])
 			.interval_msecs = strtol(cli.intervalms, NULL, 10),
 		};
 
-		rc = sky_subscribe(lib, &sub);
+		rc = sky_subscribe(dev, &sub);
 		if (rc) {
 			sky_err("sky_subscribe(): %s\n", strerror(-rc));
 			exit(-1);
@@ -185,7 +185,7 @@ int main(int argc, char *argv[])
 
 		/* Get all params */
 		params.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1;
-		rc = sky_paramsget(lib, &params);
+		rc = sky_paramsget(dev, &params);
 		if (rc) {
 			sky_err("sky_paramsget(): %s\n", strerror(-rc));
 			exit(-1);
@@ -214,32 +214,32 @@ int main(int argc, char *argv[])
 
 		params.dev_params_bits = (1 << i);
 		params.dev_params[i] = strtol(cli.value, NULL, 10);
-		rc = sky_paramsset(lib, &params);
+		rc = sky_paramsset(dev, &params);
 		if (rc) {
 			sky_err("sky_paramsset(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 
 	} else if (cli.startcharge) {
-		rc = sky_chargestart(lib);
+		rc = sky_chargestart(dev);
 		if (rc) {
 			sky_err("sky_chargestart(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 	} else if (cli.stopcharge) {
-		rc = sky_chargestop(lib);
+		rc = sky_chargestop(dev);
 		if (rc) {
 			sky_err("sky_stopcharge(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 	} else if (cli.opencover) {
-		rc = sky_coveropen(lib);
+		rc = sky_coveropen(dev);
 		if (rc) {
 			sky_err("sky_coveropen(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 	} else if (cli.closecover) {
-		rc = sky_coverclose(lib);
+		rc = sky_coverclose(dev);
 		if (rc) {
 			sky_err("sky_closecover(): %s\n", strerror(-rc));
 			exit(-1);
@@ -247,7 +247,7 @@ int main(int argc, char *argv[])
 	} else if (cli.showchargingstate) {
 		struct sky_charging_state state;
 
-		rc = sky_chargingstate(lib, &state);
+		rc = sky_chargingstate(dev, &state);
 		if (rc) {
 			sky_err("sky_closecover(): %s\n", strerror(-rc));
 			exit(-1);
@@ -255,28 +255,28 @@ int main(int argc, char *argv[])
 
 		sky_print_charging_state(&state);
 	} else if (cli.reset) {
-		rc = sky_reset(lib);
+		rc = sky_reset(dev);
 		if (rc) {
 			sky_err("sky_reset(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 	} else if (cli.devinfo) {
-		struct sky_dev_desc dev;
+		struct sky_dev_desc devdesc;
 
-		rc = sky_devinfo(lib, &dev);
+		rc = sky_devinfo(dev, &devdesc);
 		if (rc) {
 			sky_err("sky_devinfo(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 
-		printf("Device portname: %s\n", dev.portname);
-		printf("Device type:     %s\n", sky_devtype_to_str(dev.dev_type));
+		printf("Device portname: %s\n", devdesc.portname);
+		printf("Device type:     %s\n", sky_devtype_to_str(devdesc.dev_type));
 
 	} else
 		assert(0);
 
 	sky_devsfree(devdescs);
-	sky_libclose(lib);
+	sky_devclose(dev);
 	cli_free(&cli);
 
 	return 0;

@@ -30,12 +30,12 @@ enum {
 	FROM_BUF = 1,
 };
 
-struct skyloc_lib {
-	struct sky_lib lib;
+struct skyloc_dev {
+	struct sky_dev dev;
 	struct sp_port *port;
 	struct sky_charging_state state;
 	struct sky_dev_params params;
-	struct sky_dev_desc dev;
+	struct sky_dev_desc devdesc;
 	pthread_mutex_t mutex;
 	int lockfd;
 };
@@ -123,7 +123,7 @@ out:
 	return len;
 }
 
-static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
+static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 			     unsigned req_num, int rsp_num,
 			     ...)
 {
@@ -149,18 +149,18 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	cmd_buf[2] = cmd;
 	cmd_buf[len + 3] = 0x00;
 
-	rc = flock(lib->lockfd, LOCK_EX);
+	rc = flock(dev->lockfd, LOCK_EX);
 	if (rc < 0) {
 		rc = -errno;
 		goto out;
 	}
-	pthread_mutex_lock(&lib->mutex);
-	sprc = sp_flush(lib->port, SP_BUF_BOTH);
+	pthread_mutex_lock(&dev->mutex);
+	sprc = sp_flush(dev->port, SP_BUF_BOTH);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
 		goto out_unlock;
 	}
-	sprc = sp_blocking_write(lib->port, cmd_buf, len + 4, 0);
+	sprc = sp_blocking_write(dev->port, cmd_buf, len + 4, 0);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
 		goto out_unlock;
@@ -175,7 +175,7 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 			rc = -EINVAL;
 			goto out_unlock;
 		}
-		sprc = sp_blocking_read(lib->port, rsp_buf, len + 4, 0);
+		sprc = sp_blocking_read(dev->port, rsp_buf, len + 4, 0);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			goto out_unlock;
@@ -192,8 +192,8 @@ static int skycmd_serial_cmd(struct skyloc_lib *lib, uint8_t cmd,
 	rc = 0;
 
 out_unlock:
-	(void)flock(lib->lockfd, LOCK_UN);
-	pthread_mutex_unlock(&lib->mutex);
+	(void)flock(dev->lockfd, LOCK_UN);
+	pthread_mutex_unlock(&dev->mutex);
 out:
 	va_end(ap);
 
@@ -251,22 +251,22 @@ err:
 	goto out;
 }
 
-static int skyloc_libopen(const struct sky_lib_conf *conf,
-			  struct sky_lib **lib_)
+static int skyloc_devopen(const struct sky_dev_conf *conf,
+			  struct sky_dev **dev_)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 	struct sp_port_config* spconf;
 	enum sp_return sprc;
 
-	lib = calloc(1, sizeof(*lib));
-	if (!lib)
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
 		return -ENOMEM;
 
-	sprc = sp_get_port_by_name(conf->local.portname, &lib->port);
+	sprc = sp_get_port_by_name(conf->local.portname, &dev->port);
 	if (sprc)
-		goto free_lib;
+		goto free_dev;
 
-	sprc = sp_open(lib->port, SP_MODE_READ_WRITE);
+	sprc = sp_open(dev->port, SP_MODE_READ_WRITE);
 	if (sprc)
 		goto free_port;
 
@@ -274,7 +274,7 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 	if (sprc)
 		goto close_port;
 
-	sprc = sp_get_config(lib->port, spconf);
+	sprc = sp_get_config(dev->port, spconf);
 	if (sprc)
 		goto free_conf;
 
@@ -290,75 +290,75 @@ static int skyloc_libopen(const struct sky_lib_conf *conf,
 	if (sprc)
 		goto free_conf;
 
-	sprc = sp_set_config(lib->port, spconf);
+	sprc = sp_set_config(dev->port, spconf);
 	if (sprc)
 		goto free_conf;
 
 	/*
-	 * TODO: this is very ugly, but shitty libserialport does not
+	 * TODO: this is very ugly, but shitty devserialport does not
 	 * provide any way to get fd or any lock mechanism.  So we have
 	 * to do locking ourselves.
 	 */
-	lib->lockfd = open(conf->local.portname, O_RDWR);
-	if (lib->lockfd < 0) {
+	dev->lockfd = open(conf->local.portname, O_RDWR);
+	if (dev->lockfd < 0) {
 		sprc = SP_ERR_FAIL;
 		goto free_conf;
 	}
 
 	sp_free_config(spconf);
-	pthread_mutex_init(&lib->mutex, NULL);
-	*lib_ = &lib->lib;
+	pthread_mutex_init(&dev->mutex, NULL);
+	*dev_ = &dev->dev;
 
 	return 0;
 
 free_conf:
 	sp_free_config(spconf);
 close_port:
-	sp_close(lib->port);
+	sp_close(dev->port);
 free_port:
-	sp_free_port(lib->port);
-free_lib:
-	free(lib);
+	sp_free_port(dev->port);
+free_dev:
+	free(dev);
 
 	return sprc_to_errno(sprc);
 }
 
-static void skyloc_libclose(struct sky_lib *lib_)
+static void skyloc_devclose(struct sky_dev *dev_)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
-	close(lib->lockfd);
-	sp_close(lib->port);
-	sp_free_port(lib->port);
-	free(lib);
+	dev = container_of(dev_, struct skyloc_dev, dev);
+	close(dev->lockfd);
+	sp_close(dev->port);
+	sp_free_port(dev->port);
+	free(dev);
 }
 
-static int skyloc_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
+static int skyloc_devinfo(struct sky_dev *dev_, struct sky_dev_desc *devdesc)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
-	strncpy(dev->portname, sp_get_port_name(lib->port),
-		sizeof(dev->portname));
+	dev = container_of(dev_, struct skyloc_dev, dev);
+	strncpy(devdesc->portname, sp_get_port_name(dev->port),
+		sizeof(devdesc->portname));
 	/* XXX: TODO: */
-	dev->dev_type = SKY_INDOOR;
+	devdesc->dev_type = SKY_INDOOR;
 
 	return 0;
 }
 
-static int skyloc_serial_get_param(struct skyloc_lib *lib,
+static int skyloc_serial_get_param(struct skyloc_dev *dev,
 				   uint8_t param, uint16_t *val)
 {
-	return skycmd_serial_cmd(lib, SKY_GET_PARAMETER_CMD,
+	return skycmd_serial_cmd(dev, SKY_GET_PARAMETER_CMD,
 			1, 2,
 			sizeof(param), &param,
 			sizeof(param), &param, sizeof(*val), val);
 }
 
-static int skyloc_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
+static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 	uint16_t val = 0;
 	int rc, i;
 
@@ -368,17 +368,17 @@ static int skyloc_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
+	dev = container_of(dev_, struct skyloc_dev, dev);
 
 	/* Fetch params from EEPROM */
-	rc = skycmd_serial_cmd(lib, SKY_READ_DATA_FROM_EEP_CMD, 0, 0);
+	rc = skycmd_serial_cmd(dev, SKY_READ_DATA_FROM_EEP_CMD, 0, 0);
 	if (rc)
 		return rc;
 
 	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
-		rc = skyloc_serial_get_param(lib, i, &val);
+		rc = skyloc_serial_get_param(dev, i, &val);
 		if (rc)
 			return rc;
 		params->dev_params[i] = val;
@@ -387,18 +387,18 @@ static int skyloc_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 	return 0;
 }
 
-static int skyloc_serial_set_param(struct skyloc_lib *lib,
+static int skyloc_serial_set_param(struct skyloc_dev *dev,
 				   uint8_t param, uint16_t val)
 {
-	return skycmd_serial_cmd(lib, SKY_SET_PARAMETER_CMD,
+	return skycmd_serial_cmd(dev, SKY_SET_PARAMETER_CMD,
 			2, 2,
 			sizeof(param), &param, sizeof(val), &val,
 			sizeof(param), &param, sizeof(val), &val);
 }
 
-static int skyloc_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
+static int skyloc_paramsset(struct sky_dev *dev_, struct sky_dev_params *params)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 	uint16_t val;
 	int rc, i;
 
@@ -408,40 +408,40 @@ static int skyloc_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
 	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
+	dev = container_of(dev_, struct skyloc_dev, dev);
 	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		val = params->dev_params[i];
-		rc = skyloc_serial_set_param(lib, i, val);
+		rc = skyloc_serial_set_param(dev, i, val);
 		if (rc)
 			return rc;
 	}
 	/* Commit params to EEPROM */
-	return skycmd_serial_cmd(lib, SKY_SAVE_DATA_TO_EEP_CMD, 0, 0);
+	return skycmd_serial_cmd(dev, SKY_SAVE_DATA_TO_EEP_CMD, 0, 0);
 }
 
-static int skyloc_chargingstate(struct sky_lib *lib_,
+static int skyloc_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 	uint16_t vol, cur;
 	uint8_t status;
 	int rc;
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
+	dev = container_of(dev_, struct skyloc_dev, dev);
 
-	rc = skycmd_serial_cmd(lib, SKY_GET_VOLTAGE_CMD,
+	rc = skycmd_serial_cmd(dev, SKY_GET_VOLTAGE_CMD,
 			       0, 1,
 			       sizeof(vol), &vol);
 	if (rc)
 		return rc;
-	rc = skycmd_serial_cmd(lib, SKY_GET_CURRENT_CMD,
+	rc = skycmd_serial_cmd(dev, SKY_GET_CURRENT_CMD,
 			       0, 1,
 			       sizeof(cur), &cur);
 	if (rc)
 		return rc;
-	rc = skycmd_serial_cmd(lib, SKY_GET_STATUS_CMD,
+	rc = skycmd_serial_cmd(dev, SKY_GET_STATUS_CMD,
 			       0, 1,
 			       sizeof(status), &status);
 	if (rc)
@@ -454,72 +454,72 @@ static int skyloc_chargingstate(struct sky_lib *lib_,
 	return 0;
 }
 
-static int skyloc_subscribe(struct sky_lib *lib_)
+static int skyloc_subscribe(struct sky_dev *dev_)
 {
 	/* Nop for now */
 	return 0;
 }
 
-static void skyloc_unsubscribe(struct sky_lib *lib_)
+static void skyloc_unsubscribe(struct sky_dev *dev_)
 {
 	/* Nop for now */
 }
 
-static int skyloc_subscription_work(struct sky_lib *lib_,
+static int skyloc_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
-	return skyloc_chargingstate(lib_, state);
+	return skyloc_chargingstate(dev_, state);
 }
 
-static int skyloc_reset(struct sky_lib *lib_)
+static int skyloc_reset(struct sky_dev *dev_)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
+	dev = container_of(dev_, struct skyloc_dev, dev);
 
-	return skycmd_serial_cmd(lib, SKY_RESET_CMD, 0, -1);
+	return skycmd_serial_cmd(dev, SKY_RESET_CMD, 0, -1);
 }
 
-static int skyloc_autoscan(struct sky_lib *lib_, unsigned autoscan)
+static int skyloc_autoscan(struct sky_dev *dev_, unsigned autoscan)
 {
-	struct skyloc_lib *lib;
+	struct skyloc_dev *dev;
 	uint8_t ascan;
 
-	lib = container_of(lib_, struct skyloc_lib, lib);
+	dev = container_of(dev_, struct skyloc_dev, dev);
 	ascan = autoscan;
 
-	return skycmd_serial_cmd(lib, SKY_AUTOMATIC_SCAN_CMD,
+	return skycmd_serial_cmd(dev, SKY_AUTOMATIC_SCAN_CMD,
 				 1, 1,
 				 sizeof(ascan), &ascan,
 				 sizeof(ascan), &ascan);
 }
 
-static int skyloc_chargestart(struct sky_lib *lib_)
+static int skyloc_chargestart(struct sky_dev *dev_)
 {
 	/* Start charging enabling autoscan */
-	return skyloc_autoscan(lib_, 1);
+	return skyloc_autoscan(dev_, 1);
 }
 
-static int skyloc_chargestop(struct sky_lib *lib_)
+static int skyloc_chargestop(struct sky_dev *dev_)
 {
 	/* Stop charging disabling autoscan */
-	return skyloc_autoscan(lib_, 0);
+	return skyloc_autoscan(dev_, 0);
 }
 
-static int skyloc_coveropen(struct sky_lib *lib_)
+static int skyloc_coveropen(struct sky_dev *dev_)
 {
 	return -EOPNOTSUPP;
 }
 
-static int skyloc_coverclose(struct sky_lib *lib_)
+static int skyloc_coverclose(struct sky_dev *dev_)
 {
 	return -EOPNOTSUPP;
 }
 
-struct sky_lib_ops sky_local_lib_ops = {
+struct sky_dev_ops sky_local_dev_ops = {
 	.devslist = skyloc_devslist,
-	.libopen = skyloc_libopen,
-	.libclose = skyloc_libclose,
+	.devopen = skyloc_devopen,
+	.devclose = skyloc_devclose,
 	.devinfo = skyloc_devinfo,
 	.paramsget = skyloc_paramsget,
 	.paramsset = skyloc_paramsset,
