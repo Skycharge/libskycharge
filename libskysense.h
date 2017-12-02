@@ -137,6 +137,8 @@ struct sky_dev_params {
 
 /**
  * sky_devslist() - Returns list of found local devices.
+ * @conf:     Array of configuration options.
+ * @num:      Number of elements in @conf.
  * @list:     Fills list of all found local devices.
  *
  * Functions scans for all local Sky devices and puts them to the
@@ -148,7 +150,8 @@ struct sky_dev_params {
  * -EPERM  if operation is not permitted.
  * -ENOMEM if memory allocation failed.
  */
-int sky_devslist(struct sky_dev_desc **list);
+int sky_devslist(const struct sky_dev_conf *conf, size_t num,
+		 struct sky_dev_desc **list);
 
 /**
  * sky_devsfree() - Frees allocated list.

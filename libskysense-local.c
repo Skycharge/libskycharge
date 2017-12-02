@@ -200,12 +200,15 @@ out:
 	return rc;
 }
 
-static int skyloc_devslist(struct sky_dev_desc **out)
+static int skyloc_devslist(const struct sky_dev_conf *conf,
+			   struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *dev, *head = NULL, *tail = NULL;
 	struct sp_port **ports = NULL;
 	enum sp_return sprc;
 	int i, rc;
+
+	(void)conf;
 
 	sprc = sp_list_ports(&ports);
 	if (sprc < 0)

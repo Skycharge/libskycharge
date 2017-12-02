@@ -613,7 +613,7 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
-	rc = sky_devslist(&devdescs);
+	rc = sky_devslist(&conf, 1, &devdescs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		return rc;

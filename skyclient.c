@@ -94,7 +94,7 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			sizeof(conf.remote.hostname));
 	} else {
 		conf.contype = SKY_LOCAL;
-		rc = sky_devslist(devdescs);
+		rc = sky_devslist(&conf, 1, devdescs);
 		if (rc) {
 			sky_err("sky_devslist(): %s\n", strerror(-rc));
 			exit(-1);

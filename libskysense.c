@@ -11,12 +11,21 @@ static const struct sky_dev_ops *local_ops =
 	&sky_local_dev_ops;
 	/* &sky_dummy_dev_ops; */
 
-int sky_devslist(struct sky_dev_desc **head)
+int sky_devslist(const struct sky_dev_conf *conf, size_t num,
+		 struct sky_dev_desc **head)
 {
+	/* TODO */
+	if (num != 1)
+		return -EINVAL;
+
 	*head = NULL;
 
-	/* Forward to local implementation */
-	return local_ops->devslist(head);
+	if (conf->contype == SKY_LOCAL)
+		return local_ops->devslist(conf, head);
+	else if (conf->contype == SKY_REMOTE)
+		return sky_remote_dev_ops.devslist(conf, head);
+	else
+		return -EINVAL;
 }
 
 void sky_devsfree(struct sky_dev_desc *head)

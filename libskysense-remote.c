@@ -170,7 +170,8 @@ static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 	return -le16toh(rsp.error);
 }
 
-static int skyrem_devslist(struct sky_dev_desc **head)
+static int skyrem_devslist(const struct sky_dev_conf *conf,
+			   struct sky_dev_desc **head)
 {
 	/* See devskysense-local.c */
 	return -EOPNOTSUPP;

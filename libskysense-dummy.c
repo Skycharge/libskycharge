@@ -13,9 +13,12 @@ struct skydum_dev {
 	struct sky_dev_desc devdesc;
 };
 
-static int skydum_devslist(struct sky_dev_desc **head)
+static int skydum_devslist(const struct sky_dev_conf *conf,
+			   struct sky_dev_desc **head)
 {
 	struct sky_dev_desc *dev;
+
+	(void)conf;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
