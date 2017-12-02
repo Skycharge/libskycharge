@@ -81,7 +81,7 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 }
 
 static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
-			    struct sky_dev **devs)
+			    struct sky_dev_desc **devs)
 {
 	struct sky_lib_conf conf;
 	int rc;
@@ -145,7 +145,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 
 int main(int argc, char *argv[])
 {
-	struct sky_dev *devs = NULL;
+	struct sky_dev_desc *devs = NULL;
 	struct sky_lib *lib = NULL;
 	struct cli cli;
 	int rc, i;
@@ -260,7 +260,7 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (cli.devinfo) {
-		struct sky_dev dev;
+		struct sky_dev_desc dev;
 
 		rc = sky_devinfo(lib, &dev);
 		if (rc) {

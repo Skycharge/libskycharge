@@ -98,10 +98,10 @@ struct sky_lib_conf {
 };
 
 /**
- * struct sky_dev - Local device description.
+ * struct sky_dev_desc - Device descriptor.
  */
-struct sky_dev {
-	struct sky_dev *next;
+struct sky_dev_desc {
+	struct sky_dev_desc *next;
 	enum sky_dev_type dev_type;
 	char portname[256];
 };
@@ -145,7 +145,7 @@ struct sky_dev_conf {
  * -EPERM  if operation is not permitted.
  * -ENOMEM if memory allocation failed.
  */
-int sky_devslist(struct sky_dev **list);
+int sky_devslist(struct sky_dev_desc **list);
 
 /**
  * sky_devsfree() - Frees allocated list.
@@ -153,7 +153,7 @@ int sky_devslist(struct sky_dev **list);
  *
  * Frees a list which was allocated by sky_devslist().
  */
-void sky_devsfree(struct sky_dev *list);
+void sky_devsfree(struct sky_dev_desc *list);
 
 /**
  * sky_libopen() - Opens a library and returns its context.
@@ -199,7 +199,7 @@ void sky_libclose(struct sky_lib *lib);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_devinfo(struct sky_lib *lib, struct sky_dev *dev);
+int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev);
 
 /**
  * sky_confget() - Fetches device configuration.

@@ -10,12 +10,12 @@ struct skydum_lib {
 	struct sky_lib lib;
 	struct sky_charging_state state;
 	struct sky_dev_conf conf;
-	struct sky_dev dev;
+	struct sky_dev_desc dev;
 };
 
-static int skydum_devslist(struct sky_dev **head)
+static int skydum_devslist(struct sky_dev_desc **head)
 {
-	struct sky_dev *dev;
+	struct sky_dev_desc *dev;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
@@ -53,7 +53,7 @@ static void skydum_libclose(struct sky_lib *lib_)
 	free(lib);
 }
 
-static int skydum_devinfo(struct sky_lib *lib_, struct sky_dev *dev)
+static int skydum_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
 {
 	struct skydum_lib *lib;
 

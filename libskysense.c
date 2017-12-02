@@ -11,15 +11,15 @@ static const struct sky_lib_ops *local_ops =
 	&sky_local_lib_ops;
 	/* &sky_dummy_lib_ops; */
 
-int sky_devslist(struct sky_dev **head)
+int sky_devslist(struct sky_dev_desc **head)
 {
 	/* Forward to local implementation */
 	return local_ops->devslist(head);
 }
 
-void sky_devsfree(struct sky_dev *head)
+void sky_devsfree(struct sky_dev_desc *head)
 {
-	struct sky_dev *next;
+	struct sky_dev_desc *next;
 
 	while (head) {
 		next = head->next;
@@ -57,7 +57,7 @@ void sky_libclose(struct sky_lib *lib)
 	lib->ops.libclose(lib);
 }
 
-int sky_devinfo(struct sky_lib *lib, struct sky_dev *dev)
+int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev)
 {
 	return lib->ops.devinfo(lib, dev);
 }

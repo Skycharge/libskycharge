@@ -38,7 +38,7 @@ struct skyloc_lib {
 	struct sp_port *port;
 	struct sky_charging_state state;
 	struct sky_dev_conf conf;
-	struct sky_dev dev;
+	struct sky_dev_desc dev;
 	pthread_mutex_t mutex;
 	int lockfd;
 };
@@ -203,9 +203,9 @@ out:
 	return rc;
 }
 
-static int skyloc_devslist(struct sky_dev **head)
+static int skyloc_devslist(struct sky_dev_desc **head)
 {
-	struct sky_dev *dev, *prev = NULL;
+	struct sky_dev_desc *dev, *prev = NULL;
 	struct sp_port **ports = NULL;
 	enum sp_return sprc;
 	int i, rc;
@@ -337,7 +337,7 @@ static void skyloc_libclose(struct sky_lib *lib_)
 	free(lib);
 }
 
-static int skyloc_devinfo(struct sky_lib *lib_, struct sky_dev *dev)
+static int skyloc_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
 {
 	struct skyloc_lib *lib;
 

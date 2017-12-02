@@ -334,7 +334,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 	}
 	case SKY_DEV_INFO_REQ: {
 		struct sky_dev_info_rsp *rsp;
-		struct sky_dev dev;
+		struct sky_dev_desc dev;
 
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
 	};
 	struct sky_server serv = {
 	};
-	struct sky_dev *devs;
+	struct sky_dev_desc *devs;
 	struct cli cli;
 	int rc;
 

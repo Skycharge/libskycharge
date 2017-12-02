@@ -5,10 +5,10 @@
 #include "types.h"
 
 struct sky_lib_ops {
-	int (*devslist)(struct sky_dev **head);
+	int (*devslist)(struct sky_dev_desc **head);
 	int (*libopen)(const struct sky_lib_conf *conf, struct sky_lib **lib);
 	void (*libclose)(struct sky_lib *lib);
-	int (*devinfo)(struct sky_lib *lib, struct sky_dev *dev);
+	int (*devinfo)(struct sky_lib *lib, struct sky_dev_desc *dev);
 	int (*confget)(struct sky_lib *lib, struct sky_dev_conf *conf);
 	int (*confset)(struct sky_lib *lib, struct sky_dev_conf *conf);
 	int (*chargingstate)(struct sky_lib *lib, struct sky_charging_state *state);
