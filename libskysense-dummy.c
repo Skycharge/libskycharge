@@ -9,7 +9,7 @@
 struct skydum_lib {
 	struct sky_lib lib;
 	struct sky_charging_state state;
-	struct sky_dev_conf conf;
+	struct sky_dev_params params;
 	struct sky_dev_desc dev;
 };
 
@@ -63,43 +63,43 @@ static int skydum_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
 	return 0;
 }
 
-static int skydum_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
+static int skydum_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 {
 	struct skydum_lib *lib;
 	int i;
 
-	if (conf->dev_params_bits == 0)
+	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	BUILD_BUG_ON(sizeof(conf->dev_params_bits) * 8 <
+	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
 	lib = container_of(lib_, struct skydum_lib, lib);
 	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (!(conf->dev_params_bits & (1<<i)))
+		if (!(params->dev_params_bits & (1<<i)))
 				continue;
-		conf->dev_params[i] = lib->conf.dev_params[i];
+		params->dev_params[i] = lib->params.dev_params[i];
 	}
 
 	return 0;
 }
 
-static int skydum_confset(struct sky_lib *lib_, struct sky_dev_conf *conf)
+static int skydum_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
 {
 	struct skydum_lib *lib;
 	int i;
 
-	if (conf->dev_params_bits == 0)
+	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	BUILD_BUG_ON(sizeof(conf->dev_params_bits) * 8 <
+	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
 	lib = container_of(lib_, struct skydum_lib, lib);
 	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (!(conf->dev_params_bits & (1<<i)))
+		if (!(params->dev_params_bits & (1<<i)))
 				continue;
-		lib->conf.dev_params[i] = conf->dev_params[i];
+		lib->params.dev_params[i] = params->dev_params[i];
 	}
 
 	return 0;
@@ -179,8 +179,8 @@ struct sky_lib_ops sky_dummy_lib_ops = {
 	.libopen = skydum_libopen,
 	.libclose = skydum_libclose,
 	.devinfo = skydum_devinfo,
-	.confget = skydum_confget,
-	.confset = skydum_confset,
+	.paramsget = skydum_paramsget,
+	.paramsset = skydum_paramsset,
 	.chargingstate = skydum_chargingstate,
 	.subscribe = skydum_subscribe,
 	.unsubscribe = skydum_unsubscribe,

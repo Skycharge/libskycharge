@@ -144,7 +144,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 	case SKY_GET_DEV_PARAMS_REQ: {
 		struct sky_get_dev_params_req *req = req_;
 		struct sky_get_dev_params_rsp *rsp;
-		struct sky_dev_conf conf;
+		struct sky_dev_params params;
 		int num;
 
 		if (req_len < sizeof(*req)) {
@@ -153,12 +153,12 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		BUILD_BUG_ON(sizeof(conf.dev_params_bits) * 8 <
+		BUILD_BUG_ON(sizeof(params.dev_params_bits) * 8 <
 			     SKY_NUM_DEVPARAM);
 
-		conf.dev_params_bits = le32toh(req->dev_params_bits);
+		params.dev_params_bits = le32toh(req->dev_params_bits);
 		for (i = 0, num = 0; i < SKY_NUM_DEVPARAM; i++) {
-			if (conf.dev_params_bits & (1<<i))
+			if (params.dev_params_bits & (1<<i))
 				num++;
 		}
 		len = num * sizeof(rsp->dev_params[0]) + sizeof(*rsp);
@@ -167,13 +167,13 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			rc = -ENOMEM;
 			goto emergency;
 		}
-		rc = sky_confget(serv->lib, &conf);
+		rc = sky_paramsget(serv->lib, &params);
 
 		rsp->hdr.type  = htole16(SKY_GET_DEV_PARAMS_RSP);
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
 			for (i = 0; i < SKY_NUM_DEVPARAM; i++)
-				rsp->dev_params[i] = htole32(conf.dev_params[i]);
+				rsp->dev_params[i] = htole32(params.dev_params[i]);
 		}
 
 		break;
@@ -181,7 +181,7 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 	case SKY_SET_DEV_PARAMS_REQ: {
 		struct sky_set_dev_params_req *req = req_;
 		struct sky_rsp_hdr *rsp;
-		struct sky_dev_conf conf = {
+		struct sky_dev_params params = {
 			.dev_params_bits = 0
 		};
 		int ind;
@@ -199,13 +199,13 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 			goto emergency;
 		}
 
-		BUILD_BUG_ON(sizeof(conf.dev_params_bits) * 8 <
+		BUILD_BUG_ON(sizeof(params.dev_params_bits) * 8 <
 			     SKY_NUM_DEVPARAM);
 
-		conf.dev_params_bits = le32toh(req->dev_params_bits);
+		params.dev_params_bits = le32toh(req->dev_params_bits);
 
 		for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
-			if (!(conf.dev_params_bits & (1<<i)))
+			if (!(params.dev_params_bits & (1<<i)))
 				continue;
 			if (req_len < (sizeof(*req) +
 				       sizeof(req->dev_params[0]) * (ind + 1))) {
@@ -214,10 +214,10 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 				rc = -EINVAL;
 				goto emergency;
 			}
-			conf.dev_params[i] = le32toh(req->dev_params[ind++]);
+			params.dev_params[i] = le32toh(req->dev_params[ind++]);
 		}
 
-		rc = sky_confset(serv->lib, &conf);
+		rc = sky_paramsset(serv->lib, &params);
 
 		rsp->type  = htole16(SKY_SET_DEV_PARAMS_RSP);
 		rsp->error = htole16(-rc);

@@ -34,7 +34,7 @@ struct skyloc_lib {
 	struct sky_lib lib;
 	struct sp_port *port;
 	struct sky_charging_state state;
-	struct sky_dev_conf conf;
+	struct sky_dev_params params;
 	struct sky_dev_desc dev;
 	pthread_mutex_t mutex;
 	int lockfd;
@@ -356,16 +356,16 @@ static int skyloc_serial_get_param(struct skyloc_lib *lib,
 			sizeof(param), &param, sizeof(*val), val);
 }
 
-static int skyloc_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
+static int skyloc_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 {
 	struct skyloc_lib *lib;
 	uint16_t val = 0;
 	int rc, i;
 
-	if (conf->dev_params_bits == 0)
+	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	BUILD_BUG_ON(sizeof(conf->dev_params_bits) * 8 <
+	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
@@ -376,12 +376,12 @@ static int skyloc_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 		return rc;
 
 	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (!(conf->dev_params_bits & (1<<i)))
+		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		rc = skyloc_serial_get_param(lib, i, &val);
 		if (rc)
 			return rc;
-		conf->dev_params[i] = val;
+		params->dev_params[i] = val;
 	}
 
 	return 0;
@@ -396,23 +396,23 @@ static int skyloc_serial_set_param(struct skyloc_lib *lib,
 			sizeof(param), &param, sizeof(val), &val);
 }
 
-static int skyloc_confset(struct sky_lib *lib_, struct sky_dev_conf *conf)
+static int skyloc_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
 {
 	struct skyloc_lib *lib;
 	uint16_t val;
 	int rc, i;
 
-	if (conf->dev_params_bits == 0)
+	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	BUILD_BUG_ON(sizeof(conf->dev_params_bits) * 8 <
+	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
 	lib = container_of(lib_, struct skyloc_lib, lib);
 	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (!(conf->dev_params_bits & (1<<i)))
+		if (!(params->dev_params_bits & (1<<i)))
 				continue;
-		val = conf->dev_params[i];
+		val = params->dev_params[i];
 		rc = skyloc_serial_set_param(lib, i, val);
 		if (rc)
 			return rc;
@@ -521,8 +521,8 @@ struct sky_lib_ops sky_local_lib_ops = {
 	.libopen = skyloc_libopen,
 	.libclose = skyloc_libclose,
 	.devinfo = skyloc_devinfo,
-	.confget = skyloc_confget,
-	.confset = skyloc_confset,
+	.paramsget = skyloc_paramsget,
+	.paramsset = skyloc_paramsset,
 	.chargingstate = skyloc_chargingstate,
 	.subscribe = skyloc_subscribe,
 	.unsubscribe = skyloc_unsubscribe,

@@ -128,9 +128,9 @@ struct sky_subscription {
 };
 
 /**
- * struct sky_dev_conf - Device configuration.
+ * struct sky_dev_params - Device configuration parameters.
  */
-struct sky_dev_conf {
+struct sky_dev_params {
 	uint32_t dev_params_bits;
 	uint32_t dev_params[SKY_NUM_DEVPARAM];
 };
@@ -205,40 +205,40 @@ void sky_libclose(struct sky_lib *lib);
 int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev);
 
 /**
- * sky_confget() - Fetches device configuration.
+ * sky_paramsget() - Fetches device configuration parameters.
  * @lib:	Library context.
- * @conf:	Configuration to be filled in.
+ * @params:	Device params to be filled in.
  *
- * Accesses the hardware and fetches current configration of a device.
+ * Accesses the hardware and fetches current parameters of a device.
  * Required bits of a device parameter must be set in a bitfield
- * @conf->dev_params_bits.
+ * @params->dev_params_bits.
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
  *
- * -EINVAL invalid parameter, e.g. @conf->dev_params_bits were not set.
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_confget(struct sky_lib *lib, struct sky_dev_conf *conf);
+int sky_paramsget(struct sky_lib *lib, struct sky_dev_params *params);
 
 /**
- * sky_confset() - Saves device configuration.
+ * sky_paramsset() - Saves device configuration parameters.
  * @lib:	Library context.
- * @conf:	Configuration to be saved.
+ * @params:	Device params to be saved.
  *
- * Accesses the hardware and saves configration of a device.
+ * Accesses the hardware and saves parameters of a device.
  * Required bits of a device parameter must be set in a bitfield
- * @conf->dev_params_bits.
+ * @params->dev_params_bits.
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
  *
- * -EINVAL invalid parameter, e.g. @conf->dev_params_bits were not set.
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_confset(struct sky_lib *lib, struct sky_dev_conf *conf);
+int sky_paramsset(struct sky_lib *lib, struct sky_dev_params *params);
 
 /**
  * sky_chargingstate() - Charging device state.

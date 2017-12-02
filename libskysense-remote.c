@@ -232,7 +232,7 @@ static int skyrem_devinfo(struct sky_lib *lib_, struct sky_dev_desc *dev)
 	return 0;
 }
 
-static int skyrem_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
+static int skyrem_paramsget(struct sky_lib *lib_, struct sky_dev_params *params)
 {
 	struct {
 		struct sky_get_dev_params_rsp rsp;
@@ -244,11 +244,11 @@ static int skyrem_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 	struct skyrem_lib *lib;
 	int rc, sz, i, ind;
 
-	if (conf->dev_params_bits == 0)
+	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
 	lib = container_of(lib_, struct skyrem_lib, lib);
-	req.dev_params_bits = htole32(conf->dev_params_bits);
+	req.dev_params_bits = htole32(params->dev_params_bits);
 
 	sz = skyrem_complex_req_rsp(lib, SKY_GET_DEV_PARAMS_REQ,
 				    &req.hdr, sizeof(req),
@@ -260,24 +260,24 @@ static int skyrem_confget(struct sky_lib *lib_, struct sky_dev_conf *conf)
 	if (rc)
 		return rc;
 
-	BUILD_BUG_ON(sizeof(conf->dev_params_bits) * 8 <
+	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
 	for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (conf->dev_params_bits & (1<<i)) {
+		if (params->dev_params_bits & (1<<i)) {
 			if (sz < (sizeof(rsp_uni.rsp) +
 				  sizeof(rsp_uni.dev_params[0]) * (ind + 1)))
 				/* Malformed response */
 				return -ECONNRESET;
-			conf->dev_params[i] = le32toh(rsp_uni.dev_params[ind++]);
+			params->dev_params[i] = le32toh(rsp_uni.dev_params[ind++]);
 		} else
-			conf->dev_params[i] = 0;
+			params->dev_params[i] = 0;
 	}
 
 	return 0;
 }
 
-static int skyrem_confset(struct sky_lib *lib_, struct sky_dev_conf *conf)
+static int skyrem_paramsset(struct sky_lib *lib_, struct sky_dev_params *params)
 {
 	struct {
 		struct sky_set_dev_params_req req;
@@ -288,19 +288,19 @@ static int skyrem_confset(struct sky_lib *lib_, struct sky_dev_conf *conf)
 	struct skyrem_lib *lib;
 	int sz, i, ind;
 
-	if (conf->dev_params_bits == 0)
+	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
 	lib = container_of(lib_, struct skyrem_lib, lib);
-	req_uni.req.dev_params_bits = htole32(conf->dev_params_bits);
+	req_uni.req.dev_params_bits = htole32(params->dev_params_bits);
 
-	BUILD_BUG_ON(sizeof(conf->dev_params_bits) * 8 <
+	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
 
 	for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (conf->dev_params_bits & (1<<i))
+		if (params->dev_params_bits & (1<<i))
 			req_uni.dev_params[ind++] =
-				htole32(conf->dev_params[i]);
+				htole32(params->dev_params[i]);
 	}
 	sz = sizeof(req_uni.req) + sizeof(req_uni.dev_params[0]) * ind;
 
@@ -484,8 +484,8 @@ struct sky_lib_ops sky_remote_lib_ops = {
 	.libopen = skyrem_libopen,
 	.libclose = skyrem_libclose,
 	.devinfo = skyrem_devinfo,
-	.confget = skyrem_confget,
-	.confset = skyrem_confset,
+	.paramsget = skyrem_paramsget,
+	.paramsset = skyrem_paramsset,
 	.chargingstate = skyrem_chargingstate,
 	.subscribe = skyrem_subscribe,
 	.unsubscribe = skyrem_unsubscribe,

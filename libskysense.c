@@ -64,14 +64,14 @@ int sky_devinfo(struct sky_lib *lib, struct sky_dev_desc *dev)
 	return lib->ops.devinfo(lib, dev);
 }
 
-int sky_confget(struct sky_lib *lib, struct sky_dev_conf *conf)
+int sky_paramsget(struct sky_lib *lib, struct sky_dev_params *params)
 {
-	return lib->ops.confget(lib, conf);
+	return lib->ops.paramsget(lib, params);
 }
 
-int sky_confset(struct sky_lib *lib, struct sky_dev_conf *conf)
+int sky_paramsset(struct sky_lib *lib, struct sky_dev_params *params)
 {
-	return lib->ops.confset(lib, conf);
+	return lib->ops.paramsset(lib, params);
 }
 
 int sky_chargingstate(struct sky_lib *lib, struct sky_charging_state *state)

@@ -181,22 +181,22 @@ int main(int argc, char *argv[])
 			/* Yeah, nothing to do here, simply die on Ctrl-C */
 			sleep(1);
 	} else if (cli.showdevparams) {
-		struct sky_dev_conf conf;
+		struct sky_dev_params params;
 
 		/* Get all params */
-		conf.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1;
-		rc = sky_confget(lib, &conf);
+		params.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1;
+		rc = sky_paramsget(lib, &params);
 		if (rc) {
-			sky_err("sky_confget(): %s\n", strerror(-rc));
+			sky_err("sky_paramsget(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		printf("Device has the following configuration:\n");
+		printf("Device has the following parameters:\n");
 		for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
 			printf("\t%-30s %u\n", sky_devparam_to_str(i),
-			       conf.dev_params[i]);
+			       params.dev_params[i]);
 		}
 	} else if (cli.setdevparam) {
-		struct sky_dev_conf conf;
+		struct sky_dev_params params;
 
 		for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
 			if (strcasestr(sky_devparam_to_str(i), cli.key))
@@ -212,11 +212,11 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		conf.dev_params_bits = (1 << i);
-		conf.dev_params[i] = strtol(cli.value, NULL, 10);
-		rc = sky_confset(lib, &conf);
+		params.dev_params_bits = (1 << i);
+		params.dev_params[i] = strtol(cli.value, NULL, 10);
+		rc = sky_paramsset(lib, &params);
 		if (rc) {
-			sky_err("sky_confset(): %s\n", strerror(-rc));
+			sky_err("sky_paramsset(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 
