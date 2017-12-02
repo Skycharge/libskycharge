@@ -99,14 +99,8 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			sky_err("sky_devslist(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		/* Take first available port */
-		if (*devdescs == NULL) {
-			sky_err("sky_devslist(): No sky devices found\n");
-			exit(-1);
-		}
-		strncpy(conf.local.portname, (*devdescs)->portname,
-			sizeof(conf.local.portname));
 	}
+	/* Take first available device */
 	rc = sky_devopen(&conf, dev);
 	if (rc) {
 		sky_err("sky_devopen(): %s\n", strerror(-rc));
