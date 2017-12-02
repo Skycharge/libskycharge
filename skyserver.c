@@ -604,7 +604,7 @@ int main(int argc, char *argv[])
 	};
 	struct sky_server serv = {
 	};
-	struct sky_dev_desc *devs;
+	struct sky_dev_desc *devdescs;
 	struct cli cli;
 	int rc;
 
@@ -613,15 +613,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
-	rc = sky_devslist(&devs);
+	rc = sky_devslist(&devdescs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		return rc;
 	}
 	/* Get first local device */
-	strncpy(conf.local.portname, devs->portname,
+	strncpy(conf.local.portname, devdescs->portname,
 		sizeof(conf.local.portname));
-	sky_devsfree(devs);
+	sky_devsfree(devdescs);
 
 	if (cli.daemon)
 		sky_daemonize(cli.pidf);

@@ -81,7 +81,7 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 }
 
 static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
-			    struct sky_dev_desc **devs)
+			    struct sky_dev_desc **devdescs)
 {
 	struct sky_lib_conf conf;
 	int rc;
@@ -94,17 +94,17 @@ static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
 			sizeof(conf.remote.hostname));
 	} else {
 		conf.contype = SKY_LOCAL;
-		rc = sky_devslist(devs);
+		rc = sky_devslist(devdescs);
 		if (rc) {
 			sky_err("sky_devslist(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 		/* Take first available port */
-		if (*devs == NULL) {
+		if (*devdescs == NULL) {
 			sky_err("sky_devslist(): No sky devices found\n");
 			exit(-1);
 		}
-		strncpy(conf.local.portname, (*devs)->portname,
+		strncpy(conf.local.portname, (*devdescs)->portname,
 			sizeof(conf.local.portname));
 	}
 	rc = sky_libopen(&conf, lib);
@@ -145,7 +145,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 
 int main(int argc, char *argv[])
 {
-	struct sky_dev_desc *devs = NULL;
+	struct sky_dev_desc *devdescs = NULL;
 	struct sky_lib *lib = NULL;
 	struct cli cli;
 	int rc, i;
@@ -156,14 +156,14 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	sky_prepare_lib(&cli, &lib, &devs);
+	sky_prepare_lib(&cli, &lib, &devdescs);
 
 	if (cli.listdevs) {
 		printf("Found sky devices on ports:\n");
-		while (devs) {
-			printf("\t%s %s\n", sky_devtype_to_str(devs->dev_type),
-			       devs->portname);
-			devs = devs->next;
+		while (devdescs) {
+			printf("\t%s %s\n", sky_devtype_to_str(devdescs->dev_type),
+			       devdescs->portname);
+			devdescs = devdescs->next;
 		}
 	} else if (cli.monitor) {
 		struct sky_subscription sub = {
@@ -274,8 +274,7 @@ int main(int argc, char *argv[])
 	} else
 		assert(0);
 
-	if (devs)
-		sky_devsfree(devs);
+	sky_devsfree(devdescs);
 	sky_libclose(lib);
 	cli_free(&cli);
 
