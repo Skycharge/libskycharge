@@ -102,6 +102,7 @@ struct sky_dev_conf {
  */
 struct sky_dev_desc {
 	struct sky_dev_desc *next;
+	struct sky_dev_conf conf;
 	enum sky_dev_type dev_type;
 	char portname[256];
 };

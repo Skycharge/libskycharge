@@ -208,8 +208,6 @@ static int skyloc_devslist(const struct sky_dev_conf *conf,
 	enum sp_return sprc;
 	int i, rc;
 
-	(void)conf;
-
 	sprc = sp_list_ports(&ports);
 	if (sprc < 0)
 		return sprc_to_errno(sprc);
@@ -231,6 +229,7 @@ static int skyloc_devslist(const struct sky_dev_conf *conf,
 		/* XXX: TODO */
 		dev->dev_type = SKY_INDOOR;
 		dev->next = head;
+		dev->conf = *conf;
 		head = dev;
 		if (tail == NULL)
 			tail = dev;

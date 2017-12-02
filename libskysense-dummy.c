@@ -18,13 +18,12 @@ static int skydum_devslist(const struct sky_dev_conf *conf,
 {
 	struct sky_dev_desc *dev;
 
-	(void)conf;
-
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return -ENOMEM;
 
 	dev->dev_type = SKY_INDOOR;
+	dev->conf = *conf;
 	strcpy(dev->portname, "port0");
 
 	dev->next = *head;

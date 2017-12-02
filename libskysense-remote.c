@@ -173,8 +173,21 @@ static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 static int skyrem_devslist(const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **head)
 {
-	/* See devskysense-local.c */
-	return -EOPNOTSUPP;
+	struct sky_dev_desc *dev;
+
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
+		return -ENOMEM;
+
+	dev->dev_type = SKY_INDOOR;
+	dev->conf = *conf;
+	/* TODO */
+	strcpy(dev->portname, "device on remote side");
+
+	dev->next = *head;
+	*head = dev;
+
+	return 0;
 }
 
 static int skyrem_devopen(const struct sky_dev_conf *conf,
