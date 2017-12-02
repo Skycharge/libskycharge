@@ -28,9 +28,6 @@ enum sky_serial_cmd {
 enum {
 	TO_BUF   = 0,
 	FROM_BUF = 1,
-
-	MAX_OHM  = 4000,
-	MIN_OHM  = 800,
 };
 
 struct skyloc_lib {
