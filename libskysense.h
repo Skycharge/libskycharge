@@ -106,6 +106,9 @@ struct sky_dev_desc {
 	char portname[256];
 };
 
+#define foreach_devdesc(devdesc, head)		\
+	for (devdesc = head; devdesc; devdesc = devdesc->next)
+
 /**
  * struct sky_charging_state - Charging device state.
  */

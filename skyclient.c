@@ -159,11 +159,12 @@ int main(int argc, char *argv[])
 	sky_prepare_lib(&cli, &lib, &devdescs);
 
 	if (cli.listdevs) {
+		struct sky_dev_desc *devdesc;
+
 		printf("Found sky devices on ports:\n");
-		while (devdescs) {
+		foreach_devdesc(devdesc, devdescs) {
 			printf("\t%s %s\n", sky_devtype_to_str(devdescs->dev_type),
 			       devdescs->portname);
-			devdescs = devdescs->next;
 		}
 	} else if (cli.monitor) {
 		struct sky_subscription sub = {
