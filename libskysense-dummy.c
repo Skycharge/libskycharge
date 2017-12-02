@@ -21,10 +21,10 @@ static int skydum_devslist(struct sky_dev_desc **head)
 	if (!dev)
 		return -ENOMEM;
 
-	dev->next = NULL;
 	dev->dev_type = SKY_INDOOR;
 	strcpy(dev->portname, "port0");
 
+	dev->next = *head;
 	*head = dev;
 
 	return 0;

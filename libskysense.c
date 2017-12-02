@@ -13,6 +13,8 @@ static const struct sky_lib_ops *local_ops =
 
 int sky_devslist(struct sky_dev_desc **head)
 {
+	*head = NULL;
+
 	/* Forward to local implementation */
 	return local_ops->devslist(head);
 }

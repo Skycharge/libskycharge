@@ -200,9 +200,9 @@ out:
 	return rc;
 }
 
-static int skyloc_devslist(struct sky_dev_desc **head)
+static int skyloc_devslist(struct sky_dev_desc **out)
 {
-	struct sky_dev_desc *dev, *prev = NULL;
+	struct sky_dev_desc *dev, *head = NULL, *tail = NULL;
 	struct sp_port **ports = NULL;
 	enum sp_return sprc;
 	int i, rc;
@@ -210,8 +210,6 @@ static int skyloc_devslist(struct sky_dev_desc **head)
 	sprc = sp_list_ports(&ports);
 	if (sprc < 0)
 		return sprc_to_errno(sprc);
-
-	*head = NULL;
 
 	for (i = 0; ports[i]; i++) {
 		const char *desc, *name;
@@ -226,26 +224,28 @@ static int skyloc_devslist(struct sky_dev_desc **head)
 			rc = -ENOMEM;
 			goto err;
 		}
-		if (*head == NULL)
-			*head = dev;
-		if (prev)
-			prev->next = dev;
-		prev = dev;
 		strncpy(dev->portname, name, sizeof(dev->portname));
 		/* XXX: TODO */
 		dev->dev_type = SKY_INDOOR;
+		dev->next = head;
+		head = dev;
+		if (tail == NULL)
+			tail = dev;
 	}
 	rc = 0;
-
+	if (head) {
+		tail->next = *out;
+		*out = head;
+	}
 out:
 	sp_free_port_list(ports);
 
 	return rc;
 
 err:
-	while (*head) {
-		dev = *head;
-		*head = (*head)->next;
+	while (head) {
+		dev = head;
+		head = head->next;
 		free(dev);
 	}
 	goto out;
