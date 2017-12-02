@@ -618,19 +618,17 @@ int main(int argc, char *argv[])
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		return rc;
 	}
-	/* Get first local device */
-	strncpy(conf.local.portname, devdescs->portname,
-		sizeof(conf.local.portname));
+	/* Take first available device */
+	rc = sky_devopen(devdescs, &serv.dev);
 	sky_devsfree(devdescs);
-
-	if (cli.daemon)
-		sky_daemonize(cli.pidf);
-
-	rc = sky_devopen(&conf, &serv.dev);
 	if (rc) {
 		sky_err("sky_devpopen(): %s\n", strerror(-rc));
 		return rc;
 	}
+
+	if (cli.daemon)
+		sky_daemonize(cli.pidf);
+
 	rc = sky_server_loop(&serv, cli.addr, cli.port);
 	sky_devclose(serv.dev);
 	cli_free(&cli);

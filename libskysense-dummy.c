@@ -32,7 +32,7 @@ static int skydum_devslist(const struct sky_dev_conf *conf,
 	return 0;
 }
 
-static int skydum_devopen(const struct sky_dev_conf *conf,
+static int skydum_devopen(const struct sky_dev_desc *devdesc,
 			  struct sky_dev **dev_)
 {
 	struct skydum_dev *dev;

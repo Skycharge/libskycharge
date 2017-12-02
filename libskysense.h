@@ -85,16 +85,11 @@ enum sky_dev_param {
  */
 struct sky_dev_conf {
 	enum sky_con_type contype;
-	union {
-		struct {
-			char hostname[64];     /**< Remote hostname */
-			unsigned cmdport;      /**< TCP/IP command port */
-			unsigned subport;      /**< TCP/IP subscription port */
-		} remote;
-		struct {
-			char portname[256];
-		} local;
-	};
+	struct {
+		char hostname[64];     /**< Remote hostname */
+		unsigned cmdport;      /**< TCP/IP command port */
+		unsigned subport;      /**< TCP/IP subscription port */
+	} remote;
 };
 
 /**
@@ -164,13 +159,13 @@ void sky_devsfree(struct sky_dev_desc *list);
 
 /**
  * sky_devopen() - Opens a device and returns its context.
- * @conf:      Configuration options.
+ * @devdesc:   Device descriptor.
  * @dev:       Output pointer for storing device context.
  *
- * Function establishes connection either to local or to remote device,
- * see @conf->contype member.	 In case of successful connection valid
- * device context will be returned in @dev argument.  Do not forget to
- * close the device with calling sky_devclose().
+ * Function opens a device, described by device descriptor.  Device
+ * can be either local or remote, see @conf->contype member.  In case
+ * of success valid device context will be returned in @dev argument.
+ * Do not forget to close the device with calling sky_devclose().
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
@@ -179,7 +174,7 @@ void sky_devsfree(struct sky_dev_desc *list);
  * -ECONNREFUSED no-one listening on the remote address (remote connection)
  * -ENOMEM if memory allocation failed.
  */
-int sky_devopen(const struct sky_dev_conf *conf, struct sky_dev **dev);
+int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 
 /**
  * sky_devclose() - Closes a device context.

@@ -35,8 +35,8 @@ static int skyrem_send_recv(struct skyrem_dev *dev,
 	int rc;
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      dev->dev.conf.remote.hostname,
-		      dev->dev.conf.remote.cmdport);
+		      dev->dev.devdesc.conf.remote.hostname,
+		      dev->dev.devdesc.conf.remote.cmdport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
@@ -190,7 +190,7 @@ static int skyrem_devslist(const struct sky_dev_conf *conf,
 	return 0;
 }
 
-static int skyrem_devopen(const struct sky_dev_conf *conf,
+static int skyrem_devopen(const struct sky_dev_desc *devdesc,
 			  struct sky_dev **dev_)
 {
 	struct skyrem_dev *dev;
@@ -364,8 +364,8 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 	dev = container_of(dev_, struct skyrem_dev, dev);
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      dev->dev.conf.remote.hostname,
-		      dev->dev.conf.remote.subport);
+		      dev->dev.devdesc.conf.remote.hostname,
+		      dev->dev.devdesc.conf.remote.subport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 

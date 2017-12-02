@@ -6,7 +6,7 @@
 
 struct sky_dev_ops {
 	int (*devslist)(const struct sky_dev_conf *conf, struct sky_dev_desc **head);
-	int (*devopen)(const struct sky_dev_conf *conf, struct sky_dev **dev);
+	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 	void (*devclose)(struct sky_dev *dev);
 	int (*devinfo)(struct sky_dev *dev, struct sky_dev_desc *devdesc);
 	int (*paramsget)(struct sky_dev *dev, struct sky_dev_params *params);
@@ -25,7 +25,7 @@ struct sky_dev_ops {
 
 struct sky_dev {
 	struct sky_dev_ops ops;
-	struct sky_dev_conf conf;
+	struct sky_dev_desc devdesc;
 	struct sky_subscription subsc;
 	bool unsubscribed;
 	pthread_t thread;

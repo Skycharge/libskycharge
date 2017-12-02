@@ -253,7 +253,7 @@ err:
 	goto out;
 }
 
-static int skyloc_devopen(const struct sky_dev_conf *conf,
+static int skyloc_devopen(const struct sky_dev_desc *devdesc,
 			  struct sky_dev **dev_)
 {
 	struct skyloc_dev *dev;
@@ -264,7 +264,7 @@ static int skyloc_devopen(const struct sky_dev_conf *conf,
 	if (!dev)
 		return -ENOMEM;
 
-	sprc = sp_get_port_by_name(conf->local.portname, &dev->port);
+	sprc = sp_get_port_by_name(devdesc->portname, &dev->port);
 	if (sprc)
 		goto free_dev;
 
@@ -301,7 +301,7 @@ static int skyloc_devopen(const struct sky_dev_conf *conf,
 	 * provide any way to get fd or any lock mechanism.  So we have
 	 * to do locking ourselves.
 	 */
-	dev->lockfd = open(conf->local.portname, O_RDWR);
+	dev->lockfd = open(devdesc->portname, O_RDWR);
 	if (dev->lockfd < 0) {
 		sprc = SP_ERR_FAIL;
 		goto free_conf;

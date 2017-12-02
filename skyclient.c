@@ -92,16 +92,16 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 		conf.remote.subport = conf.remote.cmdport + 1;
 		strncpy(conf.remote.hostname, cli->addr,
 			sizeof(conf.remote.hostname));
-	} else {
+	} else
 		conf.contype = SKY_LOCAL;
-		rc = sky_devslist(&conf, 1, devdescs);
-		if (rc) {
-			sky_err("sky_devslist(): %s\n", strerror(-rc));
-			exit(-1);
-		}
+
+	rc = sky_devslist(&conf, 1, devdescs);
+	if (rc) {
+		sky_err("sky_devslist(): %s\n", strerror(-rc));
+		exit(-1);
 	}
 	/* Take first available device */
-	rc = sky_devopen(&conf, dev);
+	rc = sky_devopen(*devdescs, dev);
 	if (rc) {
 		sky_err("sky_devopen(): %s\n", strerror(-rc));
 		exit(-1);
