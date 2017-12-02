@@ -600,7 +600,7 @@ destroy_zock:
 int main(int argc, char *argv[])
 {
 	struct sky_lib_conf conf = {
-		.conn_type = SKY_LOCAL,
+		.contype = SKY_LOCAL,
 	};
 	struct sky_server serv = {
 	};

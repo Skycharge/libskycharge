@@ -33,9 +33,9 @@ int sky_libopen(const struct sky_lib_conf *conf, struct sky_lib **lib_)
 	const struct sky_lib_ops *ops;
 	int rc;
 
-	if (conf->conn_type == SKY_LOCAL)
+	if (conf->contype == SKY_LOCAL)
 		ops = local_ops;
-	else if (conf->conn_type == SKY_REMOTE)
+	else if (conf->contype == SKY_REMOTE)
 		ops = &sky_remote_lib_ops;
 	else
 		return -EINVAL;

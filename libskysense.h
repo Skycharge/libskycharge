@@ -14,9 +14,9 @@ extern "C" {
 struct sky_lib;
 
 /**
- * enum sky_conn_type - Connection type.
+ * enum sky_con_type - Connection type.
  */
-enum sky_conn_type {
+enum sky_con_type {
 	SKY_LOCAL  = 0,
 	SKY_REMOTE = 1,
 };
@@ -84,7 +84,7 @@ enum sky_dev_param {
  * struct sky_lib_conf - Library configuration options.
  */
 struct sky_lib_conf {
-	enum sky_conn_type conn_type;
+	enum sky_con_type contype;
 	union {
 		struct {
 			char hostname[64];     /**< Remote hostname */
@@ -161,7 +161,7 @@ void sky_devsfree(struct sky_dev_desc *list);
  * @lib:       Output pointer for storing library context.
  *
  * Function establishes connection either to local or to remote device,
- * see @conf->conn_type member.	 In case of successful connection valid
+ * see @conf->contype member.	 In case of successful connection valid
  * library context will be returned in @lib argument.  Do not forget to
  * close the library with calling sky_libclose().
  *

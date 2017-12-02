@@ -87,13 +87,13 @@ static void sky_prepare_lib(struct cli *cli, struct sky_lib **lib,
 	int rc;
 
 	if (cli->addr && cli->port) {
-		conf.conn_type = SKY_REMOTE;
+		conf.contype = SKY_REMOTE;
 		conf.remote.cmdport = strtol(cli->port, NULL, 10);
 		conf.remote.subport = conf.remote.cmdport + 1;
 		strncpy(conf.remote.hostname, cli->addr,
 			sizeof(conf.remote.hostname));
 	} else {
-		conf.conn_type = SKY_LOCAL;
+		conf.contype = SKY_LOCAL;
 		rc = sky_devslist(devs);
 		if (rc) {
 			sky_err("sky_devslist(): %s\n", strerror(-rc));
