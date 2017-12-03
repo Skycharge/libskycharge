@@ -102,9 +102,8 @@ out:
 static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
 				    enum sky_proto_type req_type,
 				    struct sky_req_hdr *req_, size_t req_len,
-				    struct sky_rsp_hdr *rsp_, size_t rsp_len)
+				    struct sky_rsp_hdr **rsp)
 {
-	struct sky_rsp_hdr *rsp = NULL;
 	enum sky_proto_type rsp_type;
 	int rc;
 
@@ -116,37 +115,31 @@ static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
 		assert(0);
 		return -EINVAL;
 	}
-	if (rsp_len < sizeof(*rsp_)) {
-		assert(0);
-		return -EINVAL;
-	}
 
 	/* Responses always follow requests */
 	rsp_type = req_type + 1;
 	req_->type = htole16(req_type);
 
-	rc = skyrem_send_recv(zctx, conf, req_, req_len, (void **)&rsp);
+	/* Make compiler happy */
+	*rsp = NULL;
+	rc = skyrem_send_recv(zctx, conf, req_, req_len, (void **)rsp);
 	if (rc < 0)
 		return rc;
-	if (rc < sizeof(*rsp)) {
+	if (rc < sizeof(**rsp)) {
 		/* Malformed response, too small */
 		rc = -ECONNRESET;
-		goto out;
+		goto err;
 	}
-	if (rc > rsp_len) {
-		/* Malformed response, too big */
-		rc = -ECONNRESET;
-		goto out;
-	}
-	if (le16toh(rsp->type) != rsp_type) {
+	if (le16toh((*rsp)->type) != rsp_type) {
 		/* Malformed response, incorrect response type */
 		rc = -ECONNRESET;
-		goto out;
+		goto err;
 	}
-	memcpy(rsp_, rsp, rc);
 
-out:
-	free(rsp);
+	return rc;
+
+err:
+	free(*rsp);
 
 	return rc;
 }
@@ -156,8 +149,29 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 				  struct sky_req_hdr *req_, size_t req_len,
 				  struct sky_rsp_hdr *rsp_, size_t rsp_len)
 {
-	return __skyrem_complex_req_rsp(dev->zock.ctx, &dev->dev.devdesc.conf,
-					req_type, req_, req_len, rsp_, rsp_len);
+	struct sky_rsp_hdr *rsp;
+	int rc;
+
+	if (rsp_len < sizeof(*rsp_)) {
+		assert(0);
+		return -EINVAL;
+	}
+	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &dev->dev.devdesc.conf,
+				      req_type, req_, req_len, &rsp);
+	if (rc < 0)
+		return rc;
+
+	if (rc > rsp_len) {
+		/* Malformed response, too big */
+		rc = -ECONNRESET;
+		goto out;
+	}
+	memcpy(rsp_, rsp, rc);
+
+out:
+	free(rsp);
+
+	return rc;
 }
 
 static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
