@@ -10,7 +10,6 @@ struct sky_dev_ops {
 			const struct sky_dev_conf *conf, struct sky_dev_desc **head);
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 	void (*devclose)(struct sky_dev *dev);
-	int (*devinfo)(struct sky_dev *dev, struct sky_dev_desc *devdesc);
 	int (*paramsget)(struct sky_dev *dev, struct sky_dev_params *params);
 	int (*paramsset)(struct sky_dev *dev, struct sky_dev_params *params);
 	int (*chargingstate)(struct sky_dev *dev, struct sky_charging_state *state);

@@ -41,9 +41,6 @@ enum sky_proto_type {
 	SKY_RESET_DEV_REQ      = 15,
 	SKY_RESET_DEV_RSP      = 16,
 
-	SKY_DEV_INFO_REQ       = 17,
-	SKY_DEV_INFO_RSP       = 18,
-
 	SKY_LAST_REQRSP,
 
 	/* Events */

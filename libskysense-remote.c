@@ -220,34 +220,6 @@ static void skyrem_devclose(struct sky_dev *dev_)
 	free(dev);
 }
 
-static int skyrem_devinfo(struct sky_dev *dev_, struct sky_dev_desc *devdesc)
-{
-	struct sky_dev_info_rsp rsp;
-	struct sky_req_hdr req;
-	struct skyrem_dev *dev;
-	int rc;
-
-	dev = container_of(dev_, struct skyrem_dev, dev);
-
-	rc = skyrem_complex_req_rsp(dev, SKY_DEV_INFO_REQ, &req, sizeof(req),
-				    &rsp.hdr, sizeof(rsp));
-	if (rc < 0)
-		return rc;
-
-	if (rc != sizeof(rsp)) {
-		/* Malformed response */
-		return -ECONNRESET;
-	}
-	rc = -le16toh(rsp.hdr.error);
-	if (rc)
-		return rc;
-
-	devdesc->dev_type = le16toh(rsp.dev_type);
-	memcpy(devdesc->portname, rsp.portname, sizeof(rsp.portname));
-
-	return 0;
-}
-
 static int skyrem_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 {
 	struct {
@@ -500,7 +472,6 @@ static struct sky_dev_ops sky_remote_devops = {
 	.devslist = skyrem_devslist,
 	.devopen = skyrem_devopen,
 	.devclose = skyrem_devclose,
-	.devinfo = skyrem_devinfo,
 	.paramsget = skyrem_paramsget,
 	.paramsset = skyrem_paramsset,
 	.chargingstate = skyrem_chargingstate,

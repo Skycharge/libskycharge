@@ -87,7 +87,9 @@ void sky_devclose(struct sky_dev *dev)
 
 int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc)
 {
-	return get_devops(dev)->devinfo(dev, devdesc);
+	*devdesc = dev->devdesc;
+
+	return 0;
 }
 
 int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params)

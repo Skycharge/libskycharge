@@ -57,16 +57,6 @@ static void skydum_devclose(struct sky_dev *dev_)
 	free(dev);
 }
 
-static int skydum_devinfo(struct sky_dev *dev_, struct sky_dev_desc *devdesc)
-{
-	struct skydum_dev *dev;
-
-	dev = container_of(dev_, struct skydum_dev, dev);
-	memcpy(devdesc, &dev->dev, sizeof(*dev));
-
-	return 0;
-}
-
 static int skydum_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 {
 	struct skydum_dev *dev;
@@ -184,7 +174,6 @@ static struct sky_dev_ops sky_dummy_devops = {
 	.devslist = skydum_devslist,
 	.devopen = skydum_devopen,
 	.devclose = skydum_devclose,
-	.devinfo = skydum_devinfo,
 	.paramsget = skydum_paramsget,
 	.paramsset = skydum_paramsset,
 	.chargingstate = skydum_chargingstate,

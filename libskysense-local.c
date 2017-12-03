@@ -338,19 +338,6 @@ static void skyloc_devclose(struct sky_dev *dev_)
 	free(dev);
 }
 
-static int skyloc_devinfo(struct sky_dev *dev_, struct sky_dev_desc *devdesc)
-{
-	struct skyloc_dev *dev;
-
-	dev = container_of(dev_, struct skyloc_dev, dev);
-	strncpy(devdesc->portname, sp_get_port_name(dev->port),
-		sizeof(devdesc->portname));
-	/* XXX: TODO: */
-	devdesc->dev_type = SKY_INDOOR;
-
-	return 0;
-}
-
 static int skyloc_serial_get_param(struct skyloc_dev *dev,
 				   uint8_t param, uint16_t *val)
 {
@@ -525,7 +512,6 @@ static struct sky_dev_ops sky_local_devops = {
 	.devslist = skyloc_devslist,
 	.devopen = skyloc_devopen,
 	.devclose = skyloc_devclose,
-	.devinfo = skyloc_devinfo,
 	.paramsget = skyloc_paramsget,
 	.paramsset = skyloc_paramsset,
 	.chargingstate = skyloc_chargingstate,
