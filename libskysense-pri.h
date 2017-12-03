@@ -5,6 +5,7 @@
 #include "types.h"
 
 struct sky_dev_ops {
+	enum sky_con_type contype;
 	int (*devslist)(const struct sky_dev_ops *ops,
 			const struct sky_dev_conf *conf, struct sky_dev_desc **head);
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
@@ -22,7 +23,19 @@ struct sky_dev_ops {
 	int (*chargestop)(struct sky_dev *dev);
 	int (*coveropen)(struct sky_dev *dev);
 	int (*coverclose)(struct sky_dev *dev);
+	struct sky_dev_ops *next;
 };
+
+extern void __sky_register_devops(struct sky_dev_ops *ops);
+
+#define sky_register_devops(ops)                                       \
+       __attribute__((constructor)) static void register_devops(void)  \
+       {                                                               \
+               __sky_register_devops(ops);			       \
+       }                                                               \
+
+#define foreach_devops(ops, devops)			\
+       for (ops = devops; ops; ops = ops->next)
 
 struct sky_dev {
 	struct sky_dev_desc devdesc;
@@ -30,9 +43,5 @@ struct sky_dev {
 	bool unsubscribed;
 	pthread_t thread;
 };
-
-extern struct sky_dev_ops sky_remote_dev_ops;
-extern struct sky_dev_ops sky_local_dev_ops;
-extern struct sky_dev_ops sky_dummy_dev_ops;
 
 #endif /* LIBSKYSENSE_PRI_H */

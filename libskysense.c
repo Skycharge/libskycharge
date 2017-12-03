@@ -7,35 +7,45 @@
 #include "libskysense-pri.h"
 #include "types.h"
 
-static const struct sky_dev_ops *local_ops =
-	&sky_local_dev_ops;
-	/* &sky_dummy_dev_ops; */
+static struct sky_dev_ops *devops;
+
+void __sky_register_devops(struct sky_dev_ops *ops)
+{
+       ops->next = devops;
+       devops = ops;
+}
 
 int sky_devslist(const struct sky_dev_conf *conf, size_t num,
-		 struct sky_dev_desc **head)
+		 struct sky_dev_desc **out)
 {
-	int rc;
+	struct sky_dev_desc *head = NULL;
+	struct sky_dev_ops *ops;
+	int i, rc = -EINVAL;
 
-	/* TODO */
-	if (num != 1)
-		return -EINVAL;
-
-	*head = NULL;
-
-	if (conf->contype == SKY_LOCAL)
-		rc = local_ops->devslist(local_ops, conf, head);
-	else if (conf->contype == SKY_REMOTE)
-		rc = sky_remote_dev_ops.devslist(&sky_remote_dev_ops, conf, head);
-	else
-		return -EINVAL;
-
+	for (i = 0; i < num; i++) {
+		foreach_devops(ops, devops) {
+			if (ops->contype != conf->contype)
+				continue;
+			rc = ops->devslist(ops, conf, &head);
+			if (rc)
+				goto err;
+		}
+	}
 	if (rc)
+		/* No ops found */
 		return rc;
-
-	if (*head == NULL)
+	if (head == NULL)
+		/* No devices found */
 		return -ENODEV;
 
+	*out = head;
+
 	return 0;
+
+err:
+	sky_devsfree(head);
+
+	return rc;
 }
 
 void sky_devsfree(struct sky_dev_desc *head)

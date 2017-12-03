@@ -495,7 +495,8 @@ static int skyrem_coverclose(struct sky_dev *dev_)
 				     &req, sizeof(req));
 }
 
-struct sky_dev_ops sky_remote_dev_ops = {
+static struct sky_dev_ops sky_remote_devops = {
+	.contype = SKY_REMOTE,
 	.devslist = skyrem_devslist,
 	.devopen = skyrem_devopen,
 	.devclose = skyrem_devclose,
@@ -512,3 +513,4 @@ struct sky_dev_ops sky_remote_dev_ops = {
 	.coveropen = skyrem_coveropen,
 	.coverclose = skyrem_coverclose
 };
+sky_register_devops(&sky_remote_devops);

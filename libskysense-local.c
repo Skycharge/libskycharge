@@ -520,7 +520,8 @@ static int skyloc_coverclose(struct sky_dev *dev_)
 	return -EOPNOTSUPP;
 }
 
-struct sky_dev_ops sky_local_dev_ops = {
+static struct sky_dev_ops sky_local_devops = {
+	.contype = SKY_LOCAL,
 	.devslist = skyloc_devslist,
 	.devopen = skyloc_devopen,
 	.devclose = skyloc_devclose,
@@ -537,3 +538,4 @@ struct sky_dev_ops sky_local_dev_ops = {
 	.coveropen = skyloc_coveropen,
 	.coverclose = skyloc_coverclose
 };
+sky_register_devops(&sky_local_devops);
