@@ -25,7 +25,6 @@ struct sky_dev_ops {
 };
 
 struct sky_dev {
-	struct sky_dev_ops ops;
 	struct sky_dev_desc devdesc;
 	struct sky_subscription subsc;
 	bool unsubscribed;

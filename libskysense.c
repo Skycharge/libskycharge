@@ -49,6 +49,11 @@ void sky_devsfree(struct sky_dev_desc *head)
 	}
 }
 
+static inline const struct sky_dev_ops *get_devops(struct sky_dev *dev)
+{
+	return dev->devdesc.opaque_ops;
+}
+
 int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 {
 	const struct sky_dev_ops *ops = devdesc->opaque_ops;
@@ -58,7 +63,6 @@ int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 	if (!rc) {
 		struct sky_dev *dev = *dev_;
 
-		dev->ops  = *ops;
 		dev->devdesc = *devdesc;
 	}
 
@@ -68,27 +72,27 @@ int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 void sky_devclose(struct sky_dev *dev)
 {
 	(void)sky_unsubscribe(dev);
-	dev->ops.devclose(dev);
+	get_devops(dev)->devclose(dev);
 }
 
 int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc)
 {
-	return dev->ops.devinfo(dev, devdesc);
+	return get_devops(dev)->devinfo(dev, devdesc);
 }
 
 int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params)
 {
-	return dev->ops.paramsget(dev, params);
+	return get_devops(dev)->paramsget(dev, params);
 }
 
 int sky_paramsset(struct sky_dev *dev, struct sky_dev_params *params)
 {
-	return dev->ops.paramsset(dev, params);
+	return get_devops(dev)->paramsset(dev, params);
 }
 
 int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state)
 {
-	return dev->ops.chargingstate(dev, state);
+	return get_devops(dev)->chargingstate(dev, state);
 }
 
 static inline unsigned long long msecs_epoch(void)
@@ -112,7 +116,7 @@ static void *subscription_work(void *data)
 
 	while (!dev->unsubscribed) {
 		ms = msecs_epoch();
-		rc = dev->ops.subscription_work(dev, &state);
+		rc = get_devops(dev)->subscription_work(dev, &state);
 		ms = msecs_epoch() - ms;
 		if (!rc)
 			/* Notify subscribers only in case of success */
@@ -139,12 +143,12 @@ int sky_subscribe(struct sky_dev *dev,
 
 	memcpy(&dev->subsc, subsc, sizeof(*subsc));
 
-	rc = dev->ops.subscribe(dev);
+	rc = get_devops(dev)->subscribe(dev);
 	if (rc)
 		return rc;
 	rc = pthread_create(&dev->thread, NULL, subscription_work, dev);
 	if (rc)
-		dev->ops.unsubscribe(dev);
+		get_devops(dev)->unsubscribe(dev);
 
 	return -rc;
 }
@@ -160,32 +164,32 @@ int sky_unsubscribe(struct sky_dev *dev)
 	dev->unsubscribed = false;
 	dev->thread = 0;
 
-	dev->ops.unsubscribe(dev);
+	get_devops(dev)->unsubscribe(dev);
 
 	return 0;
 }
 
 int sky_reset(struct sky_dev *dev)
 {
-	return dev->ops.reset(dev);
+	return get_devops(dev)->reset(dev);
 }
 
 int sky_chargestart(struct sky_dev *dev)
 {
-	return dev->ops.chargestart(dev);
+	return get_devops(dev)->chargestart(dev);
 }
 
 int sky_chargestop(struct sky_dev *dev)
 {
-	return dev->ops.chargestop(dev);
+	return get_devops(dev)->chargestop(dev);
 }
 
 int sky_coveropen(struct sky_dev *dev)
 {
-	return dev->ops.coveropen(dev);
+	return get_devops(dev)->coveropen(dev);
 }
 
 int sky_coverclose(struct sky_dev *dev)
 {
-	return dev->ops.coverclose(dev);
+	return get_devops(dev)->coverclose(dev);
 }
