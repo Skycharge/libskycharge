@@ -9,7 +9,7 @@
 
 #include "libskysense-pri.h"
 #include "types.h"
-#include "proto.h"
+#include "skyproto.h"
 
 struct zocket {
 	void *ctx;

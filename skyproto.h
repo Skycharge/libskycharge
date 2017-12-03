@@ -1,5 +1,5 @@
-#ifndef PROTO_H
-#define PROTO_H
+#ifndef SKYPROTO_H
+#define SKYPROTO_H
 
 #include "types.h"
 
@@ -96,4 +96,4 @@ struct sky_charging_state_rsp {
 
 #pragma GCC diagnostic pop
 
-#endif /* PROTO_H */
+#endif /* SKYPROTO_H */

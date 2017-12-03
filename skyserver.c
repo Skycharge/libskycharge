@@ -12,7 +12,7 @@
 
 #include "skyserver-cmd.h"
 #include "libskysense.h"
-#include "proto.h"
+#include "skyproto.h"
 #include "types.h"
 
 struct zocket {
