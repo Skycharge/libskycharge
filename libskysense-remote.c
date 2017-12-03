@@ -21,11 +21,9 @@ struct skyrem_dev {
 	struct zocket zock;
 };
 
-static int skyrem_send_recv(struct skyrem_dev *dev,
-			    void *req, size_t req_len,
-			    void **rsp)
+static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
+			    void *req, size_t req_len, void **rsp)
 {
-	struct zocket *z = &dev->zock;
 	void *zock, *buf;
 	char zaddr[128];
 	uint32_t timeo;
@@ -34,12 +32,12 @@ static int skyrem_send_recv(struct skyrem_dev *dev,
 	int rc;
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      dev->dev.devdesc.conf.remote.hostname,
-		      dev->dev.devdesc.conf.remote.cmdport);
+		      conf->remote.hostname,
+		      conf->remote.cmdport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
-	zock = zmq_socket(z->ctx, ZMQ_REQ);
+	zock = zmq_socket(zctx, ZMQ_REQ);
 	if (zock == NULL)
 		return -ENOMEM;
 
@@ -101,10 +99,10 @@ out:
 	return rc;
 }
 
-static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
-				  enum sky_proto_type req_type,
-				  struct sky_req_hdr *req_, size_t req_len,
-				  struct sky_rsp_hdr *rsp_, size_t rsp_len)
+static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
+				    enum sky_proto_type req_type,
+				    struct sky_req_hdr *req_, size_t req_len,
+				    struct sky_rsp_hdr *rsp_, size_t rsp_len)
 {
 	struct sky_rsp_hdr *rsp = NULL;
 	enum sky_proto_type rsp_type;
@@ -127,7 +125,7 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 	rsp_type = req_type + 1;
 	req_->type = htole16(req_type);
 
-	rc = skyrem_send_recv(dev, req_, req_len, (void **)&rsp);
+	rc = skyrem_send_recv(zctx, conf, req_, req_len, (void **)&rsp);
 	if (rc < 0)
 		return rc;
 	if (rc < sizeof(*rsp)) {
@@ -151,6 +149,15 @@ out:
 	free(rsp);
 
 	return rc;
+}
+
+static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
+				  enum sky_proto_type req_type,
+				  struct sky_req_hdr *req_, size_t req_len,
+				  struct sky_rsp_hdr *rsp_, size_t rsp_len)
+{
+	return __skyrem_complex_req_rsp(dev->zock.ctx, &dev->dev.devdesc.conf,
+					req_type, req_, req_len, rsp_, rsp_len);
 }
 
 static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
