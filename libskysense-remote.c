@@ -170,7 +170,8 @@ static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 	return -le16toh(rsp.error);
 }
 
-static int skyrem_devslist(const struct sky_dev_conf *conf,
+static int skyrem_devslist(const struct sky_dev_ops *ops,
+			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **head)
 {
 	struct sky_dev_desc *dev;
@@ -181,6 +182,7 @@ static int skyrem_devslist(const struct sky_dev_conf *conf,
 
 	dev->dev_type = SKY_INDOOR;
 	dev->conf = *conf;
+	dev->opaque_ops = ops;
 	/* TODO */
 	strcpy(dev->portname, "device on remote side");
 

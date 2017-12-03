@@ -23,9 +23,9 @@ int sky_devslist(const struct sky_dev_conf *conf, size_t num,
 	*head = NULL;
 
 	if (conf->contype == SKY_LOCAL)
-		rc = local_ops->devslist(conf, head);
+		rc = local_ops->devslist(local_ops, conf, head);
 	else if (conf->contype == SKY_REMOTE)
-		rc = sky_remote_dev_ops.devslist(conf, head);
+		rc = sky_remote_dev_ops.devslist(&sky_remote_dev_ops, conf, head);
 	else
 		return -EINVAL;
 
@@ -51,15 +51,8 @@ void sky_devsfree(struct sky_dev_desc *head)
 
 int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 {
-	const struct sky_dev_ops *ops;
+	const struct sky_dev_ops *ops = devdesc->opaque_ops;
 	int rc;
-
-	if (devdesc->conf.contype == SKY_LOCAL)
-		ops = local_ops;
-	else if (devdesc->conf.contype == SKY_REMOTE)
-		ops = &sky_remote_dev_ops;
-	else
-		return -EINVAL;
 
 	rc = ops->devopen(devdesc, dev_);
 	if (!rc) {

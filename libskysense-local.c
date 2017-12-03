@@ -200,7 +200,8 @@ out:
 	return rc;
 }
 
-static int skyloc_devslist(const struct sky_dev_conf *conf,
+static int skyloc_devslist(const struct sky_dev_ops *ops,
+			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *dev, *head = NULL, *tail = NULL;
@@ -230,6 +231,7 @@ static int skyloc_devslist(const struct sky_dev_conf *conf,
 		dev->dev_type = SKY_INDOOR;
 		dev->next = head;
 		dev->conf = *conf;
+		dev->opaque_ops = ops;
 		head = dev;
 		if (tail == NULL)
 			tail = dev;

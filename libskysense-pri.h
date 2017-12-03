@@ -5,7 +5,8 @@
 #include "types.h"
 
 struct sky_dev_ops {
-	int (*devslist)(const struct sky_dev_conf *conf, struct sky_dev_desc **head);
+	int (*devslist)(const struct sky_dev_ops *ops,
+			const struct sky_dev_conf *conf, struct sky_dev_desc **head);
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 	void (*devclose)(struct sky_dev *dev);
 	int (*devinfo)(struct sky_dev *dev, struct sky_dev_desc *devdesc);

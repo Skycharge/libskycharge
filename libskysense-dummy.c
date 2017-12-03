@@ -13,7 +13,8 @@ struct skydum_dev {
 	struct sky_dev_desc devdesc;
 };
 
-static int skydum_devslist(const struct sky_dev_conf *conf,
+static int skydum_devslist(const struct sky_dev_ops *ops,
+			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **head)
 {
 	struct sky_dev_desc *dev;
@@ -24,6 +25,7 @@ static int skydum_devslist(const struct sky_dev_conf *conf,
 
 	dev->dev_type = SKY_INDOOR;
 	dev->conf = *conf;
+	dev->opaque_ops = ops;
 	strcpy(dev->portname, "port0");
 
 	dev->next = *head;
