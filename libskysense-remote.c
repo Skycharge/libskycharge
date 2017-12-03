@@ -22,6 +22,7 @@ struct skyrem_dev {
 };
 
 static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
+			    const void *ident, size_t ident_len,
 			    void *req, size_t req_len, void **rsp)
 {
 	void *zock, *buf;
@@ -41,6 +42,13 @@ static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
 	if (zock == NULL)
 		return -ENOMEM;
 
+	if (ident && ident_len) {
+		rc = zmq_setsockopt(zock, ZMQ_IDENTITY, ident, ident_len);
+		if (rc != 0) {
+			rc = -errno;
+			goto out;
+		}
+	}
 	timeo = DEFAULT_TIMEOUT;
 	rc = zmq_setsockopt(zock, ZMQ_RCVTIMEO, &timeo, sizeof(timeo));
 	if (rc != 0) {
@@ -100,6 +108,7 @@ out:
 }
 
 static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
+				    const void *ident, size_t ident_len,
 				    enum sky_proto_type req_type,
 				    struct sky_req_hdr *req_, size_t req_len,
 				    struct sky_rsp_hdr **rsp)
@@ -122,7 +131,8 @@ static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
 
 	/* Make compiler happy */
 	*rsp = NULL;
-	rc = skyrem_send_recv(zctx, conf, req_, req_len, (void **)rsp);
+	rc = skyrem_send_recv(zctx, conf, ident, ident_len,
+			      req_, req_len, (void **)rsp);
 	if (rc < 0)
 		return rc;
 	if (rc < sizeof(**rsp)) {
@@ -157,6 +167,8 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 		return -EINVAL;
 	}
 	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &dev->dev.devdesc.conf,
+				      dev->dev.devdesc.portname,
+				      strlen(dev->dev.devdesc.portname),
 				      req_type, req_, req_len, &rsp);
 	if (rc < 0)
 		return rc;
@@ -206,7 +218,7 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 	if (!zctx)
 		return -ENOMEM;
 
-	rc = __skyrem_complex_req_rsp(zctx, conf, SKY_DEVS_LIST_REQ,
+	rc = __skyrem_complex_req_rsp(zctx, conf, NULL, 0, SKY_DEVS_LIST_REQ,
 				      &req, sizeof(req), &rsp_hdr);
 	if (rc < 0)
 		goto out;

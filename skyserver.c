@@ -123,7 +123,8 @@ static inline void sky_free(void *rsp)
 		free(rsp);
 }
 
-static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
+static void sky_execute_cmd(struct sky_server *serv, const void *ident,
+			    size_t ident_len, void *req_, size_t req_len,
 			    struct sky_rsp_hdr **rsp_hdr, size_t *rsp_len)
 {
 	enum sky_proto_type req_type = SKY_UNKNOWN_REQRSP;
@@ -602,7 +603,8 @@ static int sky_server_loop(struct sky_server *serv, const char *addr,
 			sky_err("sky_zocket_recv(): %s\n", strerror(-rc));
 			break;
 		}
-		sky_execute_cmd(serv, req, req_len, &rsp, &rsp_len);
+		sky_execute_cmd(serv, ident, ident_len, req, req_len,
+				&rsp, &rsp_len);
 		rc = sky_zocket_send(serv->zock.router, ident, ident_len,
 				     rsp, rsp_len, false);
 		if (rc < 0)
