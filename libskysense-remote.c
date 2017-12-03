@@ -14,7 +14,6 @@
 struct zocket {
 	void *ctx;
 	void *sub;
-	void *pub;
 };
 
 struct skyrem_dev {
