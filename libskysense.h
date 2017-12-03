@@ -100,7 +100,7 @@ struct sky_dev_desc {
 	struct sky_dev_conf conf;
 	enum sky_dev_type dev_type;
 	const void *opaque_ops;
-	char portname[256];
+	char portname[32];
 };
 
 #define foreach_devdesc(devdesc, head)		\

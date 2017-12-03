@@ -83,7 +83,7 @@ struct sky_set_dev_params_req {
 struct sky_dev_info_rsp {
 	struct sky_rsp_hdr hdr;
 	le16 dev_type;
-	char portname[256];
+	char portname[32];
 };
 
 struct sky_charging_state_rsp {
