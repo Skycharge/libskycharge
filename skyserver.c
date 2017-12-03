@@ -332,6 +332,51 @@ static void sky_execute_cmd(struct sky_server *serv, void *req_, size_t req_len,
 
 		break;
 	}
+	case SKY_DEVS_LIST_REQ: {
+		struct sky_dev_desc *dev, *head;
+		struct sky_devs_list_rsp *rsp;
+		struct sky_dev_conf local_conf = {
+			.contype = SKY_LOCAL
+		};
+
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rc = sky_devslist(&local_conf, 1, &head);
+
+		rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
+		rsp->hdr.error = htole16(-rc);
+		if (!rc) {
+			int num;
+
+			foreach_devdesc(dev, head)
+				len += sizeof(rsp->info[0]);
+
+			rsp = realloc(rsp, len);
+			if (!rsp) {
+				free(rsp_void);
+				sky_devsfree(head);
+				rc = -ENOMEM;
+				goto emergency;
+			}
+			rsp_void = rsp;
+			num = 0;
+			foreach_devdesc(dev, head) {
+				struct sky_dev_info *info = &rsp->info[num++];
+
+				info->dev_type = htole16(dev->dev_type);
+				memcpy(info->portname, dev->portname,
+				       sizeof(dev->portname));
+			}
+			sky_devsfree(head);
+			rsp->num_devs = htole16(num);
+		}
+		break;
+	}
 	default:
 		sky_err("unknown request: %d\n", req_type);
 		rc = -EINVAL;

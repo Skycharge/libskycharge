@@ -192,24 +192,73 @@ static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 
 static int skyrem_devslist(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
-			   struct sky_dev_desc **head)
+			   struct sky_dev_desc **out)
 {
-	struct sky_dev_desc *dev;
+	struct sky_dev_desc *head = NULL, *tail = NULL;
+	struct sky_devs_list_rsp *rsp;
+	struct sky_rsp_hdr *rsp_hdr;
+	struct sky_req_hdr req;
+	size_t num_devs, len;
+	void *zctx;
+	int rc;
 
-	dev = calloc(1, sizeof(*dev));
-	if (!dev)
+	zctx = zmq_ctx_new();
+	if (!zctx)
 		return -ENOMEM;
 
-	dev->dev_type = SKY_INDOOR;
-	dev->conf = *conf;
-	dev->opaque_ops = ops;
-	/* TODO */
-	strcpy(dev->portname, "device on remote side");
+	rc = __skyrem_complex_req_rsp(zctx, conf, SKY_DEVS_LIST_REQ,
+				      &req, sizeof(req), &rsp_hdr);
+	if (rc < 0)
+		goto out;
 
-	dev->next = *head;
-	*head = dev;
+	len = rc;
+	rc = -le16toh(rsp_hdr->error);
+	if (rc)
+		goto out;
 
-	return 0;
+	rsp = (struct sky_devs_list_rsp *)rsp_hdr;
+	num_devs = le16toh(rsp->num_devs);
+
+	/* Sanity checks */
+	if (len != sizeof(*rsp) + sizeof(rsp->info[0]) * num_devs) {
+		/* Malformed response */
+		rc = -ECONNRESET;
+		goto out;
+	}
+	if (num_devs) {
+		struct sky_dev_desc *devdesc;
+		int i;
+
+		for (i = 0; i < num_devs; i++) {
+			struct sky_dev_info *info = &rsp->info[i];
+
+			devdesc = calloc(1, sizeof(*devdesc));
+			if (!devdesc) {
+				rc = -ENOMEM;
+				sky_devsfree(head);
+				goto out;
+			}
+			devdesc->dev_type = le16toh(info->dev_type);
+			devdesc->conf = *conf;
+			devdesc->opaque_ops = ops;
+			memcpy(devdesc->portname, info->portname,
+			       sizeof(info->portname));
+
+			devdesc->next = head;
+			head = devdesc;
+			if (tail == NULL)
+				tail = devdesc;
+		}
+	}
+	rc = 0;
+	if (head) {
+		tail->next = *out;
+		*out = head;
+	}
+out:
+	zmq_ctx_term(zctx);
+
+	return rc;
 }
 
 static int skyrem_devopen(const struct sky_dev_desc *devdesc,

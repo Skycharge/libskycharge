@@ -41,6 +41,9 @@ enum sky_proto_type {
 	SKY_RESET_DEV_REQ      = 15,
 	SKY_RESET_DEV_RSP      = 16,
 
+	SKY_DEVS_LIST_REQ      = 17,
+	SKY_DEVS_LIST_RSP      = 18,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -88,6 +91,12 @@ struct sky_dev_info {
 struct sky_dev_info_rsp {
 	struct sky_rsp_hdr hdr;
 	struct sky_dev_info info;
+};
+
+struct sky_devs_list_rsp {
+	struct sky_rsp_hdr hdr;
+	le16 num_devs;
+	struct sky_dev_info info[];
 };
 
 struct sky_charging_state_rsp {
