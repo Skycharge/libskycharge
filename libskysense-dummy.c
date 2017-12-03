@@ -26,7 +26,7 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 	dev->dev_type = SKY_INDOOR;
 	dev->conf = *conf;
 	dev->opaque_ops = ops;
-	strcpy(dev->portname, "port0");
+	strcpy(dev->portname, "dummy0");
 
 	dev->next = *head;
 	*head = dev;
@@ -43,7 +43,6 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 	if (!dev)
 		return -ENOMEM;
 
-	strcpy(dev->devdesc.portname, "port0");
 	*dev_ = &dev->dev;
 
 	return 0;
