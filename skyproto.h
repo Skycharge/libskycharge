@@ -80,10 +80,14 @@ struct sky_set_dev_params_req {
 	le32 dev_params[];
 };
 
-struct sky_dev_info_rsp {
-	struct sky_rsp_hdr hdr;
+struct sky_dev_info {
 	le16 dev_type;
 	char portname[32];
+};
+
+struct sky_dev_info_rsp {
+	struct sky_rsp_hdr hdr;
+	struct sky_dev_info info;
 };
 
 struct sky_charging_state_rsp {
