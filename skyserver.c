@@ -571,8 +571,7 @@ static int sky_zocket_send(void *zock, const void *ident, int ident_len,
 	return rc;
 }
 
-static int sky_server_loop(struct sky_server *serv, const char *addr,
-			   const char *portstr)
+static int sky_server_loop(struct sky_server *serv)
 {
 	struct sky_subscription subsc = {
 		.on_state = sky_on_charging_state,
@@ -585,14 +584,10 @@ static int sky_server_loop(struct sky_server *serv, const char *addr,
 	size_t rsp_len;
 	int rc;
 
-	rc = sky_zocket_create(serv, addr, atoi(portstr));
-	if (rc)
-		return rc;
-
 	rc = sky_subscribe(serv->dev, &subsc);
 	if (rc) {
 		sky_err("sky_subscribe(): %s\n", strerror(-rc));
-		goto destroy_zock;
+		return rc;
 	}
 
 	while (1) {
@@ -616,8 +611,6 @@ static int sky_server_loop(struct sky_server *serv, const char *addr,
 	}
 
 	sky_unsubscribe(serv->dev);
-destroy_zock:
-	sky_zocket_destroy(serv);
 
 	return rc;
 }
@@ -638,6 +631,11 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
+	rc = sky_zocket_create(&serv, cli.addr, atoi(cli.port));
+	if (rc) {
+		sky_err("Can't create server sockets: %s\n", strerror(-rc));
+		return rc;
+	}
 	rc = sky_devslist(&conf, 1, &devdescs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
@@ -654,8 +652,9 @@ int main(int argc, char *argv[])
 	if (cli.daemon)
 		sky_daemonize(cli.pidf);
 
-	rc = sky_server_loop(&serv, cli.addr, cli.port);
+	rc = sky_server_loop(&serv);
 	sky_devclose(serv.dev);
+	sky_zocket_destroy(&serv);
 	cli_free(&cli);
 
 	return rc;
