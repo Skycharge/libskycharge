@@ -123,12 +123,33 @@ static inline void sky_free(void *rsp)
 		free(rsp);
 }
 
+static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
+					   const char *portname,
+					   size_t len)
+{
+	struct sky_dev_desc devdesc;
+	int rc;
+
+	rc = sky_devinfo(serv->dev, &devdesc);
+	if (rc) {
+		sky_err("sky_devinfo(): %s\n", strerror(-rc));
+		return NULL;
+	}
+	len = min(len, sizeof(devdesc.portname));
+	if (memcmp(devdesc.portname, portname, len))
+		return NULL;
+
+	return serv->dev;
+}
+
 static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			    size_t ident_len, void *req_, size_t req_len,
 			    struct sky_rsp_hdr **rsp_hdr, size_t *rsp_len)
 {
 	enum sky_proto_type req_type = SKY_UNKNOWN_REQRSP;
 	struct sky_req_hdr *req_hdr = req_;
+	struct sky_dev *dev;
+
 	void *rsp_void = NULL;
 	size_t len;
 	int rc, i;
@@ -148,6 +169,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		struct sky_dev_params params;
 		int num;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		if (req_len < sizeof(*req)) {
 			sky_err("malformed request\n");
 			rc = -EINVAL;
@@ -168,7 +194,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			rc = -ENOMEM;
 			goto emergency;
 		}
-		rc = sky_paramsget(serv->dev, &params);
+		rc = sky_paramsget(dev, &params);
 
 		rsp->hdr.type  = htole16(SKY_GET_DEV_PARAMS_RSP);
 		rsp->hdr.error = htole16(-rc);
@@ -187,6 +213,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		};
 		int ind;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		if (req_len < sizeof(*req)) {
 			sky_err("malformed request\n");
 			rc = -EINVAL;
@@ -218,7 +249,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			params.dev_params[i] = le32toh(req->dev_params[ind++]);
 		}
 
-		rc = sky_paramsset(serv->dev, &params);
+		rc = sky_paramsset(dev, &params);
 
 		rsp->type  = htole16(SKY_SET_DEV_PARAMS_RSP);
 		rsp->error = htole16(-rc);
@@ -228,6 +259,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_START_CHARGE_REQ: {
 		struct sky_rsp_hdr *rsp;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
 		if (!rsp) {
@@ -235,7 +271,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_chargestart(serv->dev);
+		rc = sky_chargestart(dev);
 
 		rsp->type  = htole16(SKY_START_CHARGE_RSP);
 		rsp->error = htole16(-rc);
@@ -245,6 +281,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_STOP_CHARGE_REQ: {
 		struct sky_rsp_hdr *rsp;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
 		if (!rsp) {
@@ -252,7 +293,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_chargestop(serv->dev);
+		rc = sky_chargestop(dev);
 
 		rsp->type  = htole16(SKY_STOP_CHARGE_RSP);
 		rsp->error = htole16(-rc);
@@ -262,6 +303,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_OPEN_COVER_REQ: {
 		struct sky_rsp_hdr *rsp;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
 		if (!rsp) {
@@ -269,7 +315,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_coveropen(serv->dev);
+		rc = sky_coveropen(dev);
 
 		rsp->type  = htole16(SKY_OPEN_COVER_RSP);
 		rsp->error = htole16(-rc);
@@ -279,6 +325,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_CLOSE_COVER_REQ: {
 		struct sky_rsp_hdr *rsp;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
 		if (!rsp) {
@@ -286,7 +337,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_coveropen(serv->dev);
+		rc = sky_coveropen(dev);
 
 		rsp->type  = htole16(SKY_CLOSE_COVER_RSP);
 		rsp->error = htole16(-rc);
@@ -297,6 +348,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		struct sky_charging_state_rsp *rsp;
 		struct sky_charging_state state;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
 		if (!rsp) {
@@ -304,7 +360,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_chargingstate(serv->dev, &state);
+		rc = sky_chargingstate(dev, &state);
 
 		rsp->hdr.type  = htole16(SKY_CHARGING_STATE_RSP);
 		rsp->hdr.error = htole16(-rc);
@@ -319,6 +375,11 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_RESET_DEV_REQ: {
 		struct sky_rsp_hdr *rsp;
 
+		dev = sky_find_dev(serv, ident, ident_len);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
 		len = sizeof(*rsp);
 		rsp = rsp_void = calloc(1, len);
 		if (!rsp) {
@@ -326,7 +387,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_reset(serv->dev);
+		rc = sky_reset(dev);
 
 		rsp->type  = htole16(SKY_RESET_DEV_RSP);
 		rsp->error = htole16(-rc);
