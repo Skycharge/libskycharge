@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include <zmq.h>
 
@@ -21,9 +22,18 @@ struct zocket {
 	void *router;
 };
 
-struct sky_server {
+struct sky_server;
+
+struct sky_server_dev {
+	struct sky_server *serv;
+	struct sky_dev_desc *devdesc;
 	struct sky_dev *dev;
+};
+
+struct sky_server {
 	struct zocket zock;
+	struct sky_server_dev *devs;
+	struct sky_dev_desc *devhead;
 };
 
 #define sky_err(fmt, ...) \
@@ -98,36 +108,40 @@ static int sky_daemonize(const char *pidfile)
 	return 0;
 }
 
+static pthread_mutex_t subsc_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
+	struct sky_server_dev *servdev = data;
+	struct sky_server *serv = servdev->serv;
 	struct sky_charging_state_rsp msg;
-	struct sky_server *serv = data;
-	struct sky_dev_desc devdesc;
 	size_t len;
 	int rc;
 
-	rc = sky_devinfo(serv->dev, &devdesc);
-	if (rc) {
-		sky_err("sky_devinfo(): %s\n", strerror(-rc));
-		return;
-	}
 	msg.hdr.type = htole16(SKY_CHARGING_STATE_EV);
 	msg.hdr.error = 0;
 	msg.dev_hw_state = htole16(state->dev_hw_state);
 	msg.current = htole16(state->current);
 	msg.voltage = htole16(state->voltage);
 
+	pthread_mutex_lock(&subsc_mutex);
 	/* Publisher topic (device portname) */
-	len = sizeof(devdesc.portname);
-	rc = zmq_send(serv->zock.pub, devdesc.portname, len, ZMQ_SNDMORE);
+	len = sizeof(servdev->devdesc->portname);
+	rc = zmq_send(serv->zock.pub, servdev->devdesc->portname,
+		      len, ZMQ_SNDMORE);
 	if (rc != len) {
 		sky_err("zmq_send(): %s\n", strerror(-rc));
-		return;
+		goto unlock;
 	}
 	/* Actual message */
 	rc = zmq_send(serv->zock.pub, &msg, sizeof(msg), 0);
 	if (rc != sizeof(msg))
 		sky_err("zmq_send(): %s\n", strerror(-rc));
+
+unlock:
+	pthread_mutex_unlock(&subsc_mutex);
+
+	return;
 }
 
 static struct sky_rsp_hdr emergency_rsp;
@@ -142,19 +156,23 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 					   const char *portname,
 					   size_t len)
 {
-	struct sky_dev_desc devdesc;
-	int rc;
+	struct sky_dev_desc *devdesc;
+	int num;
 
-	rc = sky_devinfo(serv->dev, &devdesc);
-	if (rc) {
-		sky_err("sky_devinfo(): %s\n", strerror(-rc));
-		return NULL;
+	/*
+	 * For now do linear search.  Far from optimal, but simple.
+	 */
+
+	num = 0;
+	foreach_devdesc(devdesc, serv->devhead) {
+		struct sky_server_dev *servdev = &serv->devs[num++];
+
+		len = min(sizeof(devdesc->portname), len);
+		if (!memcmp(devdesc->portname, portname, len))
+			return servdev->dev;
 	}
-	len = min(len, sizeof(devdesc.portname));
-	if (memcmp(devdesc.portname, portname, len))
-		return NULL;
 
-	return serv->dev;
+	return NULL;
 }
 
 static void sky_execute_cmd(struct sky_server *serv, const void *ident,
@@ -649,22 +667,11 @@ static int sky_zocket_send(void *zock, const void *ident, int ident_len,
 
 static int sky_server_loop(struct sky_server *serv)
 {
-	struct sky_subscription subsc = {
-		.on_state = sky_on_charging_state,
-		.interval_msecs = 1000,
-		.data = serv
-	};
 	void *ident = NULL, *req = NULL; /* make gcc happy */
 	int ident_len = 0, req_len;
 	struct sky_rsp_hdr *rsp;
 	size_t rsp_len;
 	int rc;
-
-	rc = sky_subscribe(serv->dev, &subsc);
-	if (rc) {
-		sky_err("sky_subscribe(): %s\n", strerror(-rc));
-		return rc;
-	}
 
 	while (1) {
 		req_len = sky_zocket_recv(serv->zock.router, &ident,
@@ -686,8 +693,6 @@ static int sky_server_loop(struct sky_server *serv)
 		free(req);
 	}
 
-	sky_unsubscribe(serv->dev);
-
 	return rc;
 }
 
@@ -698,39 +703,83 @@ int main(int argc, char *argv[])
 	};
 	struct sky_server serv = {
 	};
-	struct sky_dev_desc *devdescs;
+	struct sky_dev_desc *devdesc;
 	struct cli cli;
-	int rc;
+	int num, rc;
 
 	rc = cli_parse(argc, argv, &cli);
 	if (rc) {
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
-	rc = sky_zocket_create(&serv, cli.addr, atoi(cli.port));
-	if (rc) {
-		sky_err("Can't create server sockets: %s\n", strerror(-rc));
-		return rc;
-	}
-	rc = sky_devslist(&conf, 1, &devdescs);
-	if (rc) {
-		sky_err("sky_devslist(): %s\n", strerror(-rc));
-		return rc;
-	}
-	/* Take first available device */
-	rc = sky_devopen(devdescs, &serv.dev);
-	sky_devsfree(devdescs);
-	if (rc) {
-		sky_err("sky_devpopen(): %s\n", strerror(-rc));
-		return rc;
-	}
-
+	/*
+	 * Daemonize before creating zmq socket, ZMQ is written by
+	 * people who are not able to deal with fork() gracefully.
+	 */
 	if (cli.daemon)
 		sky_daemonize(cli.pidf);
 
+	rc = sky_zocket_create(&serv, cli.addr, atoi(cli.port));
+	if (rc) {
+		sky_err("Can't create server sockets: %s\n", strerror(-rc));
+		goto free_cli;
+	}
+	rc = sky_devslist(&conf, 1, &serv.devhead);
+	if (rc) {
+		sky_err("sky_devslist(): %s\n", strerror(-rc));
+		goto destroy_zocket;
+	}
+	num = 0;
+	foreach_devdesc(devdesc, serv.devhead)
+		num++;
+	serv.devs = calloc(num, sizeof(*serv.devs));
+	if (serv.devs == NULL) {
+		rc = -ENOMEM;
+		goto free_devs;
+	}
+	num = 0;
+	foreach_devdesc(devdesc, serv.devhead) {
+		struct sky_subscription subsc = {
+			.on_state = sky_on_charging_state,
+			.interval_msecs = 1000,
+		};
+		struct sky_server_dev *servdev;
+
+		servdev = &serv.devs[num];
+		servdev->serv = &serv;
+		servdev->devdesc = devdesc;
+		rc = sky_devopen(devdesc, &servdev->dev);
+		if (rc) {
+			sky_err("sky_devpopen(): %s\n", strerror(-rc));
+			goto close_devs;
+		}
+		subsc.data = servdev;
+		rc = sky_subscribe(servdev->dev, &subsc);
+		if (rc) {
+			sky_err("sky_subscribe(): %s\n", strerror(-rc));
+			sky_devclose(servdev->dev);
+			servdev->dev = NULL;
+			goto close_devs;
+		}
+		num++;
+	}
 	rc = sky_server_loop(&serv);
-	sky_devclose(serv.dev);
+
+close_devs:
+	num = 0;
+	foreach_devdesc(devdesc, serv.devhead) {
+		struct sky_dev *dev = serv.devs[num++].dev;
+
+		if (dev == NULL)
+			continue;
+		sky_unsubscribe(dev);
+		sky_devclose(dev);
+	}
+free_devs:
+	sky_devsfree(serv.devhead);
+destroy_zocket:
 	sky_zocket_destroy(&serv);
+free_cli:
 	cli_free(&cli);
 
 	return rc;

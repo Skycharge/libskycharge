@@ -100,7 +100,7 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		exit(-1);
 	}
-	/* Take first available device */
+	/* TODO: always first available device */
 	rc = sky_devopen(*devdescs, dev);
 	if (rc) {
 		sky_err("sky_devopen(): %s\n", strerror(-rc));
