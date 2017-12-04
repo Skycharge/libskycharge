@@ -410,17 +410,19 @@ static int skyrem_chargingstate(struct sky_dev *dev_,
 
 static int skyrem_subscribe(struct sky_dev *dev_)
 {
+	struct sky_dev_desc *devdesc;
 	struct skyrem_dev *dev;
 	char zaddr[128];
 	uint32_t timeo;
 	void *sub;
 	int rc;
 
+	devdesc = &dev_->devdesc;
 	dev = container_of(dev_, struct skyrem_dev, dev);
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      dev->dev.devdesc.conf.remote.hostname,
-		      dev->dev.devdesc.conf.remote.subport);
+		      devdesc->conf.remote.hostname,
+		      devdesc->conf.remote.subport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
@@ -440,7 +442,8 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 		zmq_close(sub);
 		return rc;
 	}
-	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "", 0);
+	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, devdesc->portname,
+			    sizeof(devdesc->portname));
 	if (rc != 0) {
 		zmq_close(sub);
 		return rc;
@@ -468,12 +471,19 @@ static void skyrem_unsubscribe(struct sky_dev *dev_)
 static int skyrem_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
-	struct sky_charging_state_rsp rsp;
+	struct sky_charging_state_rsp rsp;;
+	char portname[PORTNAME_LEN]; /* act as a zmq topic */
 	struct skyrem_dev *dev;
 	int rc;
 
 	dev = container_of(dev_, struct skyrem_dev, dev);
 
+	/* TODO: we can sleep here forever */
+	rc = zmq_recv(dev->zock.sub, portname, sizeof(portname), 0);
+	if (rc < 0)
+		return -errno;
+	if (rc != PORTNAME_LEN)
+		return -ECONNRESET;
 	/* TODO: we can sleep here forever */
 	rc = zmq_recv(dev->zock.sub, &rsp, sizeof(rsp), 0);
 	if (rc < 0)

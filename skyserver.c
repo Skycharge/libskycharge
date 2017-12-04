@@ -102,14 +102,29 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
 	struct sky_charging_state_rsp msg;
 	struct sky_server *serv = data;
+	struct sky_dev_desc devdesc;
+	size_t len;
 	int rc;
 
+	rc = sky_devinfo(serv->dev, &devdesc);
+	if (rc) {
+		sky_err("sky_devinfo(): %s\n", strerror(-rc));
+		return;
+	}
 	msg.hdr.type = htole16(SKY_CHARGING_STATE_EV);
 	msg.hdr.error = 0;
 	msg.dev_hw_state = htole16(state->dev_hw_state);
 	msg.current = htole16(state->current);
 	msg.voltage = htole16(state->voltage);
 
+	/* Publisher topic (device portname) */
+	len = sizeof(devdesc.portname);
+	rc = zmq_send(serv->zock.pub, devdesc.portname, len, ZMQ_SNDMORE);
+	if (rc != len) {
+		sky_err("zmq_send(): %s\n", strerror(-rc));
+		return;
+	}
+	/* Actual message */
 	rc = zmq_send(serv->zock.pub, &msg, sizeof(msg), 0);
 	if (rc != sizeof(msg))
 		sky_err("zmq_send(): %s\n", strerror(-rc));
