@@ -238,7 +238,7 @@ int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params);
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_paramsset(struct sky_dev *dev, struct sky_dev_params *params);
+int sky_paramsset(struct sky_dev *dev, const struct sky_dev_params *params);
 
 /**
  * sky_chargingstate() - Charging device state.

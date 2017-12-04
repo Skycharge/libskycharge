@@ -77,7 +77,8 @@ static int skydum_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 	return 0;
 }
 
-static int skydum_paramsset(struct sky_dev *dev_, struct sky_dev_params *params)
+static int skydum_paramsset(struct sky_dev *dev_,
+			    const struct sky_dev_params *params)
 {
 	struct skydum_dev *dev;
 	int i;

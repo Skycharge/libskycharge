@@ -11,7 +11,7 @@ struct sky_dev_ops {
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 	void (*devclose)(struct sky_dev *dev);
 	int (*paramsget)(struct sky_dev *dev, struct sky_dev_params *params);
-	int (*paramsset)(struct sky_dev *dev, struct sky_dev_params *params);
+	int (*paramsset)(struct sky_dev *dev, const struct sky_dev_params *params);
 	int (*chargingstate)(struct sky_dev *dev, struct sky_charging_state *state);
 	int (*subscribe)(struct sky_dev *dev);
 	void (*unsubscribe)(struct sky_dev *dev);

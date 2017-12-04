@@ -387,7 +387,8 @@ static int skyloc_serial_set_param(struct skyloc_dev *dev,
 			sizeof(param), &param, sizeof(val), &val);
 }
 
-static int skyloc_paramsset(struct sky_dev *dev_, struct sky_dev_params *params)
+static int skyloc_paramsset(struct sky_dev *dev_,
+			    const struct sky_dev_params *params)
 {
 	struct skyloc_dev *dev;
 	uint16_t val;

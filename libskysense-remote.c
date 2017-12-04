@@ -346,7 +346,8 @@ static int skyrem_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 	return 0;
 }
 
-static int skyrem_paramsset(struct sky_dev *dev_, struct sky_dev_params *params)
+static int skyrem_paramsset(struct sky_dev *dev_,
+			    const struct sky_dev_params *params)
 {
 	struct {
 		struct sky_set_dev_params_req req;
