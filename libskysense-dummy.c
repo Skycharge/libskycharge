@@ -2,6 +2,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include "libskysense-pri.h"
 #include "types.h"
@@ -124,11 +125,20 @@ static void skydum_unsubscribe(struct sky_dev *dev_)
 static int skydum_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
+	static float current = 2000, voltage = 17000;
+	static float cur_factor, vol_factor;
 	struct skydum_dev *dev;
 
+	cur_factor = 0.9 + 0.2 * rand()/RAND_MAX;
+	vol_factor = 0.9 + 0.2 * rand()/RAND_MAX;
+
+	current = current * cur_factor;
+	voltage = voltage * vol_factor;
+
 	dev = container_of(dev_, struct skydum_dev, dev);
-	dev->state.current += 1;
-	dev->state.voltage += 2;
+	dev->state.current = current;
+	dev->state.voltage = voltage;
+
 	dev->state.dev_hw_state += 1;
 	if (dev->state.dev_hw_state == 4)
 		dev->state.dev_hw_state = 5;
