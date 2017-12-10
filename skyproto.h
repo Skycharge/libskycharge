@@ -51,7 +51,10 @@ enum sky_proto_type {
 	SKY_CHARGING_STATE_EV  = 128
 };
 
-#define DEFAULT_TIMEOUT 30000
+enum {
+	DEFAULT_TIMEOUT = 30000,
+	PORTNAME_LEN = 32
+};
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wpadded"
@@ -85,7 +88,7 @@ struct sky_set_dev_params_req {
 
 struct sky_dev_info {
 	le16 dev_type;
-	char portname[32];
+	char portname[PORTNAME_LEN];
 };
 
 struct sky_dev_info_rsp {
