@@ -370,7 +370,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 			goto emergency;
 		}
 
-		rc = sky_coveropen(dev);
+		rc = sky_coverclose(dev);
 
 		rsp->type  = htole16(SKY_CLOSE_COVER_RSP);
 		rsp->error = htole16(-rc);
