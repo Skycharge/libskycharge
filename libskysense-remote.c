@@ -501,7 +501,8 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	state->voltage = le16toh(rsp.voltage);
 	state->current = le16toh(rsp.current);
 
-	return 0;
+	/* Indicate we sleep here */
+	return 1;
 }
 
 static int skyrem_reset(struct sky_dev *dev_)

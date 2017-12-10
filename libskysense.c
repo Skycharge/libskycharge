@@ -130,11 +130,12 @@ static void *subscription_work(void *data)
 		ms = msecs_epoch();
 		rc = get_devops(dev)->subscription_work(dev, &state);
 		ms = msecs_epoch() - ms;
-		if (!rc)
+		if (rc >= 0)
 			/* Notify subscribers only in case of success */
 			dev->subsc.on_state(dev->subsc.data, &state);
 
-		if (ms < dev->subsc.interval_msecs) {
+		/* We sleep only if subscription_work wants us to */
+		if (rc == 0 && ms < dev->subsc.interval_msecs) {
 			ms = dev->subsc.interval_msecs - ms;
 			usleep(ms * 1000);
 		}
