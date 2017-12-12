@@ -4,6 +4,7 @@ Priority: optional
 Maintainer: Skysense <skysense@skysense.com>
 Build-Depends: autotools-dev,
                debhelper (>= 9),
+               dh-systemd (>= 1.5),
                dh-autoreconf,
                dpkg-dev (>= 1.16.1),
 			   bison,
