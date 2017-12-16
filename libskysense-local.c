@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <string.h>
 #include <pthread.h>
@@ -99,6 +100,7 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 
 		return 2;
 	default:
+		assert(0);
 		return -EINVAL;
 	}
 }
