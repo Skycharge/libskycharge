@@ -93,11 +93,6 @@ struct sky_dev_info {
 	char portname[PORTNAME_LEN];
 };
 
-struct sky_dev_info_rsp {
-	struct sky_rsp_hdr hdr;
-	struct sky_dev_info info;
-};
-
 struct sky_devs_list_rsp {
 	struct sky_rsp_hdr hdr;
 	le16 num_devs;
