@@ -263,9 +263,13 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		printf("Device portname: %s\n", devdesc.portname);
-		printf("Device type:     %s\n", sky_devtype_to_str(devdesc.dev_type));
-
+		printf("Device portname:  %s\n", devdesc.portname);
+		printf("Device type:      %s\n",
+		       sky_devtype_to_str(devdesc.dev_type));
+		printf("Firmware version: %d.%d.%d\n",
+		       (devdesc.firmware_version >> 16) & 0xff,
+		       (devdesc.firmware_version >> 8) & 0xff,
+		       devdesc.firmware_version & 0xff);
 	} else
 		assert(0);
 
