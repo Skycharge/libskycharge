@@ -227,6 +227,86 @@ out:
 	return rc;
 }
 
+static int devopen(const struct sky_dev_desc *devdesc,
+			  struct skyloc_dev **dev_)
+{
+	struct skyloc_dev *dev;
+	struct sp_port_config* spconf;
+	enum sp_return sprc;
+
+	dev = calloc(1, sizeof(*dev));
+	if (!dev)
+		return -ENOMEM;
+
+	sprc = sp_get_port_by_name(devdesc->portname, &dev->port);
+	if (sprc)
+		goto free_dev;
+
+	sprc = sp_open(dev->port, SP_MODE_READ_WRITE);
+	if (sprc)
+		goto free_port;
+
+	sprc = sp_new_config(&spconf);
+	if (sprc)
+		goto close_port;
+
+	sprc = sp_get_config(dev->port, spconf);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config_flowcontrol(spconf, SP_FLOWCONTROL_NONE);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config_parity(spconf, SP_PARITY_NONE);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config_bits(spconf, 8);
+	if (sprc)
+		goto free_conf;
+
+	sprc = sp_set_config(dev->port, spconf);
+	if (sprc)
+		goto free_conf;
+
+	/*
+	 * TODO: this is very ugly, but shitty devserialport does not
+	 * provide any way to get fd or any lock mechanism.  So we have
+	 * to do locking ourselves.
+	 */
+	dev->lockfd = open(devdesc->portname, O_RDWR);
+	if (dev->lockfd < 0) {
+		sprc = SP_ERR_FAIL;
+		goto free_conf;
+	}
+
+	sp_free_config(spconf);
+	pthread_mutex_init(&dev->mutex, NULL);
+	*dev_ = dev;
+
+	return 0;
+
+free_conf:
+	sp_free_config(spconf);
+close_port:
+	sp_close(dev->port);
+free_port:
+	sp_free_port(dev->port);
+free_dev:
+	free(dev);
+
+	return sprc_to_errno(sprc);
+}
+
+static void devclose(struct skyloc_dev *dev)
+{
+	close(dev->lockfd);
+	sp_close(dev->port);
+	sp_free_port(dev->port);
+	free(dev);
+}
+
 static int skyloc_devslist(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **out)
@@ -284,73 +364,16 @@ err:
 static int skyloc_devopen(const struct sky_dev_desc *devdesc,
 			  struct sky_dev **dev_)
 {
-	struct skyloc_dev *dev;
-	struct sp_port_config* spconf;
-	enum sp_return sprc;
+	struct skyloc_dev *dev = NULL;
+	int rc;
 
-	dev = calloc(1, sizeof(*dev));
-	if (!dev)
-		return -ENOMEM;
+	rc = devopen(devdesc, &dev);
+	if (rc)
+		return rc;
 
-	sprc = sp_get_port_by_name(devdesc->portname, &dev->port);
-	if (sprc)
-		goto free_dev;
-
-	sprc = sp_open(dev->port, SP_MODE_READ_WRITE);
-	if (sprc)
-		goto free_port;
-
-	sprc = sp_new_config(&spconf);
-	if (sprc)
-		goto close_port;
-
-	sprc = sp_get_config(dev->port, spconf);
-	if (sprc)
-		goto free_conf;
-
-	sprc = sp_set_config_flowcontrol(spconf, SP_FLOWCONTROL_NONE);
-	if (sprc)
-		goto free_conf;
-
-	sprc = sp_set_config_parity(spconf, SP_PARITY_NONE);
-	if (sprc)
-		goto free_conf;
-
-	sprc = sp_set_config_bits(spconf, 8);
-	if (sprc)
-		goto free_conf;
-
-	sprc = sp_set_config(dev->port, spconf);
-	if (sprc)
-		goto free_conf;
-
-	/*
-	 * TODO: this is very ugly, but shitty devserialport does not
-	 * provide any way to get fd or any lock mechanism.  So we have
-	 * to do locking ourselves.
-	 */
-	dev->lockfd = open(devdesc->portname, O_RDWR);
-	if (dev->lockfd < 0) {
-		sprc = SP_ERR_FAIL;
-		goto free_conf;
-	}
-
-	sp_free_config(spconf);
-	pthread_mutex_init(&dev->mutex, NULL);
 	*dev_ = &dev->dev;
 
 	return 0;
-
-free_conf:
-	sp_free_config(spconf);
-close_port:
-	sp_close(dev->port);
-free_port:
-	sp_free_port(dev->port);
-free_dev:
-	free(dev);
-
-	return sprc_to_errno(sprc);
 }
 
 static void skyloc_devclose(struct sky_dev *dev_)
@@ -358,10 +381,7 @@ static void skyloc_devclose(struct sky_dev *dev_)
 	struct skyloc_dev *dev;
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
-	close(dev->lockfd);
-	sp_close(dev->port);
-	sp_free_port(dev->port);
-	free(dev);
+	devclose(dev);
 }
 
 static int skyloc_serial_get_param(struct skyloc_dev *dev,
