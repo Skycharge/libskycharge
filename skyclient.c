@@ -108,7 +108,8 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 	}
 }
 
-static void sky_print_charging_state(struct sky_charging_state *state)
+static void sky_print_charging_state(struct cli *cli,
+				     struct sky_charging_state *state)
 {
 	char timestr[64];
 	struct timeval tv;
@@ -125,15 +126,24 @@ static void sky_print_charging_state(struct sky_charging_state *state)
 	snprintf(timestr + len, sizeof(timestr) - len,
 		 ".%03ld", tv.tv_usec/1000);
 
-	printf("Timestamp: %s\n", timestr);
-	printf("Dev state: %s\n", sky_devstate_to_str(state->dev_hw_state));
-	printf("  Voltage: %d mV\n", state->voltage);
-	printf("  Current: %d mA\n", state->current);
+	if (cli->raw) {
+		printf("%s\t%d\t%d\t%s",
+		       timestr, state->voltage, state->current,
+		       sky_devstate_to_str(state->dev_hw_state));
+	} else {
+		printf("Timestamp: %s\n", timestr);
+		printf("Dev state: %s\n",
+		       sky_devstate_to_str(state->dev_hw_state));
+		printf("  Voltage: %d mV\n", state->voltage);
+		printf("  Current: %d mA\n", state->current);
+	}
 }
 
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
-	sky_print_charging_state(state);
+	struct cli *cli = data;
+
+	sky_print_charging_state(cli, state);
 	printf("\n");
 }
 
@@ -162,6 +172,7 @@ int main(int argc, char *argv[])
 		}
 	} else if (cli.monitor) {
 		struct sky_subscription sub = {
+			.data = &cli,
 			.on_state = sky_on_charging_state,
 			.interval_msecs = strtol(cli.intervalms, NULL, 10),
 		};
@@ -247,7 +258,7 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		sky_print_charging_state(&state);
+		sky_print_charging_state(&cli, &state);
 	} else if (cli.reset) {
 		rc = sky_reset(dev);
 		if (rc) {
