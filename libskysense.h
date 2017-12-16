@@ -133,12 +133,12 @@ struct sky_dev_params {
 };
 
 /**
- * sky_devslist() - Returns list of found local devices.
+ * sky_devslist() - Returns list of found devices.
  * @conf:     Array of configuration options.
  * @num:      Number of elements in @conf.
- * @list:     Fills list of all found local devices.
+ * @list:     Fills list of all found devices.
  *
- * Functions scans for all local Sky devices and puts them to the
+ * Functions scans for all Sky devices and puts them to the
  * list provided as an argument.  Do not forget to call sky_devsfree().
  *
  * RETURNS:
@@ -163,8 +163,7 @@ void sky_devsfree(struct sky_dev_desc *list);
  * @devdesc:   Device descriptor.
  * @dev:       Output pointer for storing device context.
  *
- * Function opens a device, described by device descriptor.  Device
- * can be either local or remote, see @conf->contype member.  In case
+ * Function opens a device, described by device descriptor.  In case
  * of success valid device context will be returned in @dev argument.
  * Do not forget to close the device with calling sky_devclose().
  *
@@ -172,7 +171,6 @@ void sky_devsfree(struct sky_dev_desc *list);
  * Returns 0 on success and <0 otherwise:
  *
  * -EPERM  if operation is not permitted.
- * -ECONNREFUSED no-one listening on the remote address (remote connection)
  * -ENOMEM if memory allocation failed.
  */
 int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
