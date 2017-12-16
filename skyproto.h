@@ -88,6 +88,8 @@ struct sky_set_dev_params_req {
 
 struct sky_dev_info {
 	le16 dev_type;
+	le16 padding;
+	le32 firmware_version;
 	char portname[PORTNAME_LEN];
 };
 
@@ -99,6 +101,7 @@ struct sky_dev_info_rsp {
 struct sky_devs_list_rsp {
 	struct sky_rsp_hdr hdr;
 	le16 num_devs;
+	le16 padding;
 	struct sky_dev_info info[];
 };
 

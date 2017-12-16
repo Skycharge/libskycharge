@@ -464,6 +464,8 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 				struct sky_dev_info *info = &rsp->info[num++];
 
 				info->dev_type = htole16(dev->dev_type);
+				info->firmware_version =
+					htole32(dev->firmware_version);
 				memcpy(info->portname, dev->portname,
 				       sizeof(dev->portname));
 			}

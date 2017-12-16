@@ -251,6 +251,8 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 				goto out;
 			}
 			devdesc->dev_type = le16toh(info->dev_type);
+			devdesc->firmware_version =
+				le32toh(info->firmware_version);
 			devdesc->conf = *conf;
 			devdesc->opaque_ops = ops;
 			memcpy(devdesc->portname, info->portname,
