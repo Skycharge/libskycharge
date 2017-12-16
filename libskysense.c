@@ -74,6 +74,7 @@ int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 		struct sky_dev *dev = *dev_;
 
 		dev->devdesc = *devdesc;
+		dev->devdesc.next = NULL;
 	}
 
 	return rc;
