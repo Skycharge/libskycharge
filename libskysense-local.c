@@ -125,6 +125,11 @@ out:
 	return len;
 }
 
+static inline int is_valid_rsp_hdr(const char *rsp, uint8_t len, uint8_t cmd)
+{
+	return (rsp[0] == 0x55 && rsp[1] == len && rsp[2] == cmd);
+}
+
 static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 			     unsigned req_num, int rsp_num,
 			     ...)
@@ -180,12 +185,25 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 			rc = -EINVAL;
 			goto out_unlock;
 		}
-		sprc = sp_blocking_read(dev->port, rsp_buf,
-					len + 4, TIMEOUT_MS);
+		/* Firstly read header */
+		sprc = sp_blocking_read(dev->port, rsp_buf, 3, TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			goto out_unlock;
-		} else if (sprc != len + 4) {
+		} else if (sprc != 3) {
+			rc = -ETIMEDOUT;
+			goto out_unlock;
+		} else if (!is_valid_rsp_hdr(rsp_buf, len + 4, cmd)) {
+			rc = -EPROTO;
+			goto out_unlock;
+		}
+		/* Read the rest */
+		sprc = sp_blocking_read(dev->port, rsp_buf + 3,
+					len + 1, TIMEOUT_MS);
+		if (sprc < 0) {
+			rc = sprc_to_errno(sprc);
+			goto out_unlock;
+		} else if (sprc != len + 1) {
 			rc = -ETIMEDOUT;
 			goto out_unlock;
 		}
