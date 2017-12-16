@@ -24,6 +24,7 @@ enum sky_serial_cmd {
 	SKY_COUPLE_SCAN_CMD        = 0x0a,
 	SKY_COUPLE_ACTIVATE_CMD    = 0x0b,
 	SKY_COUPLE_DEACTIVATE_CMD  = 0x0c,
+	SKY_FIRMWARE_VERSION_CMD   = 0x0d,
 };
 
 enum {
@@ -309,6 +310,30 @@ static void devclose(struct skyloc_dev *dev)
 	free(dev);
 }
 
+static int devprobe(struct sky_dev_desc *devdesc)
+{
+	struct skyloc_dev *dev;
+
+	uint8_t major, minor, revis;
+	int rc;
+
+	rc = devopen(devdesc, &dev);
+	if (rc)
+		return rc;
+
+	rc = skycmd_serial_cmd(dev, SKY_FIRMWARE_VERSION_CMD,
+			       0, 3,
+			       sizeof(major), &major,
+			       sizeof(minor), &minor,
+			       sizeof(revis), &revis);
+	if (!rc)
+		devdesc->firmware_version = major << 16 | minor << 8 | revis;
+
+	devclose(dev);
+
+	return rc;
+}
+
 static int skyloc_devslist(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **out)
@@ -339,6 +364,11 @@ static int skyloc_devslist(const struct sky_dev_ops *ops,
 		devdesc->dev_type = SKY_INDOOR;
 		devdesc->conf = *conf;
 		devdesc->opaque_ops = ops;
+		rc = devprobe(devdesc);
+		if (rc) {
+			free(devdesc);
+			goto err;
+		}
 		devdesc->next = head;
 		head = devdesc;
 		if (tail == NULL)
