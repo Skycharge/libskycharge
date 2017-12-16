@@ -231,7 +231,7 @@ static int skyloc_devslist(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **out)
 {
-	struct sky_dev_desc *dev, *head = NULL, *tail = NULL;
+	struct sky_dev_desc *devdesc, *head = NULL, *tail = NULL;
 	struct sp_port **ports = NULL;
 	enum sp_return sprc;
 	int i, rc;
@@ -248,20 +248,19 @@ static int skyloc_devslist(const struct sky_dev_ops *ops,
 		if (!desc || !name || strncasecmp(desc, "skysense", 8))
 			continue;
 
-		dev = calloc(1, sizeof(*dev));
-		if (dev == NULL) {
+		devdesc = calloc(1, sizeof(*devdesc));
+		if (devdesc == NULL) {
 			rc = -ENOMEM;
 			goto err;
 		}
-		strncpy(dev->portname, name, sizeof(dev->portname));
-		/* XXX: TODO */
-		dev->dev_type = SKY_INDOOR;
-		dev->next = head;
-		dev->conf = *conf;
-		dev->opaque_ops = ops;
-		head = dev;
+		strncpy(devdesc->portname, name, sizeof(devdesc->portname));
+		devdesc->dev_type = SKY_INDOOR;
+		devdesc->conf = *conf;
+		devdesc->opaque_ops = ops;
+		devdesc->next = head;
+		head = devdesc;
 		if (tail == NULL)
-			tail = dev;
+			tail = devdesc;
 	}
 	rc = 0;
 	if (head) {
@@ -275,9 +274,9 @@ out:
 
 err:
 	while (head) {
-		dev = head;
+		devdesc = head;
 		head = head->next;
-		free(dev);
+		free(devdesc);
 	}
 	goto out;
 }
