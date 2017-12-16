@@ -28,6 +28,8 @@ enum sky_serial_cmd {
 enum {
 	TO_BUF   = 0,
 	FROM_BUF = 1,
+
+	TIMEOUT_MS = 1000,
 };
 
 struct skyloc_dev {
@@ -160,9 +162,12 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 		rc = sprc_to_errno(sprc);
 		goto out_unlock;
 	}
-	sprc = sp_blocking_write(dev->port, cmd_buf, len + 4, 0);
+	sprc = sp_blocking_write(dev->port, cmd_buf, len + 4, TIMEOUT_MS);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
+		goto out_unlock;
+	} else if (sprc != len + 4) {
+		rc = -ETIMEDOUT;
 		goto out_unlock;
 	}
 	if (rsp_num >= 0) {
@@ -175,9 +180,13 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 			rc = -EINVAL;
 			goto out_unlock;
 		}
-		sprc = sp_blocking_read(dev->port, rsp_buf, len + 4, 0);
+		sprc = sp_blocking_read(dev->port, rsp_buf,
+					len + 4, TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
+			goto out_unlock;
+		} else if (sprc != len + 4) {
+			rc = -ETIMEDOUT;
 			goto out_unlock;
 		}
 		for (off = 3, args = 0; args < rsp_num; args++) {
