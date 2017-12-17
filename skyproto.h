@@ -44,6 +44,9 @@ enum sky_proto_type {
 	SKY_DEVS_LIST_REQ      = 17,
 	SKY_DEVS_LIST_RSP      = 18,
 
+	SKY_PEERINFO_REQ       = 19,
+	SKY_PEERINFO_RSP       = 20,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -53,7 +56,9 @@ enum sky_proto_type {
 
 enum {
 	DEFAULT_TIMEOUT = 30000,
-	PORTNAME_LEN = 32
+	PORTNAME_LEN = 32,
+
+	SKY_PROTO_VERSION = 0x0100,
 };
 
 #pragma GCC diagnostic push
@@ -106,6 +111,14 @@ struct sky_charging_state_rsp {
 	le16 current;  /* mA */
 	le16 dev_hw_state;
 	le16 unused;
+};
+
+struct sky_peerinfo_rsp {
+	struct sky_rsp_hdr hdr;
+	le16 proto_version;
+	le16 padding;
+	le32 server_version;
+	char reserved[52];
 };
 
 #pragma GCC diagnostic pop

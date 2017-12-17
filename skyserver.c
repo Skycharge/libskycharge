@@ -475,6 +475,24 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		}
 		break;
 	}
+	case SKY_PEERINFO_REQ: {
+		struct sky_peerinfo_rsp *rsp;
+
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rsp->hdr.type  = htole16(SKY_PEERINFO_RSP);
+		rsp->hdr.error = htole16(0);
+		rsp->proto_version  = htole16(SKY_PROTO_VERSION);
+		rsp->server_version = htole32(SKY_VERSION);
+
+		break;
+	}
+
 	default:
 		sky_err("unknown request: %d\n", req_type);
 		rc = -EINVAL;
