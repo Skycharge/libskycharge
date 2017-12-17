@@ -3,6 +3,7 @@
 skysense-cli
 skysensed
 docopt-gen
+version.h
 cscope.*
 skyclient-cmd.*
 skyserver-cmd.*

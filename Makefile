@@ -4,6 +4,13 @@ CFLAGS = -g -O2 -Wall -Werror $(DEFINES)
 YACC := bison
 LEX  := flex
 
+# dpkg-parsechangelog is significantly slow
+CHANGELOG = $(shell head -n 1 ./debian/changelog)
+VERS = $(shell echo "$(CHANGELOG)" | sed -n -e 's/.*(\([^)]*\).*/\1/p')
+MAJ = $(shell echo "$(VERS)" | cut -d . -f 1)
+MIN = $(shell echo "$(VERS)" | cut -d . -f 2)
+REV = $(shell echo "$(VERS)" | cut -d . -f 3)
+
 SRCS := $(wildcard *.c)
 BINS := skysensed skysense-cli
 LIBS := -lzmq -lserialport -lpthread -ldl
@@ -23,6 +30,19 @@ docopt-gen:
 	$(MAKE) -C docopt clean
 
 ##
+## version.h
+##
+
+version.h: debian/changelog
+	@printf "/* File is automatically generated */\n" >  version.h
+	@printf "#ifndef VERSION_H\n"                     >> version.h
+	@printf "#define VERSION_H\n\n"                   >> version.h
+	@printf "#define SKY_VERSION 0x%08x\n\n" \
+		$$(($(MAJ) << 16 | $(MIN) << 8 | $(REV))) >>  version.h
+	@printf "#endif /* VERSION_H */\n"                >> version.h
+
+
+##
 ## skyserver (skysensed)
 ##
 
@@ -36,7 +56,7 @@ skyserver-cmd.tab.c: skyserver-cmd.y
 skyserver-cmd.lex.c: skyserver-cmd.l
 	$(LEX) -o $@ skyserver-cmd.l
 
-skyserver.o: skyserver-cmd.h
+skyserver.o: skyserver-cmd.h version.h
 
 skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
 	   skyserver-cmd.tab.o skyserver-cmd.lex.o
@@ -56,7 +76,7 @@ skyclient-cmd.tab.c: skyclient-cmd.y
 skyclient-cmd.lex.c: skyclient-cmd.l
 	$(LEX) -o $@ skyclient-cmd.l
 
-skyclient.o: skyclient-cmd.h
+skyclient.o: skyclient-cmd.h version.h
 
 skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
 	      skyclient-cmd.tab.o skyclient-cmd.lex.o

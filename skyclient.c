@@ -11,6 +11,7 @@
 
 #include "libskysense.h"
 #include "skyclient-cmd.h"
+#include "version.h"
 #include "types.h"
 
 #define sky_err(fmt, ...) \
