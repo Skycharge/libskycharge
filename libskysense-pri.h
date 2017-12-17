@@ -6,6 +6,9 @@
 
 struct sky_dev_ops {
 	enum sky_con_type contype;
+	int (*peerinfo)(const struct sky_dev_ops *ops,
+			const struct sky_dev_conf *conf,
+			struct sky_peerinfo *peerinfo);
 	int (*devslist)(const struct sky_dev_ops *ops,
 			const struct sky_dev_conf *conf, struct sky_dev_desc **head);
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);

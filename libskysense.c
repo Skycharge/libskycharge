@@ -15,6 +15,25 @@ void __sky_register_devops(struct sky_dev_ops *ops)
        devops = ops;
 }
 
+int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
+		 struct sky_peerinfo *peerinfo)
+{
+	struct sky_dev_ops *ops;
+	int i, rc = -EINVAL;
+
+	for (i = 0; i < num; i++) {
+		foreach_devops(ops, devops) {
+			if (ops->contype != conf->contype)
+				continue;
+			rc = ops->peerinfo(ops, conf, &peerinfo[i]);
+			if (rc)
+				return rc;
+		}
+	}
+
+	return rc;
+}
+
 int sky_devslist(const struct sky_dev_conf *conf, size_t num,
 		 struct sky_dev_desc **out)
 {

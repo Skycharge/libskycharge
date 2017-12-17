@@ -203,6 +203,39 @@ static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 	return -le16toh(rsp.error);
 }
 
+static int skyrem_peerinfo(const struct sky_dev_ops *ops,
+			   const struct sky_dev_conf *conf,
+			   struct sky_peerinfo *peerinfo)
+{
+	struct sky_peerinfo_rsp *rsp;
+	struct sky_rsp_hdr *rsp_hdr;
+	struct sky_req_hdr req;
+	void *zctx;
+	int rc;
+
+	zctx = zmq_ctx_new();
+	if (!zctx)
+		return -ENOMEM;
+
+	rc = __skyrem_complex_req_rsp(zctx, conf, NULL, 0, SKY_PEERINFO_REQ,
+				      &req, sizeof(req), &rsp_hdr);
+	if (rc < 0)
+		goto out;
+
+	rc = -le16toh(rsp_hdr->error);
+	if (rc)
+		goto out;
+
+	rsp = (struct sky_peerinfo_rsp *)rsp_hdr;
+	peerinfo->server_version = le32toh(rsp->server_version);
+	peerinfo->proto_version  = le16toh(rsp->proto_version);
+
+out:
+	zmq_ctx_term(zctx);
+
+	return rc;
+}
+
 static int skyrem_devslist(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **out)
@@ -566,6 +599,7 @@ static int skyrem_coverclose(struct sky_dev *dev_)
 
 static struct sky_dev_ops sky_remote_devops = {
 	.contype = SKY_REMOTE,
+	.peerinfo = skyrem_peerinfo,
 	.devslist = skyrem_devslist,
 	.devopen = skyrem_devopen,
 	.devclose = skyrem_devclose,

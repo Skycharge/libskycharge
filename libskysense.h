@@ -134,6 +134,31 @@ struct sky_dev_params {
 };
 
 /**
+ * struct sky_peerinfo - Peer information.
+ */
+struct sky_peerinfo {
+	uint32_t server_version;
+	uint16_t proto_version;
+};
+
+/**
+ * sky_peerinfo() - Fills in peer information.
+ * @conf:     Array of configuration options.
+ * @num:      Number of elements in @conf.
+ * @peerinfo: Array of peerinfo structures.
+ *
+ * Function fills in @peerinfo for specified @conf.  @conf->contype
+ * must be @SKY_REMOTE, otherwise -EOPNOTSUPP is returned.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameters.
+ */
+int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
+		 struct sky_peerinfo *peerinfo);
+
+/**
  * sky_devslist() - Returns list of found devices.
  * @conf:     Array of configuration options.
  * @num:      Number of elements in @conf.
@@ -144,7 +169,7 @@ struct sky_dev_params {
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
-
+ *
  * -EPERM  if operation is not permitted.
  * -ENOMEM if memory allocation failed.
  */

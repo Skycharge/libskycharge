@@ -230,6 +230,13 @@ out:
 	return rc;
 }
 
+static int skyloc_peerinfo(const struct sky_dev_ops *ops,
+			   const struct sky_dev_conf *conf,
+			   struct sky_peerinfo *peerinfo)
+{
+	return -EOPNOTSUPP;
+}
+
 static int devopen(const struct sky_dev_desc *devdesc,
 			  struct skyloc_dev **dev_)
 {
@@ -588,6 +595,7 @@ static int skyloc_coverclose(struct sky_dev *dev_)
 
 static struct sky_dev_ops sky_local_devops = {
 	.contype = SKY_LOCAL,
+	.peerinfo = skyloc_peerinfo,
 	.devslist = skyloc_devslist,
 	.devopen = skyloc_devopen,
 	.devclose = skyloc_devclose,

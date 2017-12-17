@@ -14,6 +14,13 @@ struct skydum_dev {
 	struct sky_dev_desc devdesc;
 };
 
+static int skydum_peerinfo(const struct sky_dev_ops *ops,
+			   const struct sky_dev_conf *conf,
+			   struct sky_peerinfo *peerinfo)
+{
+	return -EOPNOTSUPP;
+}
+
 static int skydum_devslist(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **head)
@@ -182,6 +189,7 @@ static int skydum_coverclose(struct sky_dev *dev_)
 __attribute__((unused))
 static struct sky_dev_ops sky_dummy_devops = {
 	.contype = SKY_LOCAL,
+	.peerinfo = skydum_peerinfo,
 	.devslist = skydum_devslist,
 	.devopen = skydum_devopen,
 	.devclose = skydum_devclose,
