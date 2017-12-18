@@ -150,6 +150,7 @@ static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
 
 err:
 	free(*rsp);
+	*rsp = NULL;
 
 	return rc;
 }
@@ -207,7 +208,7 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 			   struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *head = NULL, *tail = NULL;
-	struct sky_devs_list_rsp *rsp;
+	struct sky_devs_list_rsp *rsp = NULL;
 	struct sky_rsp_hdr *rsp_hdr;
 	struct sky_req_hdr req;
 	size_t num_devs, len;
@@ -270,6 +271,7 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 		*out = head;
 	}
 out:
+	free(rsp);
 	zmq_ctx_term(zctx);
 
 	return rc;
