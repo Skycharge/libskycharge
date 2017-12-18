@@ -166,6 +166,33 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
+	if (cli.peerinfo) {
+		struct sky_peerinfo peerinfo;
+		struct sky_dev_conf conf;
+		int rc;
+
+		sky_prepare_conf(&cli, &conf);
+
+		rc = sky_peerinfo(&conf, 1, &peerinfo);
+		if (rc) {
+			sky_err("sky_peerinfo(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+		printf("Remote peer %s:%d:\n", conf.remote.hostname,
+		       conf.remote.cmdport);
+		printf("\tServer version:   %u.%u.%u\n",
+		       (peerinfo.server_version >> 16) & 0xff,
+		       (peerinfo.server_version >> 8)  & 0xff,
+		       peerinfo.server_version & 0xff);
+		printf("\tProtocol version: %u.%u\n",
+		       (peerinfo.proto_version >> 8)  & 0xff,
+		       peerinfo.proto_version & 0xff);
+
+		cli_free(&cli);
+
+		return 0;
+	}
+
 	sky_prepare_dev(&cli, &dev, &devdescs);
 
 	if (cli.listdevs) {
