@@ -81,20 +81,25 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 	}
 }
 
+static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *conf)
+{
+	if (cli->addr && cli->port) {
+		conf->contype = SKY_REMOTE;
+		conf->remote.cmdport = strtol(cli->port, NULL, 10);
+		conf->remote.subport = conf->remote.cmdport + 1;
+		strncpy(conf->remote.hostname, cli->addr,
+			sizeof(conf->remote.hostname));
+	} else
+		conf->contype = SKY_LOCAL;
+}
+
 static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			    struct sky_dev_desc **devdescs)
 {
 	struct sky_dev_conf conf;
 	int rc;
 
-	if (cli->addr && cli->port) {
-		conf.contype = SKY_REMOTE;
-		conf.remote.cmdport = strtol(cli->port, NULL, 10);
-		conf.remote.subport = conf.remote.cmdport + 1;
-		strncpy(conf.remote.hostname, cli->addr,
-			sizeof(conf.remote.hostname));
-	} else
-		conf.contype = SKY_LOCAL;
+	sky_prepare_conf(cli, &conf);
 
 	rc = sky_devslist(&conf, 1, devdescs);
 	if (rc) {
