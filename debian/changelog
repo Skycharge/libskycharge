@@ -1,3 +1,15 @@
+skysense (0.0.6) stretch; urgency=low
+
+   * libskysense-local: validate response header, read/write with 1s timeout
+   * libskysense-local: fill in firmware version for local INDOOR device
+   * skyclient,skyserver: support firmware_version field
+   * skyclient: support --raw arg for monitor command
+   * skyproto,skyserver: introduce PEERINFO request/response
+   * libskysense: introduce sky_peerinfo() call
+   * skyclient: implement peer-info command
+
+ -- Roman Pen <r.peniaev@gmail.com>  Mon, 18 Dec 2017 10:51:34 +0200
+
 skysense (0.0.5) stretch; urgency=low
 
    * skyserver,skyclient,libskysense: Add support for multiple devices
