@@ -128,7 +128,7 @@ static void sky_print_charging_state(struct cli *cli,
 		sky_err("localtime(): %s\n", strerror(errno));
 		exit(-1);
 	}
-	len = strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S.%d", tm);
+	len = strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
 	snprintf(timestr + len, sizeof(timestr) - len,
 		 ".%03ld", tv.tv_usec/1000);
 
