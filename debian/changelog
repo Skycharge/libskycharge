@@ -1,3 +1,9 @@
+skysense (0.1.0) stretch; urgency=low
+
+   * skyclient: fix timestamp format
+
+ -- Roman Pen <r.peniaev@gmail.com>  Fri, 22 Dec 2017 21:06:34 +0200
+
 skysense (0.0.6) stretch; urgency=low
 
    * libskysense-local: validate response header, read/write with 1s timeout
