@@ -2,6 +2,7 @@
 #define TYPES_H
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #define MAX_ERRNO	255
 #define IS_ERR_VALUE(x) unlikely((x) >= (unsigned long)-MAX_ERRNO)
@@ -36,12 +37,6 @@
 
 #define stringify_1(x...)	#x
 #define stringify(x...)	stringify_1(x)
-
-typedef _Bool bool;
-enum {
-	false	= 0,
-	true	= 1
-};
 
 typedef uint16_t le16;
 typedef uint32_t le32;
