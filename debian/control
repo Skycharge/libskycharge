@@ -10,6 +10,7 @@ Build-Depends: autotools-dev,
 			   bison,
 			   flex,
 			   libzmq3-dev,
+			   libczmq-dev,
 			   libserialport-dev
 Standards-Version: 3.9.5
 
@@ -18,6 +19,7 @@ Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
 		 libzmq5,
+		 libczmq4,
 		 libserialport0
 Description: command line utility to control charging pad
  This package contains Skysense command line utility

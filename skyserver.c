@@ -10,6 +10,7 @@
 #include <pthread.h>
 
 #include <zmq.h>
+#include <czmq.h>
 
 #include "skyserver-cmd.h"
 #include "libskysense.h"
@@ -153,12 +154,25 @@ static inline void sky_free(void *rsp)
 		free(rsp);
 }
 
-static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
-					   const char *portname,
-					   size_t len)
+static inline const void *zframe_data_const(const zframe_t *frame)
 {
+	return zframe_data((zframe_t *)frame);
+}
+
+static inline size_t zframe_size_const(const zframe_t *frame)
+{
+	return zframe_size((zframe_t *)frame);
+}
+
+static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
+					   const zframe_t *ident_frame)
+{
+	const char *portname = zframe_data_const(ident_frame);
 	struct sky_dev_desc *devdesc;
-	int num;
+	size_t len, num;
+
+	len = min(sizeof(devdesc->portname),
+		  zframe_size((zframe_t *)ident_frame));
 
 	/*
 	 * For now do linear search.  Far from optimal, but simple.
@@ -168,7 +182,6 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 	foreach_devdesc(devdesc, serv->devhead) {
 		struct sky_server_dev *servdev = &serv->devs[num++];
 
-		len = min(sizeof(devdesc->portname), len);
 		if (!memcmp(devdesc->portname, portname, len))
 			return servdev->dev;
 	}
@@ -176,19 +189,20 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 	return NULL;
 }
 
-static void sky_execute_cmd(struct sky_server *serv, const void *ident,
-			    size_t ident_len, void *req_, size_t req_len,
+static void sky_execute_cmd(struct sky_server *serv,
+			    const zframe_t *ident_frame,
+			    const zframe_t *data_frame,
 			    struct sky_rsp_hdr **rsp_hdr, size_t *rsp_len)
 {
+	const struct sky_req_hdr *req_hdr = zframe_data_const(data_frame);
 	enum sky_proto_type req_type = SKY_UNKNOWN_REQRSP;
-	struct sky_req_hdr *req_hdr = req_;
 	struct sky_dev *dev;
 
 	void *rsp_void = NULL;
 	size_t len;
 	int rc, i;
 
-	if (req_len < sizeof(*req_hdr)) {
+	if (zframe_size_const(data_frame) < sizeof(*req_hdr)) {
 		sky_err("malformed request header\n");
 		rc = -EINVAL;
 		goto emergency;
@@ -198,17 +212,17 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 
 	switch (req_type) {
 	case SKY_GET_DEV_PARAMS_REQ: {
-		struct sky_get_dev_params_req *req = req_;
+		struct sky_get_dev_params_req *req = (void *)req_hdr;
 		struct sky_get_dev_params_rsp *rsp;
 		struct sky_dev_params params;
 		int num;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
 		}
-		if (req_len < sizeof(*req)) {
+		if (zframe_size_const(data_frame) < sizeof(*req)) {
 			sky_err("malformed request\n");
 			rc = -EINVAL;
 			goto emergency;
@@ -240,19 +254,19 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		break;
 	}
 	case SKY_SET_DEV_PARAMS_REQ: {
-		struct sky_set_dev_params_req *req = req_;
+		struct sky_set_dev_params_req *req = (void *)req_hdr;
 		struct sky_rsp_hdr *rsp;
 		struct sky_dev_params params = {
 			.dev_params_bits = 0
 		};
 		int ind;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
 		}
-		if (req_len < sizeof(*req)) {
+		if (zframe_size_const(data_frame) < sizeof(*req)) {
 			sky_err("malformed request\n");
 			rc = -EINVAL;
 			goto emergency;
@@ -273,8 +287,9 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
 			if (!(params.dev_params_bits & (1<<i)))
 				continue;
-			if (req_len < (sizeof(*req) +
-				       sizeof(req->dev_params[0]) * (ind + 1))) {
+			if (zframe_size_const(data_frame) <
+			    (sizeof(*req) +
+			     sizeof(req->dev_params[0]) * (ind + 1))) {
 				sky_err("malformed request\n");
 				free(rsp);
 				rc = -EINVAL;
@@ -293,7 +308,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_START_CHARGE_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -315,7 +330,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_STOP_CHARGE_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -337,7 +352,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_OPEN_COVER_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -359,7 +374,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_CLOSE_COVER_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -382,7 +397,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 		struct sky_charging_state_rsp *rsp;
 		struct sky_charging_state state;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -409,7 +424,7 @@ static void sky_execute_cmd(struct sky_server *serv, const void *ident,
 	case SKY_RESET_DEV_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident, ident_len);
+		dev = sky_find_dev(serv, ident_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -599,119 +614,43 @@ err:
 	return rc;
 }
 
-static int sky_zocket_recv(void *zock, void **ident,
-			   int *ident_len, void **data)
-{
-	void *dbuf, *ibuf;
-	zmq_msg_t msg;
-	int rc, sz, nb;
-
-	zmq_msg_init(&msg);
-
-	/* Recv identity */
-	rc = zmq_msg_recv(&msg, zock, 0);
-	if (rc < 0)
-		return -errno;
-	sz = zmq_msg_size(&msg);
-	ibuf = malloc(sz);
-	if (ibuf == NULL) {
-		zmq_msg_close(&msg);
-
-		return -ENOMEM;
-	}
-	memcpy(ibuf, zmq_msg_data(&msg), sz);
-	*ident_len = sz;
-
-	/* Recv delimiter */
-	rc = zmq_msg_recv(&msg, zock, 0);
-	if (rc != 0) {
-		zmq_msg_close(&msg);
-		free(ibuf);
-
-		return -EPIPE;
-	}
-
-	/* Recv message */
-	nb = 0;
-	dbuf = NULL;
-	do {
-		rc = zmq_msg_recv(&msg, zock, 0);
-		if (rc < 0) {
-			rc = -errno;
-			zmq_msg_close(&msg);
-			free(dbuf);
-			free(ibuf);
-
-			return rc;
-		}
-		if (zmq_msg_size(&msg) == 0)
-			continue;
-		sz = zmq_msg_size(&msg);
-		dbuf = realloc(dbuf, sz);
-		if (dbuf == NULL) {
-			zmq_msg_close(&msg);
-			free(ibuf);
-
-			return -ENOMEM;
-		}
-		memcpy(dbuf + nb, zmq_msg_data(&msg), sz);
-		nb += sz;
-	} while (zmq_msg_more(&msg));
-
-	zmq_msg_close(&msg);
-	*data  = dbuf;
-	*ident = ibuf;
-
-	return nb;
-}
-
-static int sky_zocket_send(void *zock, const void *ident, int ident_len,
-			   const void *data, int data_len, bool more)
-{
-	int rc;
-
-	if (ident && ident_len) {
-		rc = zmq_send(zock, ident, ident_len, ZMQ_SNDMORE);
-		if (rc != ident_len)
-			return -errno;
-		/* Delimiter */
-		rc = zmq_send(zock, NULL, 0, ZMQ_SNDMORE);
-		if (rc != 0)
-			return -errno;
-	}
-	rc = zmq_send(zock, data, data_len, more ? ZMQ_SNDMORE : 0);
-	if (rc != data_len)
-		rc = -errno;
-
-	return rc;
-}
-
 static int sky_server_loop(struct sky_server *serv)
 {
-	void *ident = NULL, *req = NULL; /* make gcc happy */
-	int ident_len = 0, req_len;
+	zframe_t *ident_frame, *data_frame;
 	struct sky_rsp_hdr *rsp;
 	size_t rsp_len;
+	zmsg_t *msg;
 	int rc;
 
 	while (1) {
-		req_len = sky_zocket_recv(serv->zock.router, &ident,
-					  &ident_len, &req);
-		if (req_len < 0) {
-			rc = req_len;
-			sky_err("sky_zocket_recv(): %s\n", strerror(-rc));
+		msg = zmsg_recv(serv->zock.router);
+		if (msg == NULL) {
+			sky_err("zmsg_recv(): failed\n");
+			rc = -EIO;
 			break;
 		}
-		sky_execute_cmd(serv, ident, ident_len, req, req_len,
-				&rsp, &rsp_len);
-		rc = sky_zocket_send(serv->zock.router, ident, ident_len,
-				     rsp, rsp_len, false);
-		if (rc < 0)
-			sky_err("sky_zocket_send(): %s\n", strerror(-rc));
-
+		ident_frame = zmsg_first(msg);
+		if (ident_frame == NULL) {
+			sky_err("zmsg_recv(): no ident frame\n");
+			rc = -EIO;
+			break;
+		}
+		zmsg_next(msg); /* delimiter */
+		data_frame = zmsg_next(msg);
+		if (data_frame == NULL) {
+			sky_err("zmsg_recv(): no data frame\n");
+			rc = -EIO;
+			break;
+		}
+		sky_execute_cmd(serv, ident_frame, data_frame, &rsp, &rsp_len);
+		/* Replace data frame with response */
+		zframe_reset(data_frame, rsp, rsp_len);
+		rc = zmsg_send(&msg, serv->zock.router);
+		if (rc != 0) {
+			rc = -errno;
+			sky_err("zmsg_send(): %s\n", strerror(-rc));
+		}
 		sky_free(rsp);
-		free(ident);
-		free(req);
 	}
 
 	return rc;
