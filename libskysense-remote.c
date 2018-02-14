@@ -6,6 +6,7 @@
 #include <assert.h>
 
 #include <zmq.h>
+#include <czmq.h>
 
 #include "libskysense-pri.h"
 #include "types.h"
@@ -22,14 +23,14 @@ struct skyrem_dev {
 };
 
 static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
-			    const void *ident, size_t ident_len,
-			    void *req, size_t req_len, void **rsp)
+			    const char *devport, void *req, size_t req_len,
+			    void **rsp)
 {
-	void *zock, *buf;
+	void *zock;
 	char zaddr[128];
 	uint32_t timeo;
-	size_t nb, sz;
-	zmq_msg_t msg;
+	zmsg_t *msg = NULL;
+	zframe_t *frame;
 	int rc;
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
@@ -42,13 +43,6 @@ static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
 	if (zock == NULL)
 		return -ENOMEM;
 
-	if (ident && ident_len) {
-		rc = zmq_setsockopt(zock, ZMQ_IDENTITY, ident, ident_len);
-		if (rc != 0) {
-			rc = -errno;
-			goto out;
-		}
-	}
 	timeo = DEFAULT_TIMEOUT;
 	rc = zmq_setsockopt(zock, ZMQ_RCVTIMEO, &timeo, sizeof(timeo));
 	if (rc != 0) {
@@ -66,49 +60,54 @@ static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
 		rc = -errno;
 		goto out;
 	}
+	msg = zmsg_new();
+	if (msg == NULL) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	rc = zmsg_addmem(msg, req, req_len);
+	if (rc != 0) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	if (devport) {
+		/* Device port frame follows request frame */
+		rc = zmsg_addstr(msg, devport);
+		if (rc != 0) {
+			rc = -ENOMEM;
+			goto out;
+		}
+	}
 	/* Send request */
-	rc = zmq_send(zock, req, req_len, 0);
-	if (rc < 0) {
+	rc = zmsg_send(&msg, zock);
+	if (rc != 0) {
 		rc = -errno;
 		goto out;
 	}
 	/* Recv response */
-	zmq_msg_init(&msg);
-	sz = nb = 0;
-	buf = NULL;
-	do {
-		rc = zmq_msg_recv(&msg, zock, 0);
-		if (rc < 0) {
-			rc = -errno;
-			zmq_msg_close(&msg);
-			free(buf);
-			goto out;
-		}
-		sz = zmq_msg_size(&msg);
-		if (sz == 0)
-			continue;
-		buf = realloc(buf, sz);
-		if (buf == NULL) {
-			zmq_msg_close(&msg);
-			rc = -ENOMEM;
-			goto out;
-		}
-		memcpy(buf + nb, zmq_msg_data(&msg), sz);
-		nb += sz;
-	} while (zmq_msg_more(&msg));
-
-	zmq_msg_close(&msg);
-	*rsp = buf;
-	rc = nb;
+	msg = zmsg_recv(zock);
+	frame = msg ? zmsg_first(msg) : NULL;
+	if (frame == NULL) {
+		rc = -EIO;
+		goto out;
+	}
+	rc = zframe_size(frame);
+	*rsp = malloc(rc);
+	if (*rsp == NULL) {
+		rc = -ENOMEM;
+		goto out;
+	}
+	memcpy(*rsp, zframe_data(frame), rc);
 
 out:
+	zmsg_destroy(&msg);
 	zmq_close(zock);
 
 	return rc;
 }
 
 static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
-				    const void *ident, size_t ident_len,
+				    const char *devport,
 				    enum sky_proto_type req_type,
 				    struct sky_req_hdr *req_, size_t req_len,
 				    struct sky_rsp_hdr **rsp)
@@ -131,8 +130,7 @@ static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
 
 	/* Make compiler happy */
 	*rsp = NULL;
-	rc = skyrem_send_recv(zctx, conf, ident, ident_len,
-			      req_, req_len, (void **)rsp);
+	rc = skyrem_send_recv(zctx, conf, devport, req_, req_len, (void **)rsp);
 	if (rc < 0)
 		return rc;
 	if (rc < sizeof(**rsp)) {
@@ -169,7 +167,6 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 	}
 	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &dev->dev.devdesc.conf,
 				      dev->dev.devdesc.portname,
-				      strlen(dev->dev.devdesc.portname),
 				      req_type, req_, req_len, &rsp);
 	if (rc < 0)
 		return rc;
@@ -217,7 +214,7 @@ static int skyrem_peerinfo(const struct sky_dev_ops *ops,
 	if (!zctx)
 		return -ENOMEM;
 
-	rc = __skyrem_complex_req_rsp(zctx, conf, NULL, 0, SKY_PEERINFO_REQ,
+	rc = __skyrem_complex_req_rsp(zctx, conf, NULL, SKY_PEERINFO_REQ,
 				      &req, sizeof(req), &rsp_hdr);
 	if (rc < 0)
 		goto out;
@@ -252,7 +249,7 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 	if (!zctx)
 		return -ENOMEM;
 
-	rc = __skyrem_complex_req_rsp(zctx, conf, NULL, 0, SKY_DEVS_LIST_REQ,
+	rc = __skyrem_complex_req_rsp(zctx, conf, NULL, SKY_DEVS_LIST_REQ,
 				      &req, sizeof(req), &rsp_hdr);
 	if (rc < 0)
 		goto out;

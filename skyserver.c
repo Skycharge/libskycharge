@@ -165,14 +165,18 @@ static inline size_t zframe_size_const(const zframe_t *frame)
 }
 
 static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
-					   const zframe_t *ident_frame)
+					   const zframe_t *devport_frame)
 {
-	const char *portname = zframe_data_const(ident_frame);
 	struct sky_dev_desc *devdesc;
+	const char *portname;
 	size_t len, num;
 
+	if (devport_frame == NULL)
+		return NULL;
+
+	portname = zframe_data_const(devport_frame);
 	len = min(sizeof(devdesc->portname),
-		  zframe_size((zframe_t *)ident_frame));
+		  zframe_size((zframe_t *)devport_frame));
 
 	/*
 	 * For now do linear search.  Far from optimal, but simple.
@@ -190,7 +194,7 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 }
 
 static void sky_execute_cmd(struct sky_server *serv,
-			    const zframe_t *ident_frame,
+			    const zframe_t *devport_frame,
 			    const zframe_t *data_frame,
 			    struct sky_rsp_hdr **rsp_hdr, size_t *rsp_len)
 {
@@ -217,7 +221,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 		struct sky_dev_params params;
 		int num;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -261,7 +265,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 		};
 		int ind;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -308,7 +312,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 	case SKY_START_CHARGE_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -330,7 +334,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 	case SKY_STOP_CHARGE_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -352,7 +356,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 	case SKY_OPEN_COVER_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -374,7 +378,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 	case SKY_CLOSE_COVER_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -397,7 +401,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 		struct sky_charging_state_rsp *rsp;
 		struct sky_charging_state state;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -424,7 +428,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 	case SKY_RESET_DEV_REQ: {
 		struct sky_rsp_hdr *rsp;
 
-		dev = sky_find_dev(serv, ident_frame);
+		dev = sky_find_dev(serv, devport_frame);
 		if (dev == NULL) {
 			rc = -ENODEV;
 			goto emergency;
@@ -616,7 +620,7 @@ err:
 
 static int sky_server_loop(struct sky_server *serv)
 {
-	zframe_t *ident_frame, *data_frame;
+	zframe_t *data_frame, *devport_frame;
 	struct sky_rsp_hdr *rsp;
 	size_t rsp_len;
 	zmsg_t *msg;
@@ -629,20 +633,21 @@ static int sky_server_loop(struct sky_server *serv)
 			rc = -EIO;
 			break;
 		}
-		ident_frame = zmsg_first(msg);
-		if (ident_frame == NULL) {
-			sky_err("zmsg_recv(): no ident frame\n");
-			rc = -EIO;
-			break;
-		}
-		zmsg_next(msg); /* delimiter */
+		zmsg_first(msg); /* ident */
+		zmsg_next(msg);  /* delimiter */
 		data_frame = zmsg_next(msg);
 		if (data_frame == NULL) {
 			sky_err("zmsg_recv(): no data frame\n");
 			rc = -EIO;
 			break;
 		}
-		sky_execute_cmd(serv, ident_frame, data_frame, &rsp, &rsp_len);
+		devport_frame = zmsg_next(msg);
+		sky_execute_cmd(serv, devport_frame, data_frame, &rsp, &rsp_len);
+		if (devport_frame) {
+			/* Remove and destroy devport frame */
+			zmsg_remove(msg, devport_frame);
+			zframe_destroy(&devport_frame);
+		}
 		/* Replace data frame with response */
 		zframe_reset(data_frame, rsp, rsp_len);
 		rc = zmsg_send(&msg, serv->zock.router);

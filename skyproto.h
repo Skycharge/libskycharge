@@ -8,14 +8,17 @@
  *
  * BEWARE:
  *    1. keep requests/responses sequential, one by one.
- *    2. requests are odd.
+ *    2. requests are odd, responses are even.
  *    3. events start from 128.
  */
 enum sky_proto_type {
 
 	SKY_UNKNOWN_REQRSP     = 0,
 
-	/* Requests/responses */
+	/*
+	 * Device requests/responses,
+	 * portname frame follows main request frame.
+	 */
 
 	SKY_GET_DEV_PARAMS_REQ = 1,
 	SKY_GET_DEV_PARAMS_RSP = 2,
@@ -41,6 +44,10 @@ enum sky_proto_type {
 	SKY_RESET_DEV_REQ      = 15,
 	SKY_RESET_DEV_RSP      = 16,
 
+	/*
+	 * Peer requests/responses
+	 */
+
 	SKY_DEVS_LIST_REQ      = 17,
 	SKY_DEVS_LIST_RSP      = 18,
 
@@ -58,7 +65,7 @@ enum {
 	DEFAULT_TIMEOUT = 30000,
 	PORTNAME_LEN = 32,
 
-	SKY_PROTO_VERSION = 0x0100,
+	SKY_PROTO_VERSION = 0x0200,
 };
 
 #pragma GCC diagnostic push
