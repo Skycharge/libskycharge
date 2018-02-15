@@ -618,6 +618,35 @@ err:
 	return rc;
 }
 
+/**
+ * sky_find_data_frame() - finds first data frame, skips all
+ *                         IDENT and 0 frames.
+ */
+static inline zframe_t *sky_find_data_frame(zmsg_t *msg)
+{
+	zframe_t *data, *next;
+
+	data = zmsg_first(msg);
+	while (data) {
+		next = zmsg_next(msg);
+		if (!next || zframe_size(next) != 0) {
+			zframe_t *pos;
+			/*
+			 * Replay from first till data, in order to
+			 * set internal cursor correctly. Stupid zmsg.
+			 */
+			for (pos = zmsg_first(msg); pos != data;
+			     pos = zmsg_next(msg))
+				;
+			/* Found data frame */
+			break;
+		}
+		data = zmsg_next(msg);
+	}
+
+	return data;
+}
+
 static int sky_server_loop(struct sky_server *serv)
 {
 	zframe_t *data_frame, *devport_frame;
@@ -633,9 +662,7 @@ static int sky_server_loop(struct sky_server *serv)
 			rc = -EIO;
 			break;
 		}
-		zmsg_first(msg); /* ident */
-		zmsg_next(msg);  /* delimiter */
-		data_frame = zmsg_next(msg);
+		data_frame = sky_find_data_frame(msg);
 		if (data_frame == NULL) {
 			sky_err("zmsg_recv(): no data frame\n");
 			rc = -EIO;
