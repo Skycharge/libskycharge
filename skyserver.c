@@ -33,6 +33,7 @@ struct sky_server_dev {
 };
 
 struct sky_server {
+	uuid_t uuid;
 	struct zocket zock;
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
@@ -699,7 +700,9 @@ int main(int argc, char *argv[])
 	struct cli cli;
 	int num, rc;
 
-	rc = cli_parse(argc, argv, &cli);
+	uuid_generate(serv.uuid);
+
+	rc = cli_parse(argc, argv, &serv.cli);
 	if (rc) {
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;

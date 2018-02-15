@@ -9,6 +9,7 @@ Build-Depends: autotools-dev,
                dpkg-dev (>= 1.16.1),
 			   bison,
 			   flex,
+			   uuid-dev,
 			   libzmq3-dev,
 			   libczmq-dev,
 			   libserialport-dev
@@ -18,6 +19,7 @@ Package: skysense-cli
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
+		 libuuid1,
 		 libzmq5,
 		 libczmq4,
 		 libserialport0
@@ -28,6 +30,7 @@ Package: skysensed
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
+		 libuuid1,
 		 libzmq5,
 		 libserialport0
 Description: server to control charging pad

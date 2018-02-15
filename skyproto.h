@@ -16,8 +16,13 @@ enum sky_proto_type {
 	SKY_UNKNOWN_REQRSP     = 0,
 
 	/*
-	 * Device requests/responses,
-	 * portname frame follows main request frame.
+	 * Device requests/responses.  Format of requests
+	 * is the following:
+	 *          REQ
+	 *          DEVPORT (taken from from @sky_dev_info.portname)
+	 *          DEVUUID (taken from from @sky_dev_info.dev_uuid)
+	 *
+	 * That is ugly but that simplifies a lot skybroker.
 	 */
 
 	SKY_GET_DEV_PARAMS_REQ = 1,
@@ -102,6 +107,7 @@ struct sky_dev_info {
 	le16 dev_type;
 	le16 padding;
 	le32 firmware_version;
+	unsigned char dev_uuid[16];
 	char portname[PORTNAME_LEN];
 };
 

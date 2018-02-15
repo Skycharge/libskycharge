@@ -22,9 +22,10 @@ struct skyrem_dev {
 	struct zocket zock;
 };
 
-static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
-			    const char *devport, void *req, size_t req_len,
-			    void **rsp)
+static int skyrem_send_recv(void *zctx,
+			    const struct sky_dev_conf *conf,
+			    const struct sky_dev_desc *devdesc,
+			    void *req, size_t req_len, void **rsp)
 {
 	void *zock;
 	char zaddr[128];
@@ -66,17 +67,16 @@ static int skyrem_send_recv(void *zctx, const struct sky_dev_conf *conf,
 		goto out;
 	}
 	rc = zmsg_addmem(msg, req, req_len);
+	if (!rc && devdesc) {
+		/* Device port frame follows request frame */
+		rc = zmsg_addstr(msg, devdesc->portname);
+		/* Destination ident is the last one */
+		rc |= zmsg_addmem(msg, devdesc->dev_uuid,
+				  sizeof(devdesc->dev_uuid));
+	}
 	if (rc != 0) {
 		rc = -ENOMEM;
 		goto out;
-	}
-	if (devport) {
-		/* Device port frame follows request frame */
-		rc = zmsg_addstr(msg, devport);
-		if (rc != 0) {
-			rc = -ENOMEM;
-			goto out;
-		}
 	}
 	/* Send request */
 	rc = zmsg_send(&msg, zock);
@@ -106,8 +106,9 @@ out:
 	return rc;
 }
 
-static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
-				    const char *devport,
+static int __skyrem_complex_req_rsp(void *zctx,
+				    const struct sky_dev_conf *conf,
+				    const struct sky_dev_desc *devdesc,
 				    enum sky_proto_type req_type,
 				    struct sky_req_hdr *req_, size_t req_len,
 				    struct sky_rsp_hdr **rsp)
@@ -130,7 +131,7 @@ static int __skyrem_complex_req_rsp(void *zctx, const struct sky_dev_conf *conf,
 
 	/* Make compiler happy */
 	*rsp = NULL;
-	rc = skyrem_send_recv(zctx, conf, devport, req_, req_len, (void **)rsp);
+	rc = skyrem_send_recv(zctx, conf, devdesc, req_, req_len, (void **)rsp);
 	if (rc < 0)
 		return rc;
 	if (rc < sizeof(**rsp)) {
@@ -158,6 +159,7 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 				  struct sky_req_hdr *req_, size_t req_len,
 				  struct sky_rsp_hdr *rsp_, size_t rsp_len)
 {
+	struct sky_dev_desc *devdesc = &dev->dev.devdesc;
 	struct sky_rsp_hdr *rsp;
 	int rc;
 
@@ -165,9 +167,9 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 		assert(0);
 		return -EINVAL;
 	}
-	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &dev->dev.devdesc.conf,
-				      dev->dev.devdesc.portname,
-				      req_type, req_, req_len, &rsp);
+	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &devdesc->conf,
+				      devdesc, req_type, req_,
+				      req_len, &rsp);
 	if (rc < 0)
 		return rc;
 
@@ -282,6 +284,8 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 				goto out;
 			}
 			devdesc->dev_type = le16toh(info->dev_type);
+			memcpy(devdesc->dev_uuid, info->dev_uuid,
+			       sizeof(devdesc->dev_uuid));
 			devdesc->firmware_version =
 				le32toh(info->firmware_version);
 			devdesc->conf = *conf;
