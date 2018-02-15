@@ -200,8 +200,8 @@ int main(int argc, char *argv[])
 
 		printf("Found sky devices on ports:\n");
 		foreach_devdesc(devdesc, devdescs) {
-			printf("\t%s %s\n", sky_devtype_to_str(devdescs->dev_type),
-			       devdescs->portname);
+			printf("\t%s %s\n", sky_devtype_to_str(devdesc->dev_type),
+			       devdesc->portname);
 		}
 	} else if (cli.monitor) {
 		struct sky_subscription sub = {
