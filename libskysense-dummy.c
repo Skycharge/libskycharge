@@ -186,7 +186,6 @@ static int skydum_coverclose(struct sky_dev *dev_)
 	return 0;
 }
 
-__attribute__((unused))
 static struct sky_dev_ops sky_dummy_devops = {
 	.contype = SKY_LOCAL,
 	.peerinfo = skydum_peerinfo,
@@ -205,4 +204,4 @@ static struct sky_dev_ops sky_dummy_devops = {
 	.coveropen = skydum_coveropen,
 	.coverclose = skydum_coverclose
 };
-/* DEBUG sky_register_devops(&sky_dummy_devops); */
+sky_register_devops(&sky_dummy_devops);

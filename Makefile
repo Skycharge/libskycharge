@@ -16,7 +16,10 @@ BINS := skysensed skysense-cli
 LIBS := -lzmq -lserialport -lpthread -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
-	            libskysense-remote.o libskysense-dummy.o
+	            libskysense-remote.o
+
+# Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing
+-include Makefile.dummy
 
 all: $(BINS)
 
