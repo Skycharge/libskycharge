@@ -102,7 +102,7 @@ skyclient.o: skyclient-cmd.h version.h
 
 skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
 	      skyclient-cmd.tab.o skyclient-cmd.lex.o
-	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS)
+	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS) -lz
 
 clean:
 	$(RM) $(BINS) *.o *~ \

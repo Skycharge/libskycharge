@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <zlib.h>
 
 #include "libskysense.h"
 #include "skyclient-cmd.h"
@@ -23,7 +24,7 @@
 
 static inline const char *sky_devtype_to_str(enum sky_dev_type type)
 {
-	return type == SKY_INDOOR ? "indoor": "outdoor";
+	return type == SKY_INDOOR ? " INDOOR": "OUTDOOR";
 }
 
 static inline const char *sky_devstate_to_str(enum sky_dev_hw_state state)
@@ -57,6 +58,17 @@ static inline const char *sky_devstate_to_str(enum sky_dev_hw_state state)
 		sky_err("unknown state: %d\n", state);
 		exit(-1);
 	}
+}
+
+static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
+{
+	uLong crc;
+
+	crc = crc32(0L, Z_NULL, 0);
+	crc = crc32(crc, (void *)devdesc->dev_uuid, sizeof(devdesc->dev_uuid));
+	crc = crc32(crc, (void *)devdesc->portname, strlen(devdesc->portname));
+
+	return crc;
 }
 
 static inline const char *sky_devparam_to_str(enum sky_dev_param param)
@@ -198,9 +210,12 @@ int main(int argc, char *argv[])
 	if (cli.listdevs) {
 		struct sky_dev_desc *devdesc;
 
-		printf("Found sky devices on ports:\n");
+		printf("Found sky devices:\n");
+		printf("\t DEV-ID     TYPE    PORT-NAME\n");
 		foreach_devdesc(devdesc, devdescs) {
-			printf("\t%s %s\n", sky_devtype_to_str(devdesc->dev_type),
+			printf("\t%08X  %s   %s\n",
+			       sky_dev_desc_crc32(devdesc),
+			       sky_devtype_to_str(devdesc->dev_type),
 			       devdesc->portname);
 		}
 	} else if (cli.monitor) {
