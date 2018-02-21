@@ -1,3 +1,11 @@
+skysense (1.0.0) stretch; urgency=low
+
+   * skybroker: broker which sends UDP discover and proxies requests.
+   * skyproto: protocol changes in order to support broker.
+   * skyclient: support of multiple devices.
+
+ -- Roman Pen <r.peniaev@gmail.com>  Wed, 21 Feb 2018 14:50:34 +0200
+
 skysense (0.1.0) stretch; urgency=low
 
    * skyclient: fix timestamp format
