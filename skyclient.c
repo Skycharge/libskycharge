@@ -105,6 +105,21 @@ static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *conf)
 		conf->contype = SKY_LOCAL;
 }
 
+static struct sky_dev_desc *sky_find_devdesc_by_id(struct sky_dev_desc *head,
+						   const char *devid)
+{
+	struct sky_dev_desc *devdesc;
+	char id[16];
+
+	foreach_devdesc(devdesc, head) {
+		snprintf(id, sizeof(id), "%08X", sky_dev_desc_crc32(devdesc));
+		if (!strcmp(devid, id))
+			return devdesc;
+	}
+
+	return NULL;
+}
+
 static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			    struct sky_dev_desc **devdescs)
 {
@@ -118,12 +133,30 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		exit(-1);
 	}
-	/* TODO: always first available device */
-	rc = sky_devopen(*devdescs, dev);
-	if (rc) {
-		sky_err("sky_devopen(): %s\n", strerror(-rc));
-		exit(-1);
-	}
+	if (!cli->listdevs) {
+		struct sky_dev_desc *devdesc;
+
+		if (!cli->devid) {
+			if ((*devdescs)->next) {
+				sky_err("Error: multiple devices found, please specify <dev-id>\n");
+				exit(-1);
+			}
+			devdesc = *devdescs;
+		} else {
+			devdesc = sky_find_devdesc_by_id(*devdescs, cli->devid);
+			if (!devdesc) {
+				sky_err("Error: device by id '%s' was no found\n",
+					cli->devid);
+				exit(-1);
+			}
+		}
+		rc = sky_devopen(devdesc, dev);
+		if (rc) {
+			sky_err("sky_devopen(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	} else
+		*dev = NULL;
 }
 
 static void sky_print_charging_state(struct cli *cli,
@@ -168,7 +201,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 int main(int argc, char *argv[])
 {
 	struct sky_dev_desc *devdescs = NULL;
-	struct sky_dev *dev = NULL;
+	struct sky_dev *dev;
 	struct cli cli;
 	int rc, i;
 
@@ -349,7 +382,8 @@ int main(int argc, char *argv[])
 		assert(0);
 
 	sky_devsfree(devdescs);
-	sky_devclose(dev);
+	if (dev)
+		sky_devclose(dev);
 	cli_free(&cli);
 
 	return 0;
