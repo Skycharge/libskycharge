@@ -34,7 +34,9 @@ struct sky_server_dev {
 };
 
 struct sky_server {
+	bool exit;
 	uuid_t uuid;
+	struct cli cli;
 	struct zocket zock;
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
@@ -106,6 +108,26 @@ static int sky_daemonize(const char *pidfile)
 	(void)pid;
 
 	return 0;
+}
+
+static int sky_kill_pthread(pthread_t thread)
+{
+	int rc;
+
+	do {
+		struct timespec ts;
+
+		/*
+		 * Repeat killing to cover the race if first signal
+		 * comes when we are not in kernel.
+		 */
+		clock_gettime(CLOCK_REALTIME, &ts);
+		ts.tv_sec += 1;
+		pthread_kill(thread, SIGTERM);
+		rc = pthread_timedjoin_np(thread, NULL, &ts);
+	} while (rc == ETIMEDOUT);
+
+	return rc;
 }
 
 static pthread_mutex_t subsc_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -608,6 +630,7 @@ static int sky_zocket_create(struct sky_server *serv, const char *addr, int port
 		rc = -ENOMEM;
 		goto err;
 	}
+
 	timeo = DEFAULT_TIMEOUT;
 	rc = zmq_setsockopt(z->pub, ZMQ_SNDTIMEO, &timeo, sizeof(timeo));
 	if (rc != 0) {
@@ -672,19 +695,415 @@ static inline zframe_t *sky_find_data_frame(zmsg_t *msg)
 	return data;
 }
 
+static int sky_port_discovery(struct sky_discovery *discovery, char **ip_)
+{
+	zframe_t *frame = NULL;
+	zactor_t *beacon;
+	char *hostname;
+	char *ip = NULL;
+	int rc;
+
+	beacon = zactor_new(zbeacon, NULL);
+	if (beacon == NULL) {
+		rc = -ENOMEM;
+		goto err;
+	}
+	rc = zsock_send(beacon, "si", "CONFIGURE", SKY_DISCOVERY_PORT);
+	if (rc) {
+		sky_err("zsock_send(CONFIGURE)\n");
+		rc = -ECONNRESET;
+		goto err;
+	}
+	hostname = zstr_recv(beacon);
+	if (!hostname || !hostname[0]) {
+		free(hostname);
+		sky_err("hostname = zstr_recv()\n");
+		rc = -ECONNRESET;
+		goto err;
+	}
+	free(hostname);
+	zsock_set_rcvtimeo(beacon, SKY_DISCOVERY_MS);
+
+	rc = zsock_send(beacon, "ss", "SUBSCRIBE", SKY_DISCOVERY_MAGIC);
+	if (rc) {
+		sky_err("zsock_send(SUBSCRIBE)\n");
+		rc = -ECONNRESET;
+		goto err;
+	}
+	ip = zstr_recv(beacon);
+	if (!ip) {
+		rc = -ECONNRESET;
+		goto err;
+	}
+	frame = zframe_recv(beacon);
+	if (!frame) {
+		rc = -ECONNRESET;
+		goto err;
+	}
+	if (zframe_size(frame) != sizeof(*discovery)) {
+		sky_err("Malformed discovery frame, %zd got %zd\n",
+			sizeof(*discovery), zframe_size(frame));
+		rc = -ECONNRESET;
+		goto err;
+	}
+
+	memcpy(discovery, zframe_data(frame), zframe_size(frame));
+	*ip_ = ip;
+	rc = 0;
+
+err:
+	if (rc)
+		zstr_free(&ip);
+	zframe_destroy(&frame);
+	zactor_destroy(&beacon);
+
+	return rc;
+}
+
+struct pub_proxy {
+	void *sub;
+	void *push;
+	pthread_t thr;
+};
+
+static void *thread_do_proxy(void *arg)
+{
+	struct pub_proxy *proxy = arg;
+
+	(void)zmq_proxy(proxy->sub, proxy->push, NULL);
+
+	return NULL;
+}
+
+static int sky_setup_and_proxy_pub(struct sky_server *serv,
+				   struct sky_discovery *discovery,
+				   const char *ip, struct pub_proxy *proxy)
+{
+	void *ctx = serv->zock.ctx;
+	void *sub = NULL;
+	void *push = NULL;
+	char zaddr[128];
+	int rc;
+
+	sub = zmq_socket(ctx, ZMQ_SUB);
+	if (!sub) {
+		sky_err("zmq_socket(ZMQ_SUB): No memory\n");
+		rc = -ENOMEM;
+		goto err;
+	}
+	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, NULL, 0);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(ZMQ_SUBSCRIBE): %s\n", strerror(-rc));
+		goto err;
+	}
+	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
+		 serv->cli.addr, atoi(serv->cli.port)+1);
+        rc = zmq_connect(sub, zaddr);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_connect(%s): %s\n", zaddr, strerror(-rc));
+		goto err;
+	}
+	push = zmq_socket(ctx, ZMQ_PUSH);
+	if (!push) {
+		sky_err("zmq_socket(ZMQ_PUSH): No memory\n");
+		rc = -ENOMEM;
+		goto err;
+	}
+	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
+		 ip, le16toh(discovery->sub_port));
+	rc = zmq_connect(push, zaddr);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_connect(%s): %s\n", zaddr, strerror(-rc));
+		goto err;
+	}
+	proxy->sub = sub;
+	proxy->push = push;
+
+	rc = pthread_create(&proxy->thr, NULL, thread_do_proxy, proxy);
+	if (rc) {
+		rc = -rc;
+		sky_err("pthread_create(): %s\n", strerror(-rc));
+		goto err;
+	}
+
+	return 0;
+
+err:
+	if (sub)
+		zmq_close(sub);
+	if (push)
+		zmq_close(push);
+
+	return rc;
+}
+
+static void sky_destroy_pub(struct pub_proxy *proxy)
+{
+	(void)sky_kill_pthread(proxy->thr);
+	zmq_close(proxy->sub);
+	zmq_close(proxy->push);
+}
+
+struct req_proxy {
+	void *to_server;
+	void *to_broker;
+	void *broker_monitor;
+};
+
+
+/**
+ * sky_zock_proxy() - simple variant of zmq_proxy() which
+ *                    detects disconnects from monitor socket.
+ *
+ * For some reason (Oh God, I do not want to debug zmq crap)
+ * setting ZMQ_RECONNECT_IVL to -1 does not help and socket
+ * continues reconnecting.  What we need instead is to repeat
+ * discovery if broker goes does down.
+ *
+ * Also heartbeats here are supported.
+ */
+static int sky_zmq_proxy(struct req_proxy *p)
+{
+	int rc;
+
+	while (true) {
+		zmq_pollitem_t items [] = {
+			{ p->broker_monitor, 0, ZMQ_POLLIN, 0 },
+			{ p->to_broker,      0, ZMQ_POLLIN, 0 },
+			{ p->to_server,      0, ZMQ_POLLIN, 0 },
+		};
+		void *dst, *src = NULL;
+		zmsg_t *msg;
+
+		rc = zmq_poll(items, 3,
+			      SKY_HEARTBEAT_IVL_MS * ZMQ_POLL_MSEC);
+		if (rc == -1)
+			/* Interrupted */
+			break;
+
+		if (items[0].revents & ZMQ_POLLIN) {
+			/* Connection is dead */
+			break;
+		} else if (items[1].revents & ZMQ_POLLIN) {
+			src = p->to_broker;
+			dst = p->to_server;
+		} else if (items[2].revents & ZMQ_POLLIN) {
+			src = p->to_server;
+			dst = p->to_broker;
+		} else {
+			/* Heartbeat destination */
+			dst = p->to_broker;
+		}
+
+		if (src) {
+			msg = zmsg_recv(src);
+			if (!msg)
+				break;
+			if (src == p->to_broker) {
+				zframe_t *frame = zmsg_first(msg);
+				/* DEALER prepends zero frame, remove it */
+				if (frame) {
+					zmsg_remove(msg, frame);
+					zframe_destroy(&frame);
+				}
+			}
+		} else {
+			/* Create heartbeat */
+			msg = zmsg_new();
+			if (!msg)
+				continue;
+		}
+		/* Prepend zero frame for DEALER */
+		if (dst == p->to_broker)
+			zmsg_pushmem(msg, NULL, 0);
+		rc = zmsg_send(&msg, dst);
+		if (rc) {
+			zmsg_destroy(&msg);
+			break;
+		}
+	}
+
+	return rc;
+}
+
+static int sky_setup_req(struct sky_server *serv,
+			 struct sky_discovery *discovery,
+			 const char *ip, struct req_proxy *proxy)
+{
+	void *ctx = serv->zock.ctx;
+	void *to_server = NULL;
+	void *to_broker = NULL;
+	void *monitor = NULL;
+	char zaddr[128];
+	void *rsp_void;
+	size_t rsp_len;
+	int rc;
+
+	to_server = zmq_socket(ctx, ZMQ_REQ);
+	if (!to_server) {
+		sky_err("zmq_socket(): No memory\n");
+		rc = -ENOMEM;
+		goto err;
+	}
+	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
+		 serv->cli.addr, atoi(serv->cli.port));
+	rc = zmq_connect(to_server, zaddr);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_connect(): %s\n", strerror(-rc));
+		goto err;
+	}
+	/* Use DEALER instead of REQ to have heartbeats */
+	to_broker = zmq_socket(ctx, ZMQ_DEALER);
+	if (!to_broker) {
+		rc = -errno;
+		sky_err("zmq_socket(): No memory\n");
+		goto err;
+	}
+	rc = zmq_setsockopt(to_broker, ZMQ_IDENTITY,
+			    serv->uuid, sizeof(serv->uuid));
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(ZMQ_SUBSCRIBE): %s\n", strerror(-rc));
+		goto err;
+	}
+	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
+		 ip, le16toh(discovery->servers_port));
+	rc = zmq_connect(to_broker, zaddr);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_connect(): %s\n", strerror(-rc));
+		goto err;
+	}
+	/*
+	 * Also imply random number to avoid races in zmq when
+	 * zmq_socket_monitor() returns EADDRINUSE if previous
+	 * monitor socket has been just closed.
+	 */
+	snprintf(zaddr, sizeof(zaddr), "inproc://monitor-broker-%d-%ld",
+		 getpid(), random());
+	/* Mintor disconnect event to repeat discovery */
+	rc = zmq_socket_monitor(to_broker, zaddr,
+				ZMQ_EVENT_DISCONNECTED);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_socket_monitor(): %s\n", strerror(-rc));
+		goto err;
+	}
+	monitor = zmq_socket(ctx, ZMQ_PAIR);
+	if (!monitor) {
+		sky_err("zmq_socket(): No memory\n");
+		rc = -ENOMEM;
+		goto err;
+	}
+	rc = zmq_connect(monitor, zaddr);
+	if (rc) {
+		rc = -errno;
+		sky_err("zmq_connect(): %s\n", strerror(-rc));
+		goto err;
+	}
+	rc = sky_devs_list_rsp(serv, &rsp_void, &rsp_len);
+	if (rc) {
+		sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
+		goto err;
+	}
+	/* Prepend zero frame for DEALER to emulate REQ */
+	rc = zmq_send(to_broker, NULL, 0, ZMQ_SNDMORE);
+	if (!rc)
+		rc = zmq_send(to_broker, rsp_void, rsp_len, 0);
+	if (rc != rsp_len) {
+		rc = -errno;
+		sky_err("zmq_send(): %s\n", strerror(-rc));
+		goto err;
+
+	}
+
+	proxy->to_broker = to_broker;
+	proxy->to_server = to_server;
+	proxy->broker_monitor = monitor;
+
+	return 0;
+
+err:
+	if (to_server)
+		zmq_close(to_server);
+	if (to_broker)
+		zmq_close(to_broker);
+	if (monitor)
+		zmq_close(monitor);
+
+	return rc;
+}
+
+static void sky_destroy_req(struct req_proxy *proxy)
+{
+	zmq_close(proxy->to_server);
+	zmq_close(proxy->to_broker);
+	zmq_close(proxy->broker_monitor);
+}
+
+static void *sky_discover_broker(void *arg_)
+{
+	struct sky_server *serv = arg_;
+	struct sky_discovery discovery;
+	struct pub_proxy pub_proxy = {}; /* Make gcc happy */
+	struct req_proxy req_proxy = {}; /* Make gcc happy */
+	char *ip;
+	int rc;
+
+	/*
+	 * Do discovery loop
+	 */
+	while (!serv->exit) {
+		/* Receive UDP discovery */
+		rc = sky_port_discovery(&discovery, &ip);
+		if (rc) {
+			sleep(1);
+			continue;
+		}
+		rc = sky_setup_and_proxy_pub(serv, &discovery, ip, &pub_proxy);
+		if (rc)
+			goto free_ip;
+		rc = sky_setup_req(serv, &discovery, ip, &req_proxy);
+		if (rc)
+			goto destroy_pub;
+
+		/* Main request proxying */
+		(void)sky_zmq_proxy(&req_proxy);
+
+		sky_destroy_req(&req_proxy);
+destroy_pub:
+		sky_destroy_pub(&pub_proxy);
+free_ip:
+		zstr_free(&ip);
+	}
+
+	return NULL;
+}
+
 static int sky_server_loop(struct sky_server *serv)
 {
 	zframe_t *data_frame, *devport_frame;
 	struct sky_rsp_hdr *rsp;
+	pthread_t thread;
 	size_t rsp_len;
 	zmsg_t *msg;
 	int rc;
 
+	rc = pthread_create(&thread, NULL, sky_discover_broker, serv);
+	if (rc) {
+		sky_err("pthread_create(sky_discover_broker): %d\n", rc);
+		thread = 0;
+	}
+
 	while (1) {
 		msg = zmsg_recv(serv->zock.router);
 		if (msg == NULL) {
-			sky_err("zmsg_recv(): failed\n");
-			rc = -EIO;
+			/* Interrupted */
+			rc = 0;
 			break;
 		}
 		data_frame = sky_find_data_frame(msg);
@@ -709,6 +1128,12 @@ static int sky_server_loop(struct sky_server *serv)
 		}
 		sky_free(rsp);
 	}
+	if (thread) {
+		/* Tear down discovery thread */
+		serv->exit = true;
+
+		(void)sky_kill_pthread(thread);
+	}
 
 	return rc;
 }
@@ -721,7 +1146,6 @@ int main(int argc, char *argv[])
 	struct sky_server serv = {
 	};
 	struct sky_dev_desc *devdesc;
-	struct cli cli;
 	int num, rc;
 
 	uuid_generate(serv.uuid);
@@ -735,10 +1159,10 @@ int main(int argc, char *argv[])
 	 * Daemonize before creating zmq socket, ZMQ is written by
 	 * people who are not able to deal with fork() gracefully.
 	 */
-	if (cli.daemon)
-		sky_daemonize(cli.pidf);
+	if (serv.cli.daemon)
+		sky_daemonize(serv.cli.pidf);
 
-	rc = sky_zocket_create(&serv, cli.addr, atoi(cli.port));
+	rc = sky_zocket_create(&serv, serv.cli.addr, atoi(serv.cli.port));
 	if (rc) {
 		sky_err("Can't create server sockets: %s\n", strerror(-rc));
 		goto free_cli;
@@ -799,7 +1223,7 @@ free_devs:
 destroy_zocket:
 	sky_zocket_destroy(&serv);
 free_cli:
-	cli_free(&cli);
+	cli_free(&serv.cli);
 
 	return rc;
 }

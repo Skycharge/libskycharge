@@ -71,10 +71,27 @@ enum {
 	PORTNAME_LEN = 32,
 
 	SKY_PROTO_VERSION = 0x0200,
+
+	SKY_HEARTBEAT_IVL_MS = 5000,
+
+	SKY_DISCOVERY_PORT = 6666,
+	SKY_DISCOVERY_MS   = 500, /* wait if no broadcasting */
 };
+
+#define	SKY_DISCOVERY_MAGIC "SKYSENSE-BROCKER"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wpadded"
+
+struct sky_discovery {
+	char magic[16];
+	le16 proto_version;
+	le16 servers_port;
+	le16 sub_port;
+	le16 clients_port;
+	le16 pub_port;
+	char padding[18];
+};
 
 struct sky_req_hdr {
 	le16 type;
