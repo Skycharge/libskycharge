@@ -136,4 +136,8 @@ struct sky_peerinfo_rsp {
 
 #pragma GCC diagnostic pop
 
+#define sky_err(fmt, ...) \
+	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
+		__func__, ##__VA_ARGS__)
+
 #endif /* SKYPROTO_H */

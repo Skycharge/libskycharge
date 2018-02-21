@@ -40,10 +40,6 @@ struct sky_server {
 	struct sky_dev_desc *devhead;
 };
 
-#define sky_err(fmt, ...) \
-	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
-		__func__, ##__VA_ARGS__)
-
 static int sky_pidfile_create(const char *pidfile, int pid)
 {
 	int rc, fd, n;
@@ -206,6 +202,61 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 	}
 
 	return NULL;
+}
+
+static int sky_devs_list_rsp(struct sky_server *serv,
+			     void **rsp_hdr, size_t *rsp_len)
+{
+	struct sky_dev_desc *dev, *head;
+	struct sky_devs_list_rsp *rsp;
+	struct sky_dev_conf local_conf = {
+		.contype = SKY_LOCAL
+	};
+	void *rsp_void = NULL;
+	size_t len;
+	int rc;
+
+	len = sizeof(*rsp);
+	rsp = rsp_void = calloc(1, len);
+	if (!rsp)
+		return -ENOMEM;
+
+	rc = sky_devslist(&local_conf, 1, &head);
+
+	rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
+	rsp->hdr.error = htole16(-rc);
+	if (!rc) {
+		int num;
+
+		foreach_devdesc(dev, head)
+			len += sizeof(rsp->info[0]);
+
+		rsp = realloc(rsp, len);
+		if (!rsp) {
+			free(rsp_void);
+			sky_devsfree(head);
+			return -ENOMEM;
+		}
+		rsp_void = rsp;
+		num = 0;
+		foreach_devdesc(dev, head) {
+			struct sky_dev_info *info = &rsp->info[num++];
+
+			info->dev_type = htole16(dev->dev_type);
+			info->firmware_version =
+				htole32(dev->firmware_version);
+			memcpy(info->portname, dev->portname,
+			       sizeof(dev->portname));
+			memcpy(info->dev_uuid, serv->uuid, sizeof(serv->uuid));
+		}
+		sky_devsfree(head);
+		rsp->num_devs = htole16(num);
+	}
+
+	*rsp_hdr = rsp_void;
+	*rsp_len = len;
+
+	return rc;
 }
 
 static void sky_execute_cmd(struct sky_server *serv,
@@ -463,50 +514,9 @@ static void sky_execute_cmd(struct sky_server *serv,
 		break;
 	}
 	case SKY_DEVS_LIST_REQ: {
-		struct sky_dev_desc *dev, *head;
-		struct sky_devs_list_rsp *rsp;
-		struct sky_dev_conf local_conf = {
-			.contype = SKY_LOCAL
-		};
-
-		len = sizeof(*rsp);
-		rsp = rsp_void = calloc(1, len);
-		if (!rsp) {
-			rc = -ENOMEM;
+		rc = sky_devs_list_rsp(serv, &rsp_void, &len);
+		if (rc)
 			goto emergency;
-		}
-
-		rc = sky_devslist(&local_conf, 1, &head);
-
-		rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
-		rsp->hdr.error = htole16(-rc);
-		if (!rc) {
-			int num;
-
-			foreach_devdesc(dev, head)
-				len += sizeof(rsp->info[0]);
-
-			rsp = realloc(rsp, len);
-			if (!rsp) {
-				free(rsp_void);
-				sky_devsfree(head);
-				rc = -ENOMEM;
-				goto emergency;
-			}
-			rsp_void = rsp;
-			num = 0;
-			foreach_devdesc(dev, head) {
-				struct sky_dev_info *info = &rsp->info[num++];
-
-				info->dev_type = htole16(dev->dev_type);
-				info->firmware_version =
-					htole32(dev->firmware_version);
-				memcpy(info->portname, dev->portname,
-				       sizeof(dev->portname));
-			}
-			sky_devsfree(head);
-			rsp->num_devs = htole16(num);
-		}
 		break;
 	}
 	case SKY_PEERINFO_REQ: {
