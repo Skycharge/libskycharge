@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
+#include <uuid/uuid.h>
 
 #include <zmq.h>
 #include <czmq.h>
@@ -117,34 +118,47 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
 	struct sky_server_dev *servdev = data;
 	struct sky_server *serv = servdev->serv;
-	struct sky_charging_state_rsp msg;
+	struct sky_dev_desc *devdesc = servdev->devdesc;
+	struct sky_charging_state_rsp rsp;
+	char topic[128];
+	zmsg_t *msg;
 	size_t len;
 	int rc;
 
-	msg.hdr.type = htole16(SKY_CHARGING_STATE_EV);
-	msg.hdr.error = 0;
-	msg.dev_hw_state = htole16(state->dev_hw_state);
-	msg.current = htole16(state->current);
-	msg.voltage = htole16(state->voltage);
+	BUILD_BUG_ON(sizeof(serv->uuid) + sizeof(devdesc->portname) >
+		     sizeof(topic));
 
-	pthread_mutex_lock(&subsc_mutex);
-	/* Publisher topic (device portname) */
-	len = sizeof(servdev->devdesc->portname);
-	rc = zmq_send(serv->zock.pub, servdev->devdesc->portname,
-		      len, ZMQ_SNDMORE);
-	if (rc != len) {
-		sky_err("zmq_send(): %s\n", strerror(-rc));
-		goto unlock;
+	rsp.hdr.type = htole16(SKY_CHARGING_STATE_EV);
+	rsp.hdr.error = 0;
+	rsp.dev_hw_state = htole16(state->dev_hw_state);
+	rsp.current = htole16(state->current);
+	rsp.voltage = htole16(state->voltage);
+
+	msg = zmsg_new();
+	if (!msg) {
+		sky_err("zmsg_new(): No memory\n");
+		return;
 	}
-	/* Actual message */
-	rc = zmq_send(serv->zock.pub, &msg, sizeof(msg), 0);
-	if (rc != sizeof(msg))
-		sky_err("zmq_send(): %s\n", strerror(-rc));
-
-unlock:
+	/* Publisher topic */
+	memcpy(topic, serv->uuid, sizeof(serv->uuid));
+	len = strlen(devdesc->portname);
+	memcpy(topic + sizeof(serv->uuid), devdesc->portname, len);
+	len += sizeof(serv->uuid);
+	rc = zmsg_addmem(msg, topic, len);
+	if (!rc)
+		rc = zmsg_addmem(msg, &rsp, sizeof(rsp));
+	if (rc) {
+		sky_err("zmsg_add(): No memory\n");
+		zmsg_destroy(&msg);
+		return;
+	}
+	pthread_mutex_lock(&subsc_mutex);
+	rc = zmsg_send(&msg, serv->zock.pub);
 	pthread_mutex_unlock(&subsc_mutex);
-
-	return;
+	if (rc) {
+		sky_err("zmsg_send(): %s\n", strerror(errno));
+		zmsg_destroy(&msg);
+	}
 }
 
 static struct sky_rsp_hdr emergency_rsp;

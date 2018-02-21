@@ -451,10 +451,15 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 {
 	struct sky_dev_desc *devdesc;
 	struct skyrem_dev *dev;
+	char topic[128];
 	char zaddr[128];
 	uint32_t timeo;
+	size_t len;
 	void *sub;
 	int rc;
+
+	BUILD_BUG_ON(sizeof(devdesc->dev_uuid) + sizeof(devdesc->portname) >
+		     sizeof(topic));
 
 	devdesc = &dev_->devdesc;
 	dev = container_of(dev_, struct skyrem_dev, dev);
@@ -481,8 +486,11 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 		zmq_close(sub);
 		return rc;
 	}
-	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, devdesc->portname,
-			    sizeof(devdesc->portname));
+	memcpy(topic, devdesc->dev_uuid, sizeof(devdesc->dev_uuid));
+	len = strlen(devdesc->portname);
+	memcpy(topic + sizeof(devdesc->dev_uuid), devdesc->portname, len);
+	len += sizeof(devdesc->dev_uuid);
+	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, topic, len);
 	if (rc != 0) {
 		zmq_close(sub);
 		return rc;
@@ -510,34 +518,36 @@ static void skyrem_unsubscribe(struct sky_dev *dev_)
 static int skyrem_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
-	struct sky_charging_state_rsp rsp;;
-	char portname[PORTNAME_LEN]; /* act as a zmq topic */
+	struct sky_charging_state_rsp *rsp;
 	struct skyrem_dev *dev;
+	zframe_t *frame;
+	zmsg_t *msg;
 	int rc;
 
 	dev = container_of(dev_, struct skyrem_dev, dev);
 
 	/* TODO: we can sleep here forever */
-	rc = zmq_recv(dev->zock.sub, portname, sizeof(portname), 0);
-	if (rc < 0)
-		return -errno;
-	if (rc != PORTNAME_LEN)
+	msg = zmsg_recv(dev->zock.sub);
+	if (!msg)
 		return -ECONNRESET;
-	/* TODO: we can sleep here forever */
-	rc = zmq_recv(dev->zock.sub, &rsp, sizeof(rsp), 0);
-	if (rc < 0)
-		return -errno;
-	if (rc != sizeof(rsp)) {
+	if (zmsg_size(msg) != 2)
+		return -ECONNRESET;
+
+	zmsg_first(msg);
+	frame = zmsg_next(msg);
+
+	if (zframe_size(frame) != sizeof(*rsp))
 		/* Malformed response */
 		return -ECONNRESET;
-	}
-	rc = -le16toh(rsp.hdr.error);
+
+	rsp = (void *)zframe_data(frame);
+	rc = -le16toh(rsp->hdr.error);
 	if (rc)
 		return rc;
 
-	state->dev_hw_state = le16toh(rsp.dev_hw_state);
-	state->voltage = le16toh(rsp.voltage);
-	state->current = le16toh(rsp.current);
+	state->dev_hw_state = le16toh(rsp->dev_hw_state);
+	state->voltage = le16toh(rsp->voltage);
+	state->current = le16toh(rsp->current);
 
 	/* Indicate we sleep here */
 	return 1;
