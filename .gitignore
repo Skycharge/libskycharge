@@ -2,9 +2,9 @@
 *.o
 skysense-cli
 skysensed
+skybroker
 docopt-gen
 version.h
 cscope.*
-skyclient-cmd.*
-skyserver-cmd.*
-!skyclient-cmd.docopt
+*-cmd.*
+!*.docopt

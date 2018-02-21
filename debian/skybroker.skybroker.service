@@ -1,0 +1,13 @@
+[Unit]
+Description=Skysense broker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=forking
+User=root
+PIDFile=/var/run/skybroker.pid
+ExecStart=/usr/sbin/skybroker 0.0.0.0 --servers-port 6666 --clients-port 7777 --daemon --pidfile /var/run/skybroker.pid
+
+[Install]
+WantedBy=multi-user.target

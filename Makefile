@@ -12,7 +12,7 @@ MIN = $(shell echo "$(VERS)" | cut -d . -f 2)
 REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
-BINS := skysensed skysense-cli
+BINS := skybroker skysensed skysense-cli
 LIBS := -lczmq -lzmq -lserialport -lpthread -luuid -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
@@ -44,6 +44,25 @@ version.h: debian/changelog
 		$$(($(MAJ) << 16 | $(MIN) << 8 | $(REV))) >>  version.h
 	@printf "#endif /* VERSION_H */\n"                >> version.h
 
+
+##
+## skybroker
+##
+
+skybroker-cmd.h skybroker-cmd.y skybroker-cmd.l: docopt-gen skybroker-cmd.docopt
+	$(RM) skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y
+	./docopt-gen skybroker-cmd.docopt
+
+skybroker-cmd.tab.c: skybroker-cmd.y
+	$(YACC) -o $@ --defines skybroker-cmd.y
+
+skybroker-cmd.lex.c: skybroker-cmd.l
+	$(LEX) -o $@ skybroker-cmd.l
+
+skybroker.o: skybroker-cmd.h version.h
+
+skybroker: skybroker.o skybroker-cmd.tab.o skybroker-cmd.lex.o
+	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 ##
 ## skyserver (skysensed)
@@ -90,4 +109,6 @@ clean:
 		skyclient-cmd.lex.c skyclient-cmd.tab.* \
 		skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y \
 		skyserver-cmd.lex.c skyserver-cmd.tab.* \
-		skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y
+		skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y \
+		skybroker-cmd.lex.c skybroker-cmd.tab.* \
+		skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y

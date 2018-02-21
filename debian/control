@@ -32,9 +32,20 @@ Depends: ${misc:Depends},
          ${shlibs:Depends},
 		 libuuid1,
 		 libzmq5,
+		 libczmq4,
 		 libserialport0
 Description: server to control charging pad
  This package contains Skysense server
+
+Package: skybroker
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+		 libzmq5,
+		 libczmq4,
+Description: broker which accepts connections from pads and clients
+ This package contains Skysense broker, which acts as a router and
+ accepts many pads and clients and orchestrates requests between them.
 
 Package: skysense-dbg
 Architecture: any
