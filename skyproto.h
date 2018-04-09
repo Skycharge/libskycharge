@@ -124,6 +124,7 @@ struct sky_dev_info {
 	le16 dev_type;
 	le16 padding;
 	le32 firmware_version;
+	char dev_name[16];
 	unsigned char dev_uuid[16];
 	char portname[PORTNAME_LEN];
 };

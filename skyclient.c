@@ -208,14 +208,30 @@ int main(int argc, char *argv[])
 	sky_prepare_dev(&cli, &dev, &devdescs);
 
 	if (cli.listdevs) {
+		size_t max_devname = strlen("DEV-NAME");
+		size_t max_portname = strlen("PORT-NAME");
 		struct sky_dev_desc *devdesc;
 
-		printf("Found sky devices:\n");
-		printf("\t DEV-ID     TYPE    PORT-NAME\n");
 		foreach_devdesc(devdesc, devdescs) {
-			printf("\t%08X  %s   %s\n",
+			max_portname = max(strnlen(devdesc->portname,
+						   sizeof(devdesc->portname)),
+					   max_portname);
+			max_devname = max(strnlen(devdesc->dev_name,
+						  sizeof(devdesc->dev_name)),
+					  max_devname);
+		}
+
+		printf("Found sky devices:\n");
+		printf("\t  DEV-ID     TYPE  %*s  %*s\n",
+		       (int)max_devname, "DEV-NAME",
+		       (int)max_portname, "PORT-NAME");
+		foreach_devdesc(devdesc, devdescs) {
+			printf("\t%08X  %s  %*s  %*s\n",
 			       sky_dev_desc_crc32(devdesc),
 			       sky_devtype_to_str(devdesc->dev_type),
+			       (int)max_devname,
+			       devdesc->dev_name,
+			       (int)max_portname,
 			       devdesc->portname);
 		}
 	} else if (cli.monitor) {

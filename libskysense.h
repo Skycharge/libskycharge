@@ -101,6 +101,7 @@ struct sky_dev_desc {
 	enum sky_dev_type dev_type;
 	const void *opaque_ops;
 	unsigned firmware_version;
+	char dev_name[16];
 	unsigned char dev_uuid[16];
 	char portname[32];
 };

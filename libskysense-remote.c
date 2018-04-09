@@ -284,6 +284,8 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 				goto out;
 			}
 			devdesc->dev_type = le16toh(info->dev_type);
+			memcpy(devdesc->dev_name, info->dev_name,
+			       sizeof(devdesc->dev_name));
 			memcpy(devdesc->dev_uuid, info->dev_uuid,
 			       sizeof(devdesc->dev_uuid));
 			devdesc->firmware_version =
