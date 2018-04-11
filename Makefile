@@ -6,7 +6,7 @@ LEX  := flex
 
 # dpkg-parsechangelog is significantly slow
 CHANGELOG = $(shell head -n 1 ./debian/changelog)
-VERS = $(shell echo "$(CHANGELOG)" | sed -n -e 's/.*(\([^)]*\).*/\1/p')
+VERS = $(shell echo "$(CHANGELOG)" | sed -n -e 's/.*(\([0-9]\+\.[0-9]\+\.[0-9]\+\).*).*/\1/p')
 MAJ = $(shell echo "$(VERS)" | cut -d . -f 1)
 MIN = $(shell echo "$(VERS)" | cut -d . -f 2)
 REV = $(shell echo "$(VERS)" | cut -d . -f 3)
