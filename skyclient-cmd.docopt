@@ -1,6 +1,7 @@
 Skysense charging pad command line tool.
 
 Usage:
+    skysense-cli discover-broker               [<timeout-secs>]
     skysense-cli peer-info                       <addr> <port>
     skysense-cli list-devs                     [(<addr> <port>)]
     skysense-cli monitor <interval-ms> [--raw] [(<addr> <port>)]  [(--id <dev-id>)]

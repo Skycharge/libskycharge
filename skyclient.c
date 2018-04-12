@@ -211,7 +211,35 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	if (cli.peerinfo) {
+	if (cli.discoverbroker) {
+		struct sky_brokerinfo brokerinfo;
+		unsigned int timeout_ms;
+		int rc;
+
+		if (cli.timeoutsecs)
+			timeout_ms = atoi(cli.timeoutsecs) * 1000;
+		else
+			timeout_ms = 5000;
+		rc = sky_discoverbroker(&brokerinfo, timeout_ms);
+		if (rc) {
+			sky_err("sky_discoverbroker(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+		printf("Found skybroker:\n");
+		printf("\t%s addr:        %s\n",
+		       brokerinfo.af_family == AF_INET6 ? "IPv6" : "IPv4",
+		       brokerinfo.addr);
+		printf("\tServers port:     %u\n", brokerinfo.servers_port);
+		printf("\tClients port:     %u\n", brokerinfo.clients_port);
+		printf("\tProtocol version: %u.%u\n",
+		       (brokerinfo.proto_version >> 8)  & 0xff,
+		       brokerinfo.proto_version & 0xff);
+
+		cli_free(&cli);
+
+		return 0;
+
+	} else if (cli.peerinfo) {
 		struct sky_peerinfo peerinfo;
 		struct sky_dev_conf conf;
 		int rc;
