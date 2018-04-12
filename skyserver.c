@@ -696,71 +696,6 @@ static inline zframe_t *sky_find_data_frame(zmsg_t *msg)
 	return data;
 }
 
-static int sky_port_discovery(struct sky_discovery *discovery, char **ip_)
-{
-	zframe_t *frame = NULL;
-	zactor_t *beacon;
-	char *hostname;
-	char *ip = NULL;
-	int rc;
-
-	beacon = zactor_new(zbeacon, NULL);
-	if (beacon == NULL) {
-		rc = -ENOMEM;
-		goto err;
-	}
-	rc = zsock_send(beacon, "si", "CONFIGURE", SKY_DISCOVERY_PORT);
-	if (rc) {
-		sky_err("zsock_send(CONFIGURE)\n");
-		rc = -ECONNRESET;
-		goto err;
-	}
-	hostname = zstr_recv(beacon);
-	if (!hostname || !hostname[0]) {
-		free(hostname);
-		sky_err("hostname = zstr_recv()\n");
-		rc = -ECONNRESET;
-		goto err;
-	}
-	free(hostname);
-	zsock_set_rcvtimeo(beacon, SKY_DISCOVERY_MS);
-
-	rc = zsock_send(beacon, "ss", "SUBSCRIBE", SKY_DISCOVERY_MAGIC);
-	if (rc) {
-		sky_err("zsock_send(SUBSCRIBE)\n");
-		rc = -ECONNRESET;
-		goto err;
-	}
-	ip = zstr_recv(beacon);
-	if (!ip) {
-		rc = -ECONNRESET;
-		goto err;
-	}
-	frame = zframe_recv(beacon);
-	if (!frame) {
-		rc = -ECONNRESET;
-		goto err;
-	}
-	if (zframe_size(frame) != sizeof(*discovery)) {
-		sky_err("Malformed discovery frame, %zd got %zd\n",
-			sizeof(*discovery), zframe_size(frame));
-		rc = -ECONNRESET;
-		goto err;
-	}
-
-	memcpy(discovery, zframe_data(frame), zframe_size(frame));
-	*ip_ = ip;
-	rc = 0;
-
-err:
-	if (rc)
-		zstr_free(&ip);
-	zframe_destroy(&frame);
-	zactor_destroy(&beacon);
-
-	return rc;
-}
-
 struct pub_proxy {
 	void *sub;
 	void *push;
@@ -777,8 +712,8 @@ static void *thread_do_proxy(void *arg)
 }
 
 static int sky_setup_and_proxy_pub(struct sky_server *serv,
-				   struct sky_discovery *discovery,
-				   const char *ip, struct pub_proxy *proxy)
+				   struct sky_brokerinfo *brokerinfo,
+				   struct pub_proxy *proxy)
 {
 	void *ctx = serv->zock.ctx;
 	void *sub = NULL;
@@ -813,7 +748,7 @@ static int sky_setup_and_proxy_pub(struct sky_server *serv,
 		goto err;
 	}
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		 ip, le16toh(discovery->sub_port));
+		 brokerinfo->addr, brokerinfo->sub_port);
 	rc = zmq_connect(push, zaddr);
 	if (rc) {
 		rc = -errno;
@@ -976,8 +911,8 @@ static int sky_get_sockname(const char *addr_in, int port,
 }
 
 static int sky_setup_req(struct sky_server *serv,
-			 struct sky_discovery *discovery,
-			 const char *ip, struct req_proxy *proxy)
+			 struct sky_brokerinfo *brokerinfo,
+			 struct req_proxy *proxy)
 {
 	void *ctx = serv->zock.ctx;
 	void *to_server = NULL;
@@ -989,7 +924,7 @@ static int sky_setup_req(struct sky_server *serv,
 	int rc;
 
 	/* XXX Currently instead of device name retrieve sockname */
-	rc = sky_get_sockname(ip, discovery->servers_port,
+	rc = sky_get_sockname(brokerinfo->addr, brokerinfo->servers_port,
 			      devname, sizeof(devname));
 	if (rc) {
 		sky_err("sky_get_sockname(): %d\n", rc);
@@ -1025,7 +960,7 @@ static int sky_setup_req(struct sky_server *serv,
 		goto err;
 	}
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		 ip, le16toh(discovery->servers_port));
+		 brokerinfo->addr, brokerinfo->servers_port);
 	rc = zmq_connect(to_broker, zaddr);
 	if (rc) {
 		rc = -errno;
@@ -1102,26 +1037,25 @@ static void sky_destroy_req(struct req_proxy *proxy)
 static void *sky_discover_broker(void *arg_)
 {
 	struct sky_server *serv = arg_;
-	struct sky_discovery discovery;
+	struct sky_brokerinfo brokerinfo;
 	struct pub_proxy pub_proxy = {}; /* Make gcc happy */
 	struct req_proxy req_proxy = {}; /* Make gcc happy */
-	char *ip;
 	int rc;
 
 	/*
 	 * Do discovery loop
 	 */
 	while (!serv->exit) {
-		/* Receive UDP discovery */
-		rc = sky_port_discovery(&discovery, &ip);
+		/* Find any broker on the network */
+		rc = sky_discoverbroker(&brokerinfo, SKY_DISCOVERY_MS);
 		if (rc) {
 			sleep(1);
 			continue;
 		}
-		rc = sky_setup_and_proxy_pub(serv, &discovery, ip, &pub_proxy);
+		rc = sky_setup_and_proxy_pub(serv, &brokerinfo, &pub_proxy);
 		if (rc)
-			goto free_ip;
-		rc = sky_setup_req(serv, &discovery, ip, &req_proxy);
+			continue;
+		rc = sky_setup_req(serv, &brokerinfo, &req_proxy);
 		if (rc)
 			goto destroy_pub;
 
@@ -1131,8 +1065,6 @@ static void *sky_discover_broker(void *arg_)
 		sky_destroy_req(&req_proxy);
 destroy_pub:
 		sky_destroy_pub(&pub_proxy);
-free_ip:
-		zstr_free(&ip);
 	}
 
 	return NULL;
