@@ -15,6 +15,22 @@ void __sky_register_devops(struct sky_dev_ops *ops)
        devops = ops;
 }
 
+int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
+		       unsigned int timeout_ms)
+{
+	struct sky_dev_ops *ops;
+
+	foreach_devops(ops, devops) {
+		if (ops->contype != SKY_REMOTE)
+			continue;
+		if (!ops->discoverbroker)
+			continue;
+		return ops->discoverbroker(ops, brokerinfo, timeout_ms);
+	}
+
+	return -EOPNOTSUPP;
+}
+
 int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
 		 struct sky_peerinfo *peerinfo)
 {

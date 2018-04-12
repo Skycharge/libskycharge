@@ -3,6 +3,7 @@
 
 #include <stdlib.h>
 #include <stdint.h>
+#include <netinet/in.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -142,6 +143,36 @@ struct sky_peerinfo {
 	uint32_t server_version;
 	uint16_t proto_version;
 };
+
+/**
+ * struct sky_brokerinfo - Broker information.
+ */
+struct sky_brokerinfo {
+	uint16_t af_family;
+	char addr[INET6_ADDRSTRLEN];
+	uint16_t proto_version;
+	uint16_t servers_port;
+	uint16_t sub_port;
+	uint16_t clients_port;
+	uint16_t pub_port;
+};
+
+/**
+ * sky_discoverbroker() - Discover broker on the local network.
+ * @brokerinfo: Broker infor to be filled in.
+ * @timeout_ms: Timeout in ms.
+ *
+ * Function fills in @brokerinfo and returns 0 if skybroker was
+ * disovered, otherwise -ENONET is returned.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENONET      skybroker is not on the network
+ * -EOPNOTSUPP  library does not support any remote access
+ */
+int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
+		       unsigned int timeout_ms);
 
 /**
  * sky_peerinfo() - Fills in peer information.

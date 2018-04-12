@@ -6,6 +6,9 @@
 
 struct sky_dev_ops {
 	enum sky_con_type contype;
+	int (*discoverbroker)(const struct sky_dev_ops *ops,
+			      struct sky_brokerinfo *brokerinfo,
+			      unsigned int timeout_ms);
 	int (*peerinfo)(const struct sky_dev_ops *ops,
 			const struct sky_dev_conf *conf,
 			struct sky_peerinfo *peerinfo);

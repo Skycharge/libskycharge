@@ -202,6 +202,81 @@ static int skyrem_simple_req_rsp(struct skyrem_dev *dev,
 	return -le16toh(rsp.error);
 }
 
+static int skyrem_discoverbroker(const struct sky_dev_ops *ops,
+				 struct sky_brokerinfo *brokerinfo,
+				 unsigned int timeout_ms)
+{
+	struct sky_discovery *discovery;
+	zframe_t *frame = NULL;
+	zactor_t *beacon;
+	char *hostname;
+	char *ip = NULL;
+	int rc;
+
+	beacon = zactor_new(zbeacon, NULL);
+	if (beacon == NULL) {
+		rc = -ENOMEM;
+		goto err;
+	}
+	rc = zsock_send(beacon, "si", "CONFIGURE", SKY_DISCOVERY_PORT);
+	if (rc) {
+		sky_err("zsock_send(CONFIGURE)\n");
+		rc = -ENONET;
+		goto err;
+	}
+	hostname = zstr_recv(beacon);
+	if (!hostname || !hostname[0]) {
+		free(hostname);
+		sky_err("hostname = zstr_recv()\n");
+		rc = -ENONET;
+		goto err;
+	}
+	free(hostname);
+	zsock_set_rcvtimeo(beacon, timeout_ms);
+
+	rc = zsock_send(beacon, "ss", "SUBSCRIBE", SKY_DISCOVERY_MAGIC);
+	if (rc) {
+		sky_err("zsock_send(SUBSCRIBE)\n");
+		rc = -ENONET;
+		goto err;
+	}
+	ip = zstr_recv(beacon);
+	if (!ip) {
+		rc = -ENONET;
+		goto err;
+	}
+	frame = zframe_recv(beacon);
+	if (!frame) {
+		rc = -ENONET;
+		goto err;
+	}
+	if (zframe_size(frame) != sizeof(*discovery)) {
+		sky_err("Malformed discovery frame, %zd got %zd\n",
+			sizeof(*discovery), zframe_size(frame));
+		rc = -ENONET;
+		goto err;
+	}
+	discovery = (struct sky_discovery *)zframe_data(frame);
+
+	brokerinfo->af_family = AF_INET; /* currently IPv4 only */
+	strncpy(brokerinfo->addr, ip, sizeof(brokerinfo->addr));
+	brokerinfo->proto_version = le16toh(discovery->proto_version);
+	brokerinfo->servers_port = le16toh(discovery->servers_port);
+	brokerinfo->sub_port = le16toh(discovery->sub_port);
+	brokerinfo->clients_port = le16toh(discovery->clients_port);
+	brokerinfo->pub_port = le16toh(discovery->pub_port);
+
+	rc = 0;
+
+err:
+	if (rc)
+		zstr_free(&ip);
+	zframe_destroy(&frame);
+	zactor_destroy(&beacon);
+
+	return rc;
+}
+
 static int skyrem_peerinfo(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_peerinfo *peerinfo)
@@ -612,6 +687,7 @@ static int skyrem_coverclose(struct sky_dev *dev_)
 
 static struct sky_dev_ops sky_remote_devops = {
 	.contype = SKY_REMOTE,
+	.discoverbroker = skyrem_discoverbroker,
 	.peerinfo = skyrem_peerinfo,
 	.devslist = skyrem_devslist,
 	.devopen = skyrem_devopen,
