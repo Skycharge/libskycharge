@@ -685,6 +685,58 @@ static int skyrem_coverclose(struct sky_dev *dev_)
 				     &req, sizeof(req));
 }
 
+static int skyrem_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
+{
+	struct sky_gpsdata_rsp rsp;
+	struct sky_req_hdr req;
+	struct skyrem_dev *dev;
+	int rc;
+
+	dev = container_of(dev_, struct skyrem_dev, dev);
+
+	rc = skyrem_complex_req_rsp(dev, SKY_GPSDATA_REQ,
+				    &req, sizeof(req),
+				    &rsp.hdr, sizeof(rsp));
+	if (rc < 0)
+		return rc;
+
+	if (rc != sizeof(rsp)) {
+		/* Malformed response */
+		return -ECONNRESET;
+	}
+	rc = -le16toh(rsp.hdr.error);
+	if (rc)
+		return rc;
+
+	if (le32toh(rsp.status) > SKY_GPS_STATUS_DGPS_FIX)
+		return -ECONNRESET;
+
+	if (le32toh(rsp.fix.mode) > SKY_GPS_MODE_3D)
+		return -ECONNRESET;
+
+	memset(gpsdata, 0, sizeof(*gpsdata));
+	gpsdata->status = le32toh(rsp.status);
+	gpsdata->satellites_used = le32toh(rsp.satellites_used);
+
+#define LLU2D(i)  ({ uint64_t llu = (i); double *dp = (double *)&llu; *dp; })
+
+	gpsdata->dop.xdop = LLU2D(le64toh(rsp.dop.xdop));
+	gpsdata->dop.ydop = LLU2D(le64toh(rsp.dop.ydop));
+	gpsdata->dop.pdop = LLU2D(le64toh(rsp.dop.pdop));
+	gpsdata->dop.hdop = LLU2D(le64toh(rsp.dop.hdop));
+	gpsdata->dop.vdop = LLU2D(le64toh(rsp.dop.vdop));
+	gpsdata->dop.tdop = LLU2D(le64toh(rsp.dop.tdop));
+	gpsdata->dop.gdop = LLU2D(le64toh(rsp.dop.gdop));
+
+	gpsdata->fix.mode = le32toh(rsp.fix.mode);
+	gpsdata->fix.time = LLU2D(le64toh(rsp.fix.time));
+	gpsdata->fix.latitude  = LLU2D(le64toh(rsp.fix.latitude));
+	gpsdata->fix.longitude = LLU2D(le64toh(rsp.fix.longitude));
+	gpsdata->fix.altitude  = LLU2D(le64toh(rsp.fix.altitude));
+
+	return 0;
+}
+
 static struct sky_dev_ops sky_remote_devops = {
 	.contype = SKY_REMOTE,
 	.discoverbroker = skyrem_discoverbroker,
@@ -702,6 +754,7 @@ static struct sky_dev_ops sky_remote_devops = {
 	.chargestart = skyrem_chargestart,
 	.chargestop = skyrem_chargestop,
 	.coveropen = skyrem_coveropen,
-	.coverclose = skyrem_coverclose
+	.coverclose = skyrem_coverclose,
+	.gpsdata = skyrem_gpsdata
 };
 sky_register_devops(&sky_remote_devops);

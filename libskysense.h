@@ -157,6 +157,41 @@ struct sky_brokerinfo {
 	uint16_t pub_port;
 };
 
+enum sky_gps_status {
+    SKY_GPS_STATUS_NO_FIX   = 0,  /* no */
+    SKY_GPS_STATUS_FIX      = 1,  /* yes, without DGPS */
+    SKY_GPS_STATUS_DGPS_FIX = 2,  /* yes, with DGPS */
+};
+
+enum sky_gps_mode {
+    SKY_GPS_MODE_NOT_SEEN = 0,  /* mode update not seen yet */
+    SKY_GPS_MODE_NO_FIX   = 1,  /* none */
+    SKY_GPS_MODE_2D       = 2,  /* good for latitude/longitude */
+    SKY_GPS_MODE_3D       = 3   /* good for altitude/climb too */
+};
+
+/**
+ * struct sky_gpsdata - GPS data
+ */
+struct sky_gpsdata {
+	enum sky_gps_status status; /* GPS status -- always valid */
+	unsigned satellites_used;   /* Number of satellites used in solution */
+
+	/* Dilution of precision factors */
+	struct {
+		double xdop, ydop, pdop, hdop, vdop, tdop, gdop;
+	} dop;
+
+	struct {
+		enum sky_gps_mode mode; /* Mode of fix */
+
+		double time; /* Time of update, unix time in sec with fractional part */
+		double latitude;  /* Latitude in degrees (valid if mode >= 2) */
+		double longitude; /* Longitude in degrees (valid if mode >= 2) */
+		double altitude;  /* Altitude in meters (valid if mode == 3) */
+	} fix;
+};
+
 /**
  * sky_discoverbroker() - Discover broker on the local network.
  * @brokerinfo: Broker infor to be filled in.
@@ -419,6 +454,22 @@ int sky_coveropen(struct sky_dev *dev);
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
 int sky_coverclose(struct sky_dev *dev);
+
+/**
+ * sky_gpsdata() - Gets the data collected by the GPS module.
+ * @dev:	Device context.
+ * @gps:	GPS data.
+ *
+ * Gets the data collected by the GPS.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENODEV GPS module is not connected
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata);
 
 #ifdef __cplusplus
 }

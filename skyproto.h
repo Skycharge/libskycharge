@@ -50,14 +50,24 @@ enum sky_proto_type {
 	SKY_RESET_DEV_RSP      = 16,
 
 	/*
-	 * Peer requests/responses
+	 * Format of the request is the following:
+	 *          REQ
 	 */
-
 	SKY_DEVS_LIST_REQ      = 17,
 	SKY_DEVS_LIST_RSP      = 18,
 
+	/*
+	 * Format of the request is the following:
+	 *          REQ
+	 */
 	SKY_PEERINFO_REQ       = 19,
 	SKY_PEERINFO_RSP       = 20,
+
+	/*
+	 * Normal device requests/responses.  See format above
+	 */
+	SKY_GPSDATA_REQ        = 21,
+	SKY_GPSDATA_RSP        = 22,
 
 	SKY_LAST_REQRSP,
 
@@ -150,6 +160,32 @@ struct sky_peerinfo_rsp {
 	le16 padding;
 	le32 server_version;
 	char reserved[52];
+};
+
+struct sky_gpsdata_rsp {
+	struct sky_rsp_hdr hdr;
+	le32 padding1;
+
+	/* Dilution of precision factors */
+	struct {
+		le64 xdop, ydop, pdop, hdop, vdop, tdop, gdop;
+	} dop;
+
+	struct {
+		le32 mode; /* Mode of fix */
+		le32 padding1;
+
+		le64 time; /* Time of update, unix time in sec with fractional part */
+		le64 latitude;  /* Latitude in degrees (valid if mode >= 2) */
+		le64 longitude; /* Longitude in degrees (valid if mode >= 2) */
+		le64 altitude;  /* Altitude in meters (valid if mode == 3) */
+
+		le32 padding2[8];
+	} fix;
+
+	le32 status;          /* GPS status -- always valid */
+	le32 satellites_used; /* Number of satellites used in solution */
+	le32 padding2[16];
 };
 
 #pragma GCC diagnostic pop

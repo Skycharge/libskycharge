@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <math.h>
 
 #include "libskysense-pri.h"
 #include "types.h"
@@ -186,6 +187,42 @@ static int skydum_coverclose(struct sky_dev *dev_)
 	return 0;
 }
 
+static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
+{
+	struct timespec ts;
+	double msecs;
+
+	memset(gpsdata, 0, sizeof(*gpsdata));
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+
+	msecs = ts.tv_nsec / 1000000ull;
+	/*
+	 * integer to fractional, e.g. 123.0 -> 0.123,
+	 * the equation is: x / 10 ^ ceil(log10(msecs))
+	 */
+	while (msecs > 1.0)
+		msecs /= 10;
+
+	gpsdata->fix.time = (double)ts.tv_sec + msecs;
+	gpsdata->fix.latitude  = 12345.54321;
+	gpsdata->fix.longitude = 54321.12345;
+	gpsdata->fix.altitude  = NAN;
+
+	gpsdata->status = SKY_GPS_STATUS_DGPS_FIX;
+	gpsdata->fix.mode = SKY_GPS_MODE_3D;
+
+	gpsdata->satellites_used = 42;
+	gpsdata->dop.pdop = 12.21;
+	gpsdata->dop.hdop = 21.12;
+	gpsdata->dop.vdop = 23.32;
+	gpsdata->dop.tdop = 34.43;
+	gpsdata->dop.gdop = 54.43;
+
+
+	return 0;
+}
+
 static struct sky_dev_ops sky_dummy_devops = {
 	.contype = SKY_LOCAL,
 	.peerinfo = skydum_peerinfo,
@@ -202,6 +239,7 @@ static struct sky_dev_ops sky_dummy_devops = {
 	.chargestart = skydum_chargestart,
 	.chargestop = skydum_chargestop,
 	.coveropen = skydum_coveropen,
-	.coverclose = skydum_coverclose
+	.coverclose = skydum_coverclose,
+	.gpsdata = skydum_gpsdata
 };
 sky_register_devops(&sky_dummy_devops);

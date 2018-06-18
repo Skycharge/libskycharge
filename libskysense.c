@@ -242,3 +242,8 @@ int sky_coverclose(struct sky_dev *dev)
 {
 	return get_devops(dev)->coverclose(dev);
 }
+
+int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata)
+{
+	return get_devops(dev)->gpsdata(dev, gpsdata);
+}

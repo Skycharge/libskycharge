@@ -559,6 +559,52 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
+	case SKY_GPSDATA_REQ: {
+		struct sky_gpsdata_rsp *rsp;
+		struct sky_gpsdata gpsdata;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rc = sky_gpsdata(dev, &gpsdata);
+
+		rsp->hdr.type  = htole16(SKY_GPSDATA_RSP);
+		rsp->hdr.error = htole16(-rc);
+		if (!rc) {
+			rsp->status = htole32(gpsdata.status);
+			rsp->satellites_used = htole32(gpsdata.satellites_used);
+
+#define D2LLU(dp) ({ uint64_t *llu = (uint64_t *)(dp); *llu; })
+
+			rsp->dop.xdop = htole64(D2LLU(&gpsdata.dop.xdop));
+			rsp->dop.ydop = htole64(D2LLU(&gpsdata.dop.ydop));
+			rsp->dop.pdop = htole64(D2LLU(&gpsdata.dop.pdop));
+			rsp->dop.hdop = htole64(D2LLU(&gpsdata.dop.hdop));
+			rsp->dop.vdop = htole64(D2LLU(&gpsdata.dop.vdop));
+			rsp->dop.tdop = htole64(D2LLU(&gpsdata.dop.tdop));
+			rsp->dop.gdop = htole64(D2LLU(&gpsdata.dop.gdop));
+
+			rsp->fix.mode = htole32(gpsdata.fix.mode);
+			rsp->fix.time = htole64(D2LLU(&gpsdata.fix.time));
+			rsp->fix.latitude  =
+				htole64(D2LLU(&gpsdata.fix.latitude));
+			rsp->fix.longitude =
+				htole64(D2LLU(&gpsdata.fix.longitude));
+			rsp->fix.altitude  =
+				htole64(D2LLU(&gpsdata.fix.altitude));
+		}
+
+		break;
+	}
 
 	default:
 		sky_err("unknown request: %d\n", req_type);

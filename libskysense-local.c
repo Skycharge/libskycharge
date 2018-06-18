@@ -593,6 +593,11 @@ static int skyloc_coverclose(struct sky_dev *dev_)
 	return -EOPNOTSUPP;
 }
 
+static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
+{
+	return -ENODEV;
+}
+
 static struct sky_dev_ops sky_local_devops = {
 	.contype = SKY_LOCAL,
 	.peerinfo = skyloc_peerinfo,
@@ -609,6 +614,7 @@ static struct sky_dev_ops sky_local_devops = {
 	.chargestart = skyloc_chargestart,
 	.chargestop = skyloc_chargestop,
 	.coveropen = skyloc_coveropen,
-	.coverclose = skyloc_coverclose
+	.coverclose = skyloc_coverclose,
+	.gpsdata = skyloc_gpsdata
 };
 sky_register_devops(&sky_local_devops);

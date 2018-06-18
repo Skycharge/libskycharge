@@ -28,6 +28,7 @@ struct sky_dev_ops {
 	int (*chargestop)(struct sky_dev *dev);
 	int (*coveropen)(struct sky_dev *dev);
 	int (*coverclose)(struct sky_dev *dev);
+	int (*gpsdata)(struct sky_dev *dev, struct sky_gpsdata *gpsdata);
 	struct sky_dev_ops *next;
 };
 
