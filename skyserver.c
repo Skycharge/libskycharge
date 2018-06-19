@@ -605,7 +605,31 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
+	case SKY_DRONEDETECT_REQ: {
+		struct sky_dronedetect_rsp *rsp;
+		enum sky_drone_status status;
 
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rc = sky_dronedetect(dev, &status);
+
+		rsp->hdr.type  = htole16(SKY_DRONEDETECT_RSP);
+		rsp->hdr.error = htole16(-rc);
+		if (!rc)
+			rsp->status = htole16(status);
+
+		break;
+	}
 	default:
 		sky_err("unknown request: %d\n", req_type);
 		rc = -EINVAL;

@@ -29,6 +29,7 @@ struct sky_dev_ops {
 	int (*coveropen)(struct sky_dev *dev);
 	int (*coverclose)(struct sky_dev *dev);
 	int (*gpsdata)(struct sky_dev *dev, struct sky_gpsdata *gpsdata);
+	int (*dronedetect)(struct sky_dev *dev, enum sky_drone_status *status);
 	struct sky_dev_ops *next;
 };
 

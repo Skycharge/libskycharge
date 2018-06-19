@@ -257,6 +257,13 @@ static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 	return 0;
 }
 
+static int skydum_dronedetect(struct sky_dev *dev_,
+			      enum sky_drone_status *status)
+{
+	*status = SKY_DRONE_NOT_DETECTED;
+	return 0;
+}
+
 static struct sky_dev_ops sky_dummy_devops = {
 	.contype = SKY_LOCAL,
 	.peerinfo = skydum_peerinfo,
@@ -274,6 +281,7 @@ static struct sky_dev_ops sky_dummy_devops = {
 	.chargestop = skydum_chargestop,
 	.coveropen = skydum_coveropen,
 	.coverclose = skydum_coverclose,
-	.gpsdata = skydum_gpsdata
+	.gpsdata = skydum_gpsdata,
+	.dronedetect = skydum_dronedetect,
 };
 sky_register_devops(&sky_dummy_devops);

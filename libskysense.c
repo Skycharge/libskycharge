@@ -247,3 +247,8 @@ int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata)
 {
 	return get_devops(dev)->gpsdata(dev, gpsdata);
 }
+
+int sky_dronedetect(struct sky_dev *dev, enum sky_drone_status *status)
+{
+	return get_devops(dev)->dronedetect(dev, status);
+}

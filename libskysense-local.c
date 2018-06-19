@@ -630,6 +630,39 @@ static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 	return 0;
 }
 
+static inline bool is_charging(enum sky_dev_hw_state hw_state)
+{
+	return  hw_state != SKY_SCANNING_INIT &&
+		hw_state != SKY_SCANNING_RUN &&
+		hw_state != SKY_SCANNING_CHECK_MATRIX &&
+		hw_state != SKY_SCANNING_PRINT &&
+		hw_state != SKY_SCANNING_CHECK_WATER &&
+		hw_state != SKY_SCANNING_DETECTING;
+}
+
+static int skyloc_dronedetect(struct sky_dev *dev_,
+			      enum sky_drone_status *status)
+{
+	struct sky_charging_state state;
+	int rc;
+
+	/*
+	 * TODO: Here we use HW state for drone detection.
+	 *       Obviously that is not enough and in the future
+	 *       would be nice to have separate device (ultrasonic?)
+	 *       for real detection of drone existance.
+	 */
+	rc = skyloc_chargingstate(dev_, &state);
+	if (rc)
+		return rc;
+
+	*status = is_charging(state.dev_hw_state) ?
+		SKY_DRONE_DETECTED :
+		SKY_DRONE_NOT_DETECTED;
+
+	return 0;
+}
+
 static struct sky_dev_ops sky_local_devops = {
 	.contype = SKY_LOCAL,
 	.peerinfo = skyloc_peerinfo,
@@ -647,6 +680,7 @@ static struct sky_dev_ops sky_local_devops = {
 	.chargestop = skyloc_chargestop,
 	.coveropen = skyloc_coveropen,
 	.coverclose = skyloc_coverclose,
-	.gpsdata = skyloc_gpsdata
+	.gpsdata = skyloc_gpsdata,
+	.dronedetect = skyloc_dronedetect,
 };
 sky_register_devops(&sky_local_devops);

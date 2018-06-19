@@ -737,6 +737,35 @@ static int skyrem_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 	return 0;
 }
 
+static int skyrem_dronedetect(struct sky_dev *dev_,
+			      enum sky_drone_status *status)
+{
+	struct sky_dronedetect_rsp rsp;
+	struct sky_req_hdr req;
+	struct skyrem_dev *dev;
+	int rc;
+
+	dev = container_of(dev_, struct skyrem_dev, dev);
+
+	rc = skyrem_complex_req_rsp(dev, SKY_DRONEDETECT_REQ,
+				    &req, sizeof(req),
+				    &rsp.hdr, sizeof(rsp));
+	if (rc < 0)
+		return rc;
+
+	if (rc != sizeof(rsp)) {
+		/* Malformed response */
+		return -ECONNRESET;
+	}
+	rc = -le16toh(rsp.hdr.error);
+	if (rc)
+		return rc;
+
+	*status = le16toh(rsp.status);
+
+	return 0;
+}
+
 static struct sky_dev_ops sky_remote_devops = {
 	.contype = SKY_REMOTE,
 	.discoverbroker = skyrem_discoverbroker,
@@ -755,6 +784,7 @@ static struct sky_dev_ops sky_remote_devops = {
 	.chargestop = skyrem_chargestop,
 	.coveropen = skyrem_coveropen,
 	.coverclose = skyrem_coverclose,
-	.gpsdata = skyrem_gpsdata
+	.gpsdata = skyrem_gpsdata,
+	.dronedetect = skyrem_dronedetect,
 };
 sky_register_devops(&sky_remote_devops);

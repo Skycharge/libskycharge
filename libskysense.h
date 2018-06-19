@@ -85,6 +85,14 @@ enum sky_dev_param {
 };
 
 /**
+ * enum sky_drone_status - Drone status on charging pad.
+ */
+enum sky_drone_status {
+	SKY_DRONE_NOT_DETECTED = 0,
+	SKY_DRONE_DETECTED     = 1,
+};
+
+/**
  * struct sky_dev_conf - Device configuration options.
  */
 struct sky_dev_conf {
@@ -473,6 +481,19 @@ int sky_coverclose(struct sky_dev *dev);
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
 int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata);
+
+/**
+ * sky_dronedetect() - Detects drone on charging pad and returns status.
+ * @dev:	Device context.
+ * @status:	Drone status on charging pad.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_dronedetect(struct sky_dev *dev, enum sky_drone_status *status);
 
 #ifdef __cplusplus
 }

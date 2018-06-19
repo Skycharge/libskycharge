@@ -69,6 +69,9 @@ enum sky_proto_type {
 	SKY_GPSDATA_REQ        = 21,
 	SKY_GPSDATA_RSP        = 22,
 
+	SKY_DRONEDETECT_REQ    = 23,
+	SKY_DRONEDETECT_RSP    = 24,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -186,6 +189,11 @@ struct sky_gpsdata_rsp {
 	le32 status;          /* GPS status -- always valid */
 	le32 satellites_used; /* Number of satellites used in solution */
 	le32 padding2[16];
+};
+
+struct sky_dronedetect_rsp {
+	struct sky_rsp_hdr hdr;
+	le16 status;
 };
 
 #pragma GCC diagnostic pop
