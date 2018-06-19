@@ -1,8 +1,12 @@
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
 #include <time.h>
+#include <ctype.h>
+
+#include <uuid/uuid.h>
 
 #include "libskysense-pri.h"
 #include "types.h"
@@ -13,6 +17,79 @@ void __sky_register_devops(struct sky_dev_ops *ops)
 {
        ops->next = devops;
        devops = ops;
+}
+
+static void trim(char *s)
+{
+	char *new = s;
+
+	while (*s) {
+		if (!isspace(*s))
+			*new++ = *s;
+		s++;
+	}
+	*new = *s;
+}
+
+static int parse_line(char *line, struct sky_conf *cfg)
+{
+	char *str;
+	int rc;
+
+	trim(line);
+	*(strchrnul(line, '#')) = '\0';
+
+	if ((str = strstr(line, "user-uuid="))) {
+		rc = uuid_parse(str + 10, cfg->usruuid);
+		if (rc)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "device-uuid="))) {
+		rc = uuid_parse(str + 12, cfg->devuuid);
+		if (rc)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "device-name="))) {
+		strncpy(cfg->devname, str + 12, sizeof(cfg->devname) - 1);
+
+	} else if ((str = strstr(line, "broker-url="))) {
+		rc = sscanf(str + 11, "%64[^:]:%u,%u", cfg->hostname,
+			    &cfg->srvport, &cfg->cliport);
+		if (rc != 3)
+			return -ENODATA;
+
+		cfg->subport = cfg->srvport + 1;
+		cfg->pubport = cfg->cliport + 1;
+	}
+
+	/*
+	 * No else: ignore unknown parameters
+	 */
+
+	return 0;
+}
+
+int sky_confparse(const char *path, struct sky_conf *cfg)
+{
+	FILE *fp;
+	char *line = NULL;
+	size_t len = 0;
+	int rc = 0;
+
+	memset(cfg, 0, sizeof(*cfg));
+
+	fp = fopen(path, "r");
+	if (fp == NULL)
+		return -ENOENT;
+
+	while (getline(&line, &len, fp) != -1)
+		if ((rc = parse_line(line, cfg)))
+			break;
+
+	free(line);
+	fclose(fp);
+
+	return rc;
 }
 
 int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,

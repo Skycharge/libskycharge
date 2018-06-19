@@ -93,6 +93,20 @@ enum sky_drone_status {
 };
 
 /**
+ * struct sky_conf - Generic configuration options.
+ */
+struct sky_conf {
+	uint8_t  usruuid[16];
+	uint8_t  devuuid[16];
+	char     devname[16];
+	char     hostname[64];
+	unsigned srvport;      /**< Servers command port */
+	unsigned subport;      /**< Servers subscribe port */
+	unsigned cliport;      /**< Clients command port */
+	unsigned pubport;      /**< Clients publish port */
+};
+
+/**
  * struct sky_dev_conf - Device configuration options.
  */
 struct sky_dev_conf {
@@ -202,6 +216,18 @@ struct sky_gpsdata {
 		double altitude;  /* Altitude in meters (valid if mode == 3) */
 	} fix;
 };
+
+/**
+ * sky_confparse() - Parse generic skysense configuration.
+ * @path:       Path to config.
+ * @cfg:        Conf structure to be filled in.
+ *
+ * Parses configuration and fills in the @cfg structure.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise.
+ */
+int sky_confparse(const char *path, struct sky_conf *cfg);
 
 /**
  * sky_discoverbroker() - Discover broker on the local network.
