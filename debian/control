@@ -13,7 +13,8 @@ Build-Depends: autotools-dev,
 			   uuid-dev,
 			   libzmq3-dev,
 			   libczmq-dev,
-			   libserialport-dev
+			   libserialport-dev,
+			   libgps-dev
 Standards-Version: 3.9.5
 
 Package: skysense-cli
@@ -24,7 +25,8 @@ Depends: ${misc:Depends},
 		 zlib1g,
 		 libzmq5,
 		 libczmq4,
-		 libserialport0
+		 libserialport0,
+		 libgps22
 Description: command line utility to control charging pad
  This package contains Skysense command line utility
 
@@ -35,7 +37,8 @@ Depends: ${misc:Depends},
 		 libuuid1,
 		 libzmq5,
 		 libczmq4,
-		 libserialport0
+		 libserialport0,
+		 libgps22
 Description: server to control charging pad
  This package contains Skysense server
 

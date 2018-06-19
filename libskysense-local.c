@@ -7,6 +7,7 @@
 #include <sys/file.h>
 
 #include <libserialport.h>
+#include <gps.h>
 
 #include "libskysense-pri.h"
 #include "types.h"
@@ -40,6 +41,8 @@ struct skyloc_dev {
 	struct sky_charging_state state;
 	struct sky_dev_params params;
 	struct sky_dev_desc devdesc;
+	struct gps_data_t gpsdata;
+	bool gps_nodev;
 	pthread_mutex_t mutex;
 	int lockfd;
 };
@@ -243,6 +246,7 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	struct skyloc_dev *dev;
 	struct sp_port_config* spconf;
 	enum sp_return sprc;
+	int rc;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
@@ -290,6 +294,10 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		sprc = SP_ERR_FAIL;
 		goto free_conf;
 	}
+	rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
+	if (rc)
+		/* Do not make much noise if GPS does not exist */
+		dev->gps_nodev = true;
 
 	sp_free_config(spconf);
 	pthread_mutex_init(&dev->mutex, NULL);
@@ -311,6 +319,8 @@ free_dev:
 
 static void devclose(struct skyloc_dev *dev)
 {
+	if (!dev->gps_nodev)
+		gps_close(&dev->gpsdata);
 	close(dev->lockfd);
 	sp_close(dev->port);
 	sp_free_port(dev->port);
@@ -595,7 +605,29 @@ static int skyloc_coverclose(struct sky_dev *dev_)
 
 static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 {
-	return -ENODEV;
+	struct skyloc_dev *dev;
+	int rc;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+	if (dev->gps_nodev)
+		return -ENODEV;
+
+	rc = gps_read(&dev->gpsdata);
+	if (rc < 0)
+		return -ENODEV;
+
+	memset(gpsdata, 0, sizeof(*gpsdata));
+	gpsdata->status = dev->gpsdata.status;
+	gpsdata->satellites_used = dev->gpsdata.satellites_used;
+	BUILD_BUG_ON(sizeof(gpsdata->dop) != sizeof(dev->gpsdata.dop));
+	memcpy(&gpsdata->dop, &dev->gpsdata.dop, sizeof(gpsdata->dop));
+	gpsdata->fix.mode = dev->gpsdata.fix.mode;
+	gpsdata->fix.time = dev->gpsdata.fix.time;
+	gpsdata->fix.latitude  = dev->gpsdata.fix.latitude;
+	gpsdata->fix.longitude = dev->gpsdata.fix.longitude;
+	gpsdata->fix.altitude  = dev->gpsdata.fix.altitude;
+
+	return 0;
 }
 
 static struct sky_dev_ops sky_local_devops = {

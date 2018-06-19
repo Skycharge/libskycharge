@@ -13,7 +13,7 @@ REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
 BINS := skybroker skysensed skysense-cli
-LIBS := -lczmq -lzmq -lserialport -lpthread -luuid -ldl
+LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
 	            libskysense-remote.o
