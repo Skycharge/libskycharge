@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+	configure)
+		sed -i s/%DEVUUID%/`uuidgen`/ /etc/skysense.conf
+		sed -i s/%DEVNAME%/`gpw 1`/ /etc/skysense.conf
+		;;
+	*)
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0

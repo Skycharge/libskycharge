@@ -17,10 +17,22 @@ Build-Depends: autotools-dev,
 			   libgps-dev
 Standards-Version: 3.9.5
 
+Package: skysense-conf
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+         sed,
+         uuid-runtime,
+         gpw,
+Description: Any common files for skysense, e.g. skysense.conf.
+  Contains any common files for skysense, mainly skysense.conf
+  which is shared between other skysense packages.
+
 Package: skysense-cli
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
+		 skysense-conf (>= ${binary:Version}),
 		 libuuid1,
 		 zlib1g,
 		 libzmq5,
@@ -34,6 +46,7 @@ Package: skysensed
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
+		 skysense-conf (>= ${binary:Version}),
 		 libuuid1,
 		 libzmq5,
 		 libczmq4,
