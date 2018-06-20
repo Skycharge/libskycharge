@@ -935,9 +935,9 @@ static int sky_zmq_proxy(struct req_proxy *p)
 	return rc;
 }
 
-static int sky_setup_req(struct sky_server *serv,
-			 struct sky_brokerinfo *brokerinfo,
-			 struct req_proxy *proxy)
+static int sky_send_first_req(struct sky_server *serv,
+			      struct sky_brokerinfo *brokerinfo,
+			      struct req_proxy *proxy)
 {
 	void *ctx = serv->zock.ctx;
 	void *to_server = NULL;
@@ -1084,7 +1084,7 @@ static void *sky_discover_broker(void *arg_)
 		rc = sky_setup_and_proxy_pub(serv, &brokerinfo, &pub_proxy);
 		if (rc)
 			continue;
-		rc = sky_setup_req(serv, &brokerinfo, &req_proxy);
+		rc = sky_send_first_req(serv, &brokerinfo, &req_proxy);
 		if (rc)
 			goto destroy_pub;
 
