@@ -1088,6 +1088,20 @@ static int discover_broker(struct sky_server *serv, struct sky_conf *conf)
 	return 0;
 }
 
+static int parse_conf(struct sky_server *serv, struct sky_conf *conf)
+{
+	int rc;
+
+	rc = sky_confparse(serv->cli.conff, conf);
+	if (rc)
+		return rc;
+
+	if (conf->hostname[0] == '\0')
+		return -ENODATA;
+
+	return 0;
+}
+
 static void *sky_connect_to_broker(void *arg_)
 {
 	struct thread_params *p = arg_;
@@ -1129,6 +1143,10 @@ static int sky_server_loop(struct sky_server *serv)
 		.serv = serv,
 		.fillin_conf = discover_broker
 	};
+	struct thread_params p2 = {
+		.serv = serv,
+		.fillin_conf = parse_conf
+	};
 
 	zframe_t *data_frame, *devport_frame;
 	struct sky_rsp_hdr *rsp;
@@ -1140,6 +1158,11 @@ static int sky_server_loop(struct sky_server *serv)
 	if (rc) {
 		sky_err("pthread_create(discover_broker): %d\n", rc);
 		p1.thread = 0;
+	}
+	rc = pthread_create(&p2.thread, NULL, sky_connect_to_broker, &p2);
+	if (rc) {
+		sky_err("pthread_create(parse_conf): %d\n", rc);
+		p2.thread = 0;
 	}
 
 	while (1) {
@@ -1171,12 +1194,14 @@ static int sky_server_loop(struct sky_server *serv)
 		}
 		sky_free(rsp);
 	}
-	if (p1.thread) {
-		/* Tear down thread */
+	if (p1.thread || p2.thread) {
+		/* Tear down threads */
 		serv->exit = true;
 
 		if (p1.thread)
 			(void)sky_kill_pthread(p1.thread);
+		if (p2.thread)
+			(void)sky_kill_pthread(p2.thread);
 	}
 
 	return rc;
