@@ -16,6 +16,8 @@
 #include "version.h"
 #include "types.h"
 
+#define CONFFILE "/etc/skysense.conf"
+
 #define sky_err(fmt, ...) \
 	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
 		__func__, ##__VA_ARGS__)
@@ -126,16 +128,30 @@ static void unix_to_iso8601(double fixtime, char isotime[], size_t len)
 	(void)snprintf(isotime, len, "%s%sZ", timestr, strchr(fractstr,'.'));
 }
 
-static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *conf)
+static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 {
 	if (cli->addr && cli->port) {
-		conf->contype = SKY_REMOTE;
-		conf->remote.cmdport = strtol(cli->port, NULL, 10);
-		conf->remote.subport = conf->remote.cmdport + 1;
-		strncpy(conf->remote.hostname, cli->addr,
-			sizeof(conf->remote.hostname));
+		const char *conffile = cli->conff ?: CONFFILE;
+		struct sky_conf conf;
+		int rc;
+
+		rc = sky_confparse(conffile, &conf);
+		if (rc) {
+			sky_err("sky_confparse(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+		devconf->contype = SKY_REMOTE;
+		BUILD_BUG_ON(sizeof(devconf->remote.usruuid) !=
+			     sizeof(conf.usruuid));
+		memcpy(devconf->remote.usruuid, conf.usruuid,
+		       sizeof(devconf->remote.usruuid));
+		/* TODO: we still get addr and port from command line */
+		devconf->remote.cmdport = strtol(cli->port, NULL, 10);
+		devconf->remote.subport = devconf->remote.cmdport + 1;
+		strncpy(devconf->remote.hostname, cli->addr,
+			sizeof(devconf->remote.hostname));
 	} else
-		conf->contype = SKY_LOCAL;
+		devconf->contype = SKY_LOCAL;
 }
 
 static struct sky_dev_desc *sky_find_devdesc_by_id(struct sky_dev_desc *head,
@@ -156,12 +172,12 @@ static struct sky_dev_desc *sky_find_devdesc_by_id(struct sky_dev_desc *head,
 static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			    struct sky_dev_desc **devdescs)
 {
-	struct sky_dev_conf conf;
+	struct sky_dev_conf devconf;
 	int rc;
 
-	sky_prepare_conf(cli, &conf);
+	sky_prepare_conf(cli, &devconf);
 
-	rc = sky_devslist(&conf, 1, devdescs);
+	rc = sky_devslist(&devconf, 1, devdescs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		exit(-1);
@@ -302,18 +318,18 @@ int main(int argc, char *argv[])
 
 	} else if (cli.peerinfo) {
 		struct sky_peerinfo peerinfo;
-		struct sky_dev_conf conf;
+		struct sky_dev_conf devconf;
 		int rc;
 
-		sky_prepare_conf(&cli, &conf);
+		sky_prepare_conf(&cli, &devconf);
 
-		rc = sky_peerinfo(&conf, 1, &peerinfo);
+		rc = sky_peerinfo(&devconf, 1, &peerinfo);
 		if (rc) {
 			sky_err("sky_peerinfo(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		printf("Remote peer %s:%d:\n", conf.remote.hostname,
-		       conf.remote.cmdport);
+		printf("Remote peer %s:%d:\n", devconf.remote.hostname,
+		       devconf.remote.cmdport);
 		printf("\tServer version:   %u.%u.%u\n",
 		       (peerinfo.server_version >> 16) & 0xff,
 		       (peerinfo.server_version >> 8)  & 0xff,

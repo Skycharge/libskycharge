@@ -3,18 +3,18 @@ Skysense charging pad command line tool.
 Usage:
     skysense-cli discover-broker               [<timeout-secs>]
     skysense-cli peer-info                       <addr> <port>
-    skysense-cli list-devs                     [(<addr> <port>)]
-    skysense-cli monitor <interval-ms> [--raw] [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli show-dev-params               [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli stop-charge                   [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli open-cover                    [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli close-cover                   [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli show-charging-state           [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)]
-    skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)]
+    skysense-cli list-devs                     [(<addr> <port>)]  [(--conffile <conff>)]
+    skysense-cli monitor <interval-ms> [--raw] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-dev-params               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli stop-charge                   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli open-cover                    [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli close-cover                   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-charging-state           [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
 
 Options:
     Skysense console client communicates with local and remote devices.

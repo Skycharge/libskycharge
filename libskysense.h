@@ -112,6 +112,7 @@ struct sky_conf {
 struct sky_dev_conf {
 	enum sky_con_type contype;
 	struct {
+		uint8_t usruuid[16];   /**< User UUID */
 		char hostname[64];     /**< Remote hostname */
 		unsigned cmdport;      /**< TCP/IP command port */
 		unsigned subport;      /**< TCP/IP subscription port */
