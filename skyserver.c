@@ -667,7 +667,13 @@ static void sky_zocket_destroy(struct sky_server *serv)
 		z->pub = NULL;
 	}
 	if (z->ctx) {
-		(void)zmq_ctx_term(z->ctx);
+		/*
+		 * If one of the zmq sockets has not been successfully
+		 * connected we hang on ctx_term forever.  So fuck it!
+		 * I mean that!  I tired struggling with zmq.
+		 *
+		 * (void)zmq_ctx_term(z->ctx);
+		 */
 		z->ctx = NULL;
 	}
 }
