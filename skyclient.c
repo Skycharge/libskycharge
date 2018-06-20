@@ -187,7 +187,7 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 
 		if (!cli->devid) {
 			if ((*devdescs)->next) {
-				sky_err("Error: multiple devices found, please specify <dev-id>\n");
+				sky_err("Error: multiple devices found, please specify --id <dev-id>\n");
 				exit(-1);
 			}
 			devdesc = *devdescs;
