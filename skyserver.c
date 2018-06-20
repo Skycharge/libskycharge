@@ -1257,6 +1257,11 @@ int main(int argc, char *argv[])
 	if (serv.cli.daemon)
 		sky_daemonize(serv.cli.pidf);
 
+	/*
+	 * Setup ZMQ in order to catch SIGINT (Ctrl-C) or SIGTERM signals.
+	 */
+	zsys_catch_interrupts();
+
 	rc = sky_zocket_create(&serv, serv.cli.addr, atoi(serv.cli.port));
 	if (rc) {
 		sky_err("Can't create server sockets: %s\n", strerror(-rc));
