@@ -37,6 +37,7 @@ struct sky_server {
 	bool exit;
 	uuid_t uuid;
 	struct cli cli;
+	struct sky_conf conf;
 	struct zocket zock;
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
@@ -1211,6 +1212,12 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
+	rc = sky_confparse(serv.cli.conff, &serv.conf);
+	if (rc) {
+		fprintf(stderr, "sky_confparse(): %s\n", strerror(-rc));
+		return -1;
+	}
+
 	/*
 	 * Daemonize before creating zmq socket, ZMQ is written by
 	 * people who are not able to deal with fork() gracefully.

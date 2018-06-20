@@ -7,7 +7,7 @@ After=dev-skysenseUSB.device
 Type=forking
 User=root
 PIDFile=/var/run/skysensed.pid
-ExecStart=/usr/sbin/skysensed 0.0.0.0 5555 --daemon --pidfile /var/run/skysensed.pid
+ExecStart=/usr/sbin/skysensed 0.0.0.0 5555 --conffile /etc/skysense.conf --daemon --pidfile /var/run/skysensed.pid
 
 [Install]
 WantedBy=multi-user.target
