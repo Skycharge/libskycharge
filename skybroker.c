@@ -15,6 +15,7 @@ struct server_peer {
 	zmsg_t *idents_msg;
 	zframe_t *ident_frame;
 	zframe_t *data_frame;
+	zframe_t *usruuid_frame;
 	struct sky_devs_list_rsp *rsp;
 	union {
 		unsigned long long expires_at;
@@ -125,6 +126,7 @@ static void server_peer_free(struct server_peer *peer)
 {
 	zmsg_destroy(&peer->idents_msg);
 	zframe_destroy(&peer->data_frame);
+	zframe_destroy(&peer->usruuid_frame);
 	free(peer);
 }
 
@@ -231,13 +233,18 @@ static bool sky_is_valid_devs_list_rsp(zframe_t *data)
 	return true;
 }
 
+static bool is_usruuid_frame_valid(zframe_t *usruuid)
+{
+	return (usruuid && zframe_size(usruuid) == 16);
+}
+
 static void sky_handle_server_msg(void *servers, void *clients,
 				  zhashx_t *srvs_hash)
 {
+	zframe_t *data, *ident, *usruuid;
 	struct server_peer *peer;
-	zframe_t *data, *ident;
 	zmsg_t *msg;
-	int rc;
+	int i, rc;
 
 	msg = zmsg_recv(servers);
 	ident = msg ? zmsg_first(msg) : NULL;
@@ -266,10 +273,11 @@ static void sky_handle_server_msg(void *servers, void *clients,
 			zmsg_destroy(&msg);
 			return;
 		}
-		/* Wrong ident */
-		if (zframe_size(ident) !=
-		    sizeof(((struct sky_dev_info *)0)->dev_uuid)) {
-			sky_err("Incorrect ident\n");
+		/* USRUUID frame is the last one */
+		usruuid = zmsg_last(msg);
+		if (!is_usruuid_frame_valid(usruuid)) {
+			/* Malformed message? */
+			sky_err("Malformed message: invalid USRUUID frame\n");
 			zmsg_destroy(&msg);
 			return;
 		}
@@ -289,19 +297,23 @@ static void sky_handle_server_msg(void *servers, void *clients,
 			server_peer_free(peer);
 			return;
 		}
+
 		/* Take ownership on data frame */
 		peer->data_frame = data;
 		peer->rsp = (void *)zframe_data(data);
 		zmsg_remove(msg, data);
-		data = zmsg_next(msg);
 
-		/* Destroy all frames below idents */
-		while (data) {
-			zmsg_remove(msg, data);
-			zframe_destroy(&data);
-			data = zmsg_next(msg);
+		/* Take ownership on USRUUID frame */
+		peer->usruuid_frame = usruuid;
+		zmsg_remove(msg, usruuid);
+
+		/* Remove all possible frames below IDENT+0 frames */
+		for (i = 0, data = zmsg_first(msg); data;
+		     data = zmsg_next(msg), i++) {
+			/* Skip two ident frames: IDENT+0 */
+			if (i >= 2)
+				zmsg_remove(msg, data);
 		}
-		zmsg_first(msg);
 
 		rc = zhashx_insert(srvs_hash, peer->ident_frame, peer);
 		if (rc) {
@@ -342,6 +354,7 @@ static void sky_handle_server_msg(void *servers, void *clients,
 }
 
 static int sky_devs_list_rsp(zhashx_t *srvs_hash,
+			     zframe_t *usruuid,
 			     struct sky_devs_list_rsp **rsp_,
 			     size_t *rsp_len)
 {
@@ -360,9 +373,16 @@ static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 	rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
 	rsp->hdr.error = 0;
 
+	/*
+	 * TODO: O(n) loop, makes sense to make something better?
+	 */
 	for (num = 0, peer = zhashx_first(srvs_hash); peer;
 	     peer = zhashx_next(srvs_hash)) {
 		void *tmp;
+
+		/* Find corresponding user devices */
+		if (!zframe_eq(peer->usruuid_frame, usruuid))
+			continue;
 
 		len += peer->rsp->num_devs * sizeof(peer->rsp->info[0]);
 		tmp = realloc(rsp, len);
@@ -417,15 +437,23 @@ static void sky_handle_client_msg(void *servers, void *clients,
 	case SKY_DEVS_LIST_REQ: {
 		/* TODO: cooperate with skyserver, make single function */
 		struct sky_devs_list_rsp *rsp;
+		zframe_t *usruuid;
 		size_t len;
 
-		rc = sky_devs_list_rsp(srvs_hash, &rsp, &len);
+		usruuid = zmsg_last(msg);
+		if (!is_usruuid_frame_valid(usruuid)) {
+			/* Malformed message? */
+			sky_err("Malformed message: invalid USRUUID frame\n");
+			zmsg_destroy(&msg);
+			return;
+		}
+		rc = sky_devs_list_rsp(srvs_hash, usruuid, &rsp, &len);
 		if (rc) {
 			sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
 			zmsg_destroy(&msg);
 			return;
 		}
-
+		/* Replace frame with rsp (does memcpy, thus free rsp) */
 		zframe_reset(data, rsp, len);
 		free(rsp);
 		rc = zmsg_send(&msg, clients);
@@ -464,12 +492,7 @@ static void sky_handle_client_msg(void *servers, void *clients,
 		/* Destination ident frame is always the last in the message */
 		ident = zmsg_last(msg);
 		assert(ident);
-		if (!zframe_size(ident)) {
-			/* Malformed request? */
-			sky_err("No destination frame\n");
-			zmsg_destroy(&msg);
-			return;
-		}
+
 		peer = zhashx_lookup(srvs_hash, ident);
 		if (!peer) {
 			sky_err("zhashx_lookup(): Unknown peer\n");

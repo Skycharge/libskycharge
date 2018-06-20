@@ -943,6 +943,7 @@ static int sky_setup_req(struct sky_server *serv,
 	void *to_server = NULL;
 	void *to_broker = NULL;
 	void *monitor = NULL;
+	zmsg_t *msg = NULL;
 	char zaddr[128];
 	void *rsp_void;
 	size_t rsp_len;
@@ -1016,15 +1017,25 @@ static int sky_setup_req(struct sky_server *serv,
 		sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
 		goto err;
 	}
-	/* Prepend zero frame for DEALER to emulate REQ */
-	rc = zmq_send(to_broker, NULL, 0, ZMQ_SNDMORE);
-	if (!rc)
-		rc = zmq_send(to_broker, rsp_void, rsp_len, 0);
-	if (rc != rsp_len) {
-		rc = -errno;
-		sky_err("zmq_send(): %s\n", strerror(-rc));
+	msg = zmsg_new();
+	if (msg) {
+		/* Prepend zero frame for DEALER to emulate REQ */
+		rc = zmsg_addmem(msg, NULL, 0);
+		/* Frame with actual data */
+		rc |= zmsg_addmem(msg, rsp_void, rsp_len);
+		/* USRUUID frame is the last */
+		rc |= zmsg_addmem(msg, serv->conf.usruuid,
+				  sizeof(serv->conf.usruuid));
+	}
+	if (!msg || rc) {
+		rc = -ENOMEM;
 		goto err;
-
+	}
+	rc = zmsg_send(&msg, to_broker);
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmsg_send(): %s\n", strerror(-rc));
+		goto err;
 	}
 
 	proxy->to_broker = to_broker;
@@ -1034,6 +1045,7 @@ static int sky_setup_req(struct sky_server *serv,
 	return 0;
 
 err:
+	zmsg_destroy(&msg);
 	if (to_server)
 		zmq_close(to_server);
 	if (to_broker)

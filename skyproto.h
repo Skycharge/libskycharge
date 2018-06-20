@@ -16,8 +16,8 @@ enum sky_proto_type {
 	SKY_UNKNOWN_REQRSP     = 0,
 
 	/*
-	 * Device requests/responses.  Format of requests
-	 * is the following:
+	 * Device requests/responses.
+	 * Format of requests is the following:
 	 *          REQ
 	 *          DEVPORT (taken from from @sky_dev_info.portname)
 	 *          DEVUUID (taken from from @sky_dev_info.dev_uuid)
@@ -52,6 +52,7 @@ enum sky_proto_type {
 	/*
 	 * Format of the request is the following:
 	 *          REQ
+	 *          USRUUID (taken from from @sky_dev_conf.remote.usr_uuid)
 	 */
 	SKY_DEVS_LIST_REQ      = 17,
 	SKY_DEVS_LIST_RSP      = 18,
@@ -59,6 +60,7 @@ enum sky_proto_type {
 	/*
 	 * Format of the request is the following:
 	 *          REQ
+	 *          USRUUID (taken from from @sky_dev_conf.remote.usr_uuid)
 	 */
 	SKY_PEERINFO_REQ       = 19,
 	SKY_PEERINFO_RSP       = 20,
@@ -83,7 +85,7 @@ enum {
 	DEFAULT_TIMEOUT = 30000,
 	PORTNAME_LEN = 32,
 
-	SKY_PROTO_VERSION = 0x0200,
+	SKY_PROTO_VERSION = 0x0300,
 
 	SKY_HEARTBEAT_IVL_MS = 5000,
 

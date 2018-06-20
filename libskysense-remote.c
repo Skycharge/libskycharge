@@ -67,12 +67,18 @@ static int skyrem_send_recv(void *zctx,
 		goto out;
 	}
 	rc = zmsg_addmem(msg, req, req_len);
-	if (!rc && devdesc) {
-		/* Device port frame follows request frame */
-		rc = zmsg_addstr(msg, devdesc->portname);
-		/* Destination ident is the last one */
-		rc |= zmsg_addmem(msg, devdesc->dev_uuid,
-				  sizeof(devdesc->dev_uuid));
+	if (!rc) {
+		if (devdesc) {
+			/* DEVPORT frame follows request frame */
+			rc = zmsg_addstr(msg, devdesc->portname);
+			/* DEVUUID frame is the last one */
+			rc |= zmsg_addmem(msg, devdesc->dev_uuid,
+					  sizeof(devdesc->dev_uuid));
+		} else {
+			/* USRUUID frame is the last one */
+			rc = zmsg_addmem(msg, conf->remote.usruuid,
+					 sizeof(conf->remote.usruuid));
+		}
 	}
 	if (rc != 0) {
 		rc = -ENOMEM;
