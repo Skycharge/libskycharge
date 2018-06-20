@@ -782,7 +782,7 @@ static void *thread_do_proxy(void *arg)
 }
 
 static int sky_setup_and_proxy_pub(struct sky_server *serv,
-				   struct sky_brokerinfo *brokerinfo,
+				   struct sky_conf *conf,
 				   struct pub_proxy *proxy)
 {
 	void *ctx = serv->zock.ctx;
@@ -817,8 +817,8 @@ static int sky_setup_and_proxy_pub(struct sky_server *serv,
 		rc = -ENOMEM;
 		goto err;
 	}
-	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		 brokerinfo->addr, brokerinfo->sub_port);
+	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d", conf->hostname,
+		 conf->subport);
 	rc = zmq_connect(push, zaddr);
 	if (rc) {
 		rc = -errno;
@@ -936,7 +936,7 @@ static int sky_zmq_proxy(struct req_proxy *p)
 }
 
 static int sky_send_first_req(struct sky_server *serv,
-			      struct sky_brokerinfo *brokerinfo,
+			      struct sky_conf *conf,
 			      struct req_proxy *proxy)
 {
 	void *ctx = serv->zock.ctx;
@@ -977,8 +977,8 @@ static int sky_send_first_req(struct sky_server *serv,
 		sky_err("zmq_setsockopt(ZMQ_SUBSCRIBE): %s\n", strerror(-rc));
 		goto err;
 	}
-	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		 brokerinfo->addr, brokerinfo->servers_port);
+	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d", conf->hostname,
+		 conf->srvport);
 	rc = zmq_connect(to_broker, zaddr);
 	if (rc) {
 		rc = -errno;
@@ -1063,28 +1063,52 @@ static void sky_destroy_req(struct req_proxy *proxy)
 	zmq_close(proxy->broker_monitor);
 }
 
-static void *sky_discover_broker(void *arg_)
+struct thread_params {
+	pthread_t thread;
+	struct sky_server *serv;
+	int (*fillin_conf)(struct sky_server *serv, struct sky_conf *conf);
+};
+
+static int discover_broker(struct sky_server *serv, struct sky_conf *conf)
 {
-	struct sky_server *serv = arg_;
 	struct sky_brokerinfo brokerinfo;
+	int rc;
+
+	/* Find any broker on the network */
+	rc = sky_discoverbroker(&brokerinfo, SKY_DISCOVERY_MS);
+	if (rc)
+		return rc;
+
+	memset(conf, 0, sizeof(*conf));
+	strncpy(conf->hostname, brokerinfo.addr,
+		min(sizeof(brokerinfo.addr), sizeof(conf->hostname))-1);
+	conf->srvport = brokerinfo.servers_port;
+	conf->subport = brokerinfo.sub_port;
+
+	return 0;
+}
+
+static void *sky_connect_to_broker(void *arg_)
+{
+	struct thread_params *p = arg_;
 	struct pub_proxy pub_proxy = {}; /* Make gcc happy */
 	struct req_proxy req_proxy = {}; /* Make gcc happy */
+	struct sky_conf conf;
 	int rc;
 
 	/*
 	 * Do discovery loop
 	 */
-	while (!serv->exit) {
-		/* Find any broker on the network */
-		rc = sky_discoverbroker(&brokerinfo, SKY_DISCOVERY_MS);
+	while (!p->serv->exit) {
+		rc = p->fillin_conf(p->serv, &conf);
 		if (rc) {
 			sleep(1);
 			continue;
 		}
-		rc = sky_setup_and_proxy_pub(serv, &brokerinfo, &pub_proxy);
+		rc = sky_setup_and_proxy_pub(p->serv, &conf, &pub_proxy);
 		if (rc)
 			continue;
-		rc = sky_send_first_req(serv, &brokerinfo, &req_proxy);
+		rc = sky_send_first_req(p->serv, &conf, &req_proxy);
 		if (rc)
 			goto destroy_pub;
 
@@ -1101,17 +1125,21 @@ destroy_pub:
 
 static int sky_server_loop(struct sky_server *serv)
 {
+	struct thread_params p1 = {
+		.serv = serv,
+		.fillin_conf = discover_broker
+	};
+
 	zframe_t *data_frame, *devport_frame;
 	struct sky_rsp_hdr *rsp;
-	pthread_t thread;
 	size_t rsp_len;
 	zmsg_t *msg;
 	int rc;
 
-	rc = pthread_create(&thread, NULL, sky_discover_broker, serv);
+	rc = pthread_create(&p1.thread, NULL, sky_connect_to_broker, &p1);
 	if (rc) {
-		sky_err("pthread_create(sky_discover_broker): %d\n", rc);
-		thread = 0;
+		sky_err("pthread_create(discover_broker): %d\n", rc);
+		p1.thread = 0;
 	}
 
 	while (1) {
@@ -1143,11 +1171,12 @@ static int sky_server_loop(struct sky_server *serv)
 		}
 		sky_free(rsp);
 	}
-	if (thread) {
-		/* Tear down discovery thread */
+	if (p1.thread) {
+		/* Tear down thread */
 		serv->exit = true;
 
-		(void)sky_kill_pthread(thread);
+		if (p1.thread)
+			(void)sky_kill_pthread(p1.thread);
 	}
 
 	return rc;
