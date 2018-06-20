@@ -537,7 +537,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 		break;
 	}
 	case SKY_DEVS_LIST_REQ: {
-		rc = sky_devs_list_rsp(serv, "", &rsp_void, &len);
+		rc = sky_devs_list_rsp(serv, serv->conf.devname, &rsp_void, &len);
 		if (rc)
 			goto emergency;
 		break;
@@ -935,51 +935,6 @@ static int sky_zmq_proxy(struct req_proxy *p)
 	return rc;
 }
 
-static int sky_get_sockname(const char *addr_in, int port,
-			    char *sockname_out, size_t sz)
-{
-	/* XXX
-	 *
-	 * Because shitty ZMQ does not support any sorts of getsockname()
-	 * do that ourselves.
-	 */
-
-	struct sockaddr_in in_addr = {
-		.sin_family = AF_INET,
-		.sin_port = htons(port)
-	};
-	socklen_t addr_len = sizeof(in_addr);
-	int sock, rc;
-
-	inet_pton(in_addr.sin_family, addr_in, &in_addr.sin_addr);
-
-	sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sock < 0) {
-		sky_err("socket(): %s\n", strerror(errno));
-		return -1;
-	}
-	rc = connect(sock, (const struct sockaddr*)&in_addr,
-		     sizeof(in_addr));
-	if (rc < 0) {
-		sky_err("connect(%s,%d): %s\n", addr_in, port,
-			strerror(errno));
-		return -1;
-	}
-	rc = getsockname(sock, &in_addr, &addr_len);
-	if (rc < 0) {
-		sky_err("getsockname(): %s\n", strerror(errno));
-		return -1;
-	}
-	rc = !inet_ntop(AF_INET, &in_addr.sin_addr, sockname_out, sz);
-	if (rc) {
-		sky_err("inet_ntop(): %s\n", strerror(errno));
-		return -1;
-	}
-	close(sock);
-
-	return 0;
-}
-
 static int sky_setup_req(struct sky_server *serv,
 			 struct sky_brokerinfo *brokerinfo,
 			 struct req_proxy *proxy)
@@ -988,19 +943,11 @@ static int sky_setup_req(struct sky_server *serv,
 	void *to_server = NULL;
 	void *to_broker = NULL;
 	void *monitor = NULL;
-	char zaddr[128], devname[128];
+	char zaddr[128];
 	void *rsp_void;
 	size_t rsp_len;
 	int rc;
 
-	/* XXX Currently instead of device name retrieve sockname */
-	rc = sky_get_sockname(brokerinfo->addr, brokerinfo->servers_port,
-			      devname, sizeof(devname));
-	if (rc) {
-		sky_err("sky_get_sockname(): %d\n", rc);
-		rc = -EINVAL;
-		goto err;
-	}
 	to_server = zmq_socket(ctx, ZMQ_REQ);
 	if (!to_server) {
 		sky_err("zmq_socket(): No memory\n");
@@ -1064,7 +1011,7 @@ static int sky_setup_req(struct sky_server *serv,
 		sky_err("zmq_connect(): %s\n", strerror(-rc));
 		goto err;
 	}
-	rc = sky_devs_list_rsp(serv, devname, &rsp_void, &rsp_len);
+	rc = sky_devs_list_rsp(serv, serv->conf.devname, &rsp_void, &rsp_len);
 	if (rc) {
 		sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
 		goto err;
