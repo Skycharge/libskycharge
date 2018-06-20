@@ -8,7 +8,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
-#include <uuid/uuid.h>
 
 #include <zmq.h>
 #include <czmq.h>
@@ -35,7 +34,6 @@ struct sky_server_dev {
 
 struct sky_server {
 	bool exit;
-	uuid_t uuid;
 	struct cli cli;
 	struct sky_conf conf;
 	struct zocket zock;
@@ -144,7 +142,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	size_t len;
 	int rc;
 
-	BUILD_BUG_ON(sizeof(serv->uuid) + sizeof(devdesc->portname) >
+	BUILD_BUG_ON(sizeof(serv->conf.devuuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
 
 	rsp.hdr.type = htole16(SKY_CHARGING_STATE_EV);
@@ -159,10 +157,10 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 		return;
 	}
 	/* Publisher topic */
-	memcpy(topic, serv->uuid, sizeof(serv->uuid));
+	memcpy(topic, serv->conf.devuuid, sizeof(serv->conf.devuuid));
 	len = strlen(devdesc->portname);
-	memcpy(topic + sizeof(serv->uuid), devdesc->portname, len);
-	len += sizeof(serv->uuid);
+	memcpy(topic + sizeof(serv->conf.devuuid), devdesc->portname, len);
+	len += sizeof(serv->conf.devuuid);
 	rc = zmsg_addmem(msg, topic, len);
 	if (!rc)
 		rc = zmsg_addmem(msg, &rsp, sizeof(rsp));
@@ -270,7 +268,8 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 				htole32(dev->firmware_version);
 			memcpy(info->portname, dev->portname,
 			       sizeof(dev->portname));
-			memcpy(info->dev_uuid, serv->uuid, sizeof(serv->uuid));
+			memcpy(info->dev_uuid, serv->conf.devuuid,
+			       sizeof(serv->conf.devuuid));
 			strncpy(info->dev_name, dev_name, sizeof(info->dev_name));
 		}
 		sky_devsfree(head);
@@ -1023,8 +1022,8 @@ static int sky_setup_req(struct sky_server *serv,
 		sky_err("zmq_socket(): No memory\n");
 		goto err;
 	}
-	rc = zmq_setsockopt(to_broker, ZMQ_IDENTITY,
-			    serv->uuid, sizeof(serv->uuid));
+	rc = zmq_setsockopt(to_broker, ZMQ_IDENTITY, serv->conf.devuuid,
+			    sizeof(serv->conf.devuuid));
 	if (rc) {
 		rc = -errno;
 		sky_err("zmq_setsockopt(ZMQ_SUBSCRIBE): %s\n", strerror(-rc));
@@ -1204,8 +1203,6 @@ int main(int argc, char *argv[])
 	};
 	struct sky_dev_desc *devdesc;
 	int num, rc;
-
-	uuid_generate(serv.uuid);
 
 	rc = cli_parse(argc, argv, &serv.cli);
 	if (rc) {
