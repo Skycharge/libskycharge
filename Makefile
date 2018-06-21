@@ -45,20 +45,19 @@ version.h: debian/changelog
 	@printf "#endif /* VERSION_H */\n"                >> version.h
 
 
+%-cmd.h %-cmd.y %-cmd.l: | docopt-gen %-cmd.docopt
+	$(RM) $*-cmd.h $*-cmd.l $*-cmd.y
+	./docopt-gen $*-cmd.docopt
+
+%-cmd.tab.c: %-cmd.y
+	$(YACC) -o $@ --defines $*-cmd.y
+
+%-cmd.lex.c: %-cmd.l %-cmd.tab.c
+	$(LEX) -o $@ $*-cmd.l
+
 ##
 ## skybroker
 ##
-
-skybroker-cmd.h skybroker-cmd.y skybroker-cmd.l: docopt-gen skybroker-cmd.docopt
-	$(RM) skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y
-	./docopt-gen skybroker-cmd.docopt
-
-skybroker-cmd.tab.c: skybroker-cmd.y
-	$(YACC) -o $@ --defines skybroker-cmd.y
-
-skybroker-cmd.lex.c: skybroker-cmd.l
-	$(LEX) -o $@ skybroker-cmd.l
-
 skybroker.o: skybroker-cmd.h version.h
 
 skybroker: skybroker.o skybroker-cmd.tab.o skybroker-cmd.lex.o
@@ -67,17 +66,6 @@ skybroker: skybroker.o skybroker-cmd.tab.o skybroker-cmd.lex.o
 ##
 ## skyserver (skysensed)
 ##
-
-skyserver-cmd.h skyserver-cmd.y skyserver-cmd.l: docopt-gen skyserver-cmd.docopt
-	$(RM) skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y
-	./docopt-gen skyserver-cmd.docopt
-
-skyserver-cmd.tab.c: skyserver-cmd.y
-	$(YACC) -o $@ --defines skyserver-cmd.y
-
-skyserver-cmd.lex.c: skyserver-cmd.l
-	$(LEX) -o $@ skyserver-cmd.l
-
 skyserver.o: skyserver-cmd.h version.h
 
 skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
@@ -87,17 +75,6 @@ skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
 ##
 ## skyclient (skysense-cli)
 ##
-
-skyclient-cmd.h skyclient-cmd.y skyclient-cmd.l: docopt-gen skyclient-cmd.docopt
-	$(RM) skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y
-	./docopt-gen skyclient-cmd.docopt
-
-skyclient-cmd.tab.c: skyclient-cmd.y
-	$(YACC) -o $@ --defines skyclient-cmd.y
-
-skyclient-cmd.lex.c: skyclient-cmd.l
-	$(LEX) -o $@ skyclient-cmd.l
-
 skyclient.o: skyclient-cmd.h version.h
 
 skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
