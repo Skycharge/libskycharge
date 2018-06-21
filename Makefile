@@ -12,6 +12,7 @@ MIN = $(shell echo "$(VERS)" | cut -d . -f 2)
 REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
+DEPS := $(SRCS:.c=.d)
 BINS := skybroker skysensed skysense-cli
 LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 
@@ -55,6 +56,16 @@ version.h: debian/changelog
 %-cmd.lex.c: %-cmd.l %-cmd.tab.c
 	$(LEX) -o $@ $*-cmd.l
 
+# Generate automatic prerequisites, i.e. dependencies
+# http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
+%.o : %.c
+	@$(MAKEDEPEND)
+	$(COMPILE.c) -o $@ $<
+
+ifneq ($(MAKECMDGOALS),clean)
+-include $(DEPS)
+endif
+
 ##
 ## skybroker
 ##
@@ -82,10 +93,12 @@ skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS) -lz
 
 clean:
-	$(RM) $(BINS) *.o *~ \
+	$(RM) $(DEPS) $(BINS) *.o *~ \
 		skyclient-cmd.lex.c skyclient-cmd.tab.* \
 		skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y \
 		skyserver-cmd.lex.c skyserver-cmd.tab.* \
 		skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y \
 		skybroker-cmd.lex.c skybroker-cmd.tab.* \
 		skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y
+
+.PHONY: all clean
