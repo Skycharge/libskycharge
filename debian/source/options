@@ -1,0 +1,5 @@
+tar-ignore = ".git"
+tar-ignore = "old"
+tar-ignore = "outdoor"
+tar-ignore = "image"
+tar-ignore = "*.o"
