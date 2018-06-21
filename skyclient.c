@@ -9,6 +9,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <zlib.h>
+#include <math.h>
 
 #include "libskysense.h"
 #include "skyclient-cmd.h"
@@ -91,6 +92,35 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 		sky_err("unknown param: %d\n", param);
 		exit(-1);
 	}
+}
+
+/**
+ * Unix UTC time to ISO8601, no timezone adjustment.
+ * example: 2007-12-11T23:38:51.033Z
+ *
+ * Taken from gpsd/gpsutils.c
+ */
+static void unix_to_iso8601(double fixtime, char isotime[], size_t len)
+{
+	struct tm when;
+	double integral, fractional;
+	time_t intfixtime;
+	char timestr[30];
+	char fractstr[10];
+
+	fractional = modf(fixtime, &integral);
+	intfixtime = (time_t) integral;
+
+	(void)gmtime_r(&intfixtime, &when);
+	(void)strftime(timestr, sizeof(timestr), "%Y-%m-%dT%H:%M:%S", &when);
+	/*
+	 * Do not mess casually with the number of decimal digits in the
+	 * format!  Most GPSes report over serial links at 0.01s or 0.001s
+	 * precision.
+	 */
+	(void)snprintf(fractstr, sizeof(fractstr), "%.3f", fractional);
+	/* add fractional part, ignore leading 0; "0.2" -> ".2" */
+	(void)snprintf(isotime, len, "%s%sZ", timestr, strchr(fractstr,'.'));
 }
 
 static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *conf)
@@ -188,6 +218,34 @@ static void sky_print_charging_state(struct cli *cli,
 		printf("  Voltage: %d mV\n", state->voltage);
 		printf("  Current: %d mA\n", state->current);
 	}
+}
+
+static void sky_print_gpsdata(struct cli *cli, struct sky_gpsdata *gpsdata)
+{
+	char isotime[64];
+
+	unix_to_iso8601(gpsdata->fix.time, isotime, sizeof(isotime));
+
+	printf("Time:     %s\n", isotime);
+	printf("Lat/Lon:  %f %f\n", gpsdata->fix.latitude,
+	       gpsdata->fix.longitude);
+        if (isnan(gpsdata->fix.altitude))
+		printf("Altitude: ?\n");
+	else
+		printf("Altitude: %f\n", gpsdata->fix.altitude);
+
+	printf("Status:   STATUS_%s\n",
+	       gpsdata->status == SKY_GPS_STATUS_DGPS_FIX ? "DGPS_FIX" :
+	       gpsdata->status == SKY_GPS_STATUS_FIX ? "FIX" :
+	       "NO_FIX");
+        printf("Mode:     MODE_%s\n",
+	       gpsdata->fix.mode == SKY_GPS_MODE_3D ? "3D" :
+	       gpsdata->fix.mode == SKY_GPS_MODE_2D ? "2D" :
+	       gpsdata->fix.mode == SKY_GPS_MODE_NO_FIX ? "NO_FIX" :
+	       "ZERO");
+        printf("Quality:  %d p=%2.2f h=%2.2f v=%2.2f t=%2.2f g=%2.2f\n",
+	       gpsdata->satellites_used, gpsdata->dop.pdop, gpsdata->dop.hdop,
+	       gpsdata->dop.vdop, gpsdata->dop.tdop, gpsdata->dop.gdop);
 }
 
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
@@ -406,6 +464,16 @@ int main(int argc, char *argv[])
 		       (devdesc.firmware_version >> 16) & 0xff,
 		       (devdesc.firmware_version >> 8) & 0xff,
 		       devdesc.firmware_version & 0xff);
+	} else if (cli.gpsinfo) {
+		struct sky_gpsdata gpsdata;
+
+		rc = sky_gpsdata(dev, &gpsdata);
+		if (rc) {
+			sky_err("sky_gpsdata(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+
+		sky_print_gpsdata(&cli, &gpsdata);
 	} else
 		assert(0);
 

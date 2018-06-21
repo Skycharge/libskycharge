@@ -14,6 +14,7 @@ Usage:
     skysense-cli show-charging-state           [(<addr> <port>)]  [(--id <dev-id>)]
     skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)]
     skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)]
+    skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)]
 
 Options:
     Skysense console client communicates with local and remote devices.
