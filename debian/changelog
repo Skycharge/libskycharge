@@ -1,3 +1,36 @@
+skysense (1.1.0~rc12) stretch; urgency=low
+   * proto v3, again incompatible
+   * libskysense,skyserver: introduce new API call: sky_gpsdata()
+   * libskysense-local: use libgps for accessing GPS device
+   * skyclient: introduce gps-info command
+   * libskysense,skyserver: introduce new API call: sky_dronedetect()
+   * libskysense: introduce new API: sky_confparse()
+   * skysense.conf: configuration template and new skysense-conf package
+   * skyserver: use required --conffile option and parse config
+   * skyserver: use devuuid from config instead of random
+   * skyserver: use devname from config instead of sky_get_sockname()
+   * skyclient: use config file and read usruuid from it
+   * skyclient: a bit better log message
+   * libskysense-remote,skyserver,skybroker: support USRUUID frame for devices split
+   * skyserver: start thread for connecting to broker from config
+   * skyserver,skybroker: support heartbeats broker -> server
+   * skybroker: set TCP keepalive to detect dead connections
+   * skybroker: do IDENT handover for a new connection
+   * libskysense,skyproto: extend sky_charging_state with BMS fields
+   * skyclient: show BMS data
+   * skyserver: do DNS lookup before ZMQ connect() to avoid IO stuck
+   * services: set Restart=always
+   * bms-btle,skybms,skybmsd: add BMS-BTLE driver, library and daemon
+   * XXX skybmsd provide --xxx-charge-current-ma and --xxx-battery-capacity-mah options
+   * skyclient: show BMS data
+   * skybroker.service,skysense.conf: change skybroker clients port 7777->5555
+   * skysensed.postinst,skysensed.postrm,rules: do not start skysensed and skybmsd on package install
+   * skybroker: wait for ifaces up at early boot start
+   * Makefile: do not include Makefile.dummy for dpkg-buildpackage builds
+   * Makefile: add package target
+
+ -- Roman Pen <r.peniaev@gmail.com>  Thu, 23 Aug 2018 12:22:34 +0200
+
 skysense (1.0.0) stretch; urgency=low
 
    * skybroker: broker which sends UDP discover and proxies requests.
