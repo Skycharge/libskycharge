@@ -17,6 +17,8 @@ struct skydum_dev {
 	struct sky_dev_desc devdesc;
 	struct gps_data_t gpsdata;
 	bool gps_nodev;
+
+	unsigned cur, vol;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -48,11 +50,20 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 	return 0;
 }
 
+static unsigned rand_between(unsigned M, unsigned N)
+{
+	return M + rand() / (RAND_MAX / (N - M + 1) + 1);
+}
+
 static int skydum_devopen(const struct sky_dev_desc *devdesc,
 			  struct sky_dev **dev_)
 {
 	struct skydum_dev *dev;
+	struct timespec ts;
 	int rc;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	srand(ts.tv_nsec * ts.tv_sec);
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
@@ -62,6 +73,9 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 	if (rc)
 		/* Do not make much noise if GPS does not exist */
 		dev->gps_nodev = true;
+
+	dev->cur = rand_between(100,  5000);
+	dev->vol = rand_between(10000, 30000);
 
 	*dev_ = &dev->dev;
 
@@ -146,19 +160,12 @@ static void skydum_unsubscribe(struct sky_dev *dev_)
 static int skydum_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
-	static float current = 2000, voltage = 17000;
-	static float cur_factor, vol_factor;
 	struct skydum_dev *dev;
 
-	cur_factor = 0.9 + 0.2 * rand()/RAND_MAX;
-	vol_factor = 0.9 + 0.2 * rand()/RAND_MAX;
-
-	current = current * cur_factor;
-	voltage = voltage * vol_factor;
-
 	dev = container_of(dev_, struct skydum_dev, dev);
-	dev->state.current = current;
-	dev->state.voltage = voltage;
+
+	dev->state.current = dev->cur;
+	dev->state.voltage = dev->vol;
 
 	dev->state.dev_hw_state += 1;
 	if (dev->state.dev_hw_state == 4)
