@@ -1143,13 +1143,13 @@ static void *sky_connect_to_broker(void *arg_)
 	 */
 	while (!p->serv->exit) {
 		rc = p->fillin_conf(p->serv, &conf);
-		if (rc) {
-			sleep(1);
-			continue;
-		}
+		if (rc)
+			goto loop_end;
+
 		rc = sky_setup_and_proxy_pub(p->serv, &conf, &pub_proxy);
 		if (rc)
-			continue;
+			goto loop_end;
+
 		rc = sky_send_first_req(p->serv, &conf, &req_proxy);
 		if (rc)
 			goto destroy_pub;
@@ -1160,6 +1160,8 @@ static void *sky_connect_to_broker(void *arg_)
 		sky_destroy_req(&req_proxy);
 destroy_pub:
 		sky_destroy_pub(&pub_proxy);
+loop_end:
+		sleep(1);
 	}
 
 	return NULL;
