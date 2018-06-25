@@ -867,13 +867,17 @@ struct req_proxy {
  * For some reason (Oh God, I do not want to debug zmq crap)
  * setting ZMQ_RECONNECT_IVL to -1 does not help and socket
  * continues reconnecting.  What we need instead is to repeat
- * discovery if broker goes does down.
+ * connection procedure if broker goes down.
  *
  * Also heartbeats here are supported.
  */
 static int sky_zmq_proxy(struct req_proxy *p)
 {
+	unsigned long long expires_at;
 	int rc;
+
+	expires_at = zclock_time() +
+		SKY_HEARTBEAT_IVL_MS * SKY_HEARTBEAT_CNT;
 
 	while (true) {
 		zmq_pollitem_t items [] = {
@@ -888,6 +892,10 @@ static int sky_zmq_proxy(struct req_proxy *p)
 			      SKY_HEARTBEAT_IVL_MS * ZMQ_POLL_MSEC);
 		if (rc == -1)
 			/* Interrupted */
+			break;
+
+		if (expires_at <= zclock_time())
+			/* Connection is dead, retry */
 			break;
 
 		if (items[0].revents & ZMQ_POLLIN) {
@@ -909,12 +917,21 @@ static int sky_zmq_proxy(struct req_proxy *p)
 			if (!msg)
 				break;
 			if (src == p->to_broker) {
-				zframe_t *frame = zmsg_first(msg);
+				zframe_t *frame;
+
+				/* Refresh expiration */
+				expires_at = zclock_time() +
+					SKY_HEARTBEAT_IVL_MS * SKY_HEARTBEAT_CNT;
+
 				/* DEALER prepends zero frame, remove it */
+				frame = zmsg_first(msg);
 				if (frame) {
 					zmsg_remove(msg, frame);
 					zframe_destroy(&frame);
 				}
+				/* Heartbeat message is empty, ignore */
+				if (!zmsg_first(msg))
+					continue;
 			}
 		} else {
 			/* Create heartbeat */

@@ -334,8 +334,13 @@ static void sky_handle_server_msg(void *servers, void *clients,
 
 		data = sky_find_data_frame(msg);
 		if (!data) {
-			/* Heartbeats messages are empty, ignore them */
-			zmsg_destroy(&msg);
+			/* Heartbeat message is empty, pong it back */
+			rc = zmsg_send(&msg, servers);
+			if (rc) {
+				sky_err("zmsg_send(): %s\n", strerror(errno));
+				zmsg_destroy(&msg);
+				return;
+			}
 		} else {
 			/* Remove IDENT+0 frame from stack */
 			ident = zmsg_first(msg);
