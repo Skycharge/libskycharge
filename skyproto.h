@@ -88,6 +88,7 @@ enum {
 	SKY_PROTO_VERSION = 0x0300,
 
 	SKY_HEARTBEAT_IVL_MS = 5000,
+	SKY_HEARTBEAT_CNT    = 3,
 
 	SKY_DISCOVERY_PORT = 6666,
 	SKY_DISCOVERY_MS   = 500, /* wait if no broadcasting */

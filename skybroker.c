@@ -288,7 +288,8 @@ static void sky_handle_server_msg(void *servers, void *clients,
 			return;
 		}
 
-		peer->expires_at = zclock_time() + SKY_HEARTBEAT_IVL_MS * 3;
+		peer->expires_at = zclock_time() +
+			SKY_HEARTBEAT_IVL_MS * SKY_HEARTBEAT_CNT;
 		peer->idents_msg = msg;
 		peer->ident_frame = ident;
 
@@ -328,7 +329,8 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		 */
 
 		/* Refresh expiration */
-		peer->expires_at = zclock_time() + SKY_HEARTBEAT_IVL_MS * 3;
+		peer->expires_at = zclock_time() +
+			SKY_HEARTBEAT_IVL_MS * SKY_HEARTBEAT_CNT;
 
 		data = sky_find_data_frame(msg);
 		if (!data) {
