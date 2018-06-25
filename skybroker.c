@@ -700,7 +700,7 @@ int main(int argc, char *argv[])
 	struct cli cli;
 	char zaddr[32];
 	int timeout;
-	int rc;
+	int rc, val;
 
 	rc = cli_parse(argc, argv, &cli);
 	if (rc) {
@@ -738,6 +738,15 @@ int main(int argc, char *argv[])
 	rc = setup_tcp_keepalive(clients);
 	if (rc)
 		return -1;
+
+	val = 1;
+	rc = zmq_setsockopt(servers, ZMQ_ROUTER_HANDOVER, &val,
+			    sizeof(val));
+	if (rc) {
+		sky_err("zmq_setsockopt(ZMQ_ROUTER_HANDOVER): %s\n",
+			strerror(errno));
+		return -1;
+	}
 
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d", cli.addr,
 		 discovery.servers_port);
