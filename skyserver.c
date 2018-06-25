@@ -892,15 +892,17 @@ static int sky_zmq_proxy(struct req_proxy *p)
 			      SKY_HEARTBEAT_IVL_MS * ZMQ_POLL_MSEC);
 		if (rc == -1)
 			/* Interrupted */
-			break;
+			return -EINTR;
 
-		if (expires_at <= zclock_time())
-			/* Connection is dead, retry */
-			break;
-
+		if (expires_at <= zclock_time()) {
+			/* Connection is dead */
+			sky_err("Connection is dead\n");
+			return -ECONNRESET;
+		}
 		if (items[0].revents & ZMQ_POLLIN) {
 			/* Connection is dead */
-			break;
+			sky_err("Connection is dead\n");
+			return -ECONNRESET;
 		} else if (items[1].revents & ZMQ_POLLIN) {
 			src = p->to_broker;
 			dst = p->to_server;
@@ -914,8 +916,10 @@ static int sky_zmq_proxy(struct req_proxy *p)
 
 		if (src) {
 			msg = zmsg_recv(src);
-			if (!msg)
-				break;
+			if (!msg) {
+				sky_err("Received NULL message\n");
+				return -ECONNRESET;
+			}
 			if (src == p->to_broker) {
 				zframe_t *frame;
 
@@ -944,12 +948,13 @@ static int sky_zmq_proxy(struct req_proxy *p)
 			zmsg_pushmem(msg, NULL, 0);
 		rc = zmsg_send(&msg, dst);
 		if (rc) {
+			sky_err("Failed to send a message\n");
 			zmsg_destroy(&msg);
-			break;
+			return -ECONNRESET;
 		}
 	}
 
-	return rc;
+	return 0;
 }
 
 static int sky_send_first_req(struct sky_server *serv,
