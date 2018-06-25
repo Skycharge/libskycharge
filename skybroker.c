@@ -641,6 +641,51 @@ static void sky_destroy_pub(struct pub_proxy *proxy)
 	zmq_close(proxy->pull);
 }
 
+/**
+ * setup_tcp_keepalive() - enable kernel TCP keepalive in order
+ * to handle dead connections and properly free resources on
+ * ZMQ side.
+ */
+static int setup_tcp_keepalive(void *sock)
+{
+	int rc, val;
+
+	val = 1;
+	rc = zmq_setsockopt(sock, ZMQ_TCP_KEEPALIVE, &val,
+			    sizeof(val));
+	if (rc) {
+		sky_err("zmq_setsockopt(ZMQ_TCP_KEEPALIVE): %s\n",
+			strerror(errno));
+		return rc;
+	}
+	val = 5;
+	rc = zmq_setsockopt(sock, ZMQ_TCP_KEEPALIVE_IDLE, &val,
+			    sizeof(val));
+	if (rc) {
+		sky_err("zmq_setsockopt(ZMQ_TCP_KEEPALIVE_IDLE): %s\n",
+			strerror(errno));
+		return rc;
+	}
+	val = SKY_HEARTBEAT_CNT;
+	rc = zmq_setsockopt(sock, ZMQ_TCP_KEEPALIVE_CNT, &val,
+			    sizeof(val));
+	if (rc) {
+		sky_err("zmq_setsockopt(ZMQ_TCP_KEEPALIVE_CNT): %s\n",
+			strerror(errno));
+		return rc;
+	}
+	val = SKY_HEARTBEAT_IVL_MS / 1000;
+	rc = zmq_setsockopt(sock, ZMQ_TCP_KEEPALIVE_INTVL, &val,
+			    sizeof(val));
+	if (rc) {
+		sky_err("zmq_setsockopt(ZMQ_TCP_KEEPALIVE_INTVL): %s\n",
+			strerror(errno));
+		return rc;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_discovery discovery = {
@@ -686,6 +731,13 @@ int main(int argc, char *argv[])
 		sky_err("zmq_socket(): Failed\n");
 		return -1;
 	}
+	rc = setup_tcp_keepalive(servers);
+	if (rc)
+		return -1;
+
+	rc = setup_tcp_keepalive(clients);
+	if (rc)
+		return -1;
 
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d", cli.addr,
 		 discovery.servers_port);
