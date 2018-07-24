@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <math.h>
 
+#include <gps.h>
+
 #include "libskysense-pri.h"
 #include "types.h"
 
@@ -13,6 +15,8 @@ struct skydum_dev {
 	struct sky_charging_state state;
 	struct sky_dev_params params;
 	struct sky_dev_desc devdesc;
+	struct gps_data_t gpsdata;
+	bool gps_nodev;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -48,10 +52,16 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 			  struct sky_dev **dev_)
 {
 	struct skydum_dev *dev;
+	int rc;
 
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return -ENOMEM;
+
+	rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
+	if (rc)
+		/* Do not make much noise if GPS does not exist */
+		dev->gps_nodev = true;
 
 	*dev_ = &dev->dev;
 
@@ -63,6 +73,8 @@ static void skydum_devclose(struct sky_dev *dev_)
 	struct skydum_dev *dev;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
+	if (!dev->gps_nodev)
+		gps_close(&dev->gpsdata);
 	free(dev);
 }
 
@@ -189,36 +201,58 @@ static int skydum_coverclose(struct sky_dev *dev_)
 
 static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 {
+	struct skydum_dev *dev;
 	struct timespec ts;
 	double msecs;
+	int rc;
 
-	memset(gpsdata, 0, sizeof(*gpsdata));
+	dev = container_of(dev_, struct skydum_dev, dev);
+	if (!dev->gps_nodev) {
+		rc = gps_read(&dev->gpsdata);
+		if (rc < 0)
+			return -ENODEV;
 
-	clock_gettime(CLOCK_REALTIME, &ts);
+		memset(gpsdata, 0, sizeof(*gpsdata));
+		gpsdata->status = dev->gpsdata.status;
+		gpsdata->satellites_used = dev->gpsdata.satellites_used;
+		BUILD_BUG_ON(sizeof(gpsdata->dop) != sizeof(dev->gpsdata.dop));
+		memcpy(&gpsdata->dop, &dev->gpsdata.dop, sizeof(gpsdata->dop));
+		gpsdata->fix.mode = dev->gpsdata.fix.mode;
+		gpsdata->fix.time = dev->gpsdata.fix.time;
+		gpsdata->fix.latitude  = dev->gpsdata.fix.latitude;
+		gpsdata->fix.longitude = dev->gpsdata.fix.longitude;
+		gpsdata->fix.altitude  = dev->gpsdata.fix.altitude;
+	} else {
+		/*
+		 * No real GPS, output dummy stuff
+		 */
+		memset(gpsdata, 0, sizeof(*gpsdata));
 
-	msecs = ts.tv_nsec / 1000000ull;
-	/*
-	 * integer to fractional, e.g. 123.0 -> 0.123,
-	 * the equation is: x / 10 ^ ceil(log10(msecs))
-	 */
-	while (msecs > 1.0)
-		msecs /= 10;
+		clock_gettime(CLOCK_REALTIME, &ts);
 
-	gpsdata->fix.time = (double)ts.tv_sec + msecs;
-	gpsdata->fix.latitude  = 12345.54321;
-	gpsdata->fix.longitude = 54321.12345;
-	gpsdata->fix.altitude  = NAN;
+		msecs = ts.tv_nsec / 1000000ull;
+		/*
+		 * integer to fractional, e.g. 123.0 -> 0.123,
+		 * the equation is: x / 10 ^ ceil(log10(msecs))
+		 */
+		while (msecs > 1.0)
+			msecs /= 10;
 
-	gpsdata->status = SKY_GPS_STATUS_DGPS_FIX;
-	gpsdata->fix.mode = SKY_GPS_MODE_3D;
+		gpsdata->fix.time = (double)ts.tv_sec + msecs;
+		gpsdata->fix.latitude  = 12345.54321;
+		gpsdata->fix.longitude = 54321.12345;
+		gpsdata->fix.altitude  = NAN;
 
-	gpsdata->satellites_used = 42;
-	gpsdata->dop.pdop = 12.21;
-	gpsdata->dop.hdop = 21.12;
-	gpsdata->dop.vdop = 23.32;
-	gpsdata->dop.tdop = 34.43;
-	gpsdata->dop.gdop = 54.43;
+		gpsdata->status = SKY_GPS_STATUS_DGPS_FIX;
+		gpsdata->fix.mode = SKY_GPS_MODE_3D;
 
+		gpsdata->satellites_used = 42;
+		gpsdata->dop.pdop = 12.21;
+		gpsdata->dop.hdop = 21.12;
+		gpsdata->dop.vdop = 23.32;
+		gpsdata->dop.tdop = 34.43;
+		gpsdata->dop.gdop = 54.43;
+	}
 
 	return 0;
 }
