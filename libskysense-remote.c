@@ -265,7 +265,7 @@ static int skyrem_discoverbroker(const struct sky_dev_ops *ops,
 	discovery = (struct sky_discovery *)zframe_data(frame);
 
 	brokerinfo->af_family = AF_INET; /* currently IPv4 only */
-	strncpy(brokerinfo->addr, ip, sizeof(brokerinfo->addr));
+	strncpy(brokerinfo->addr, ip, sizeof(brokerinfo->addr)-1);
 	brokerinfo->proto_version = le16toh(discovery->proto_version);
 	brokerinfo->servers_port = le16toh(discovery->servers_port);
 	brokerinfo->sub_port = le16toh(discovery->sub_port);

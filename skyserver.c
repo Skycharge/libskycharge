@@ -1109,7 +1109,7 @@ static int discover_broker(struct sky_server *serv, struct sky_conf *conf)
 
 	memset(conf, 0, sizeof(*conf));
 	strncpy(conf->hostname, brokerinfo.addr,
-		min(sizeof(brokerinfo.addr), sizeof(conf->hostname))-1);
+		min(sizeof(brokerinfo.addr), sizeof(conf->hostname)));
 	conf->srvport = brokerinfo.servers_port;
 	conf->subport = brokerinfo.sub_port;
 

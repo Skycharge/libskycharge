@@ -149,7 +149,7 @@ static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 		devconf->remote.cmdport = strtol(cli->port, NULL, 10);
 		devconf->remote.subport = devconf->remote.cmdport + 1;
 		strncpy(devconf->remote.hostname, cli->addr,
-			sizeof(devconf->remote.hostname));
+			sizeof(devconf->remote.hostname)-1);
 	} else
 		devconf->contype = SKY_LOCAL;
 }
