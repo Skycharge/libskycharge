@@ -19,6 +19,8 @@ struct skydum_dev {
 	bool gps_nodev;
 
 	unsigned cur, vol;
+	unsigned bms_charge_perc;
+	unsigned bms_charge_time;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -166,6 +168,12 @@ static int skydum_subscription_work(struct sky_dev *dev_,
 
 	dev->state.current = dev->cur;
 	dev->state.voltage = dev->vol;
+	dev->state.bms.charge_perc = dev->bms_charge_perc;
+	dev->state.bms.charge_time = dev->bms_charge_time;
+
+	dev->bms_charge_perc += 1;
+	dev->bms_charge_perc %= 101;
+	dev->bms_charge_time += 1;
 
 	dev->state.dev_hw_state += 1;
 	if (dev->state.dev_hw_state == 4)

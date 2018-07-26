@@ -538,6 +538,13 @@ static int skyloc_chargingstate(struct sky_dev *dev_,
 	state->current = cur;
 	state->dev_hw_state = status;
 
+	/*
+	 * TODO: request BMS here
+	 *
+	 * state->bms.charge_perc = ;
+	 * state->bms.charge_time = ;
+	 */
+
 	return 0;
 }
 

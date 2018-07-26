@@ -157,7 +157,12 @@ struct sky_charging_state_rsp {
 	le16 voltage;  /* mV */
 	le16 current;  /* mA */
 	le16 dev_hw_state;
-	le16 unused;
+	struct {
+		le16 charge_perc; /* 0-100% */
+		le16 charge_time; /* seconds */
+	} bms;
+	le16 unused1;
+	le64 unused2;
 };
 
 struct sky_peerinfo_rsp {

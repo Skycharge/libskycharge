@@ -526,6 +526,8 @@ static int skyrem_chargingstate(struct sky_dev *dev_,
 	state->dev_hw_state = le16toh(rsp.dev_hw_state);
 	state->voltage = le16toh(rsp.voltage);
 	state->current = le16toh(rsp.current);
+	state->bms.charge_perc = le16toh(rsp.bms.charge_perc);
+	state->bms.charge_time = le16toh(rsp.bms.charge_time);
 
 	return 0;
 }
@@ -631,6 +633,8 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	state->dev_hw_state = le16toh(rsp->dev_hw_state);
 	state->voltage = le16toh(rsp->voltage);
 	state->current = le16toh(rsp->current);
+	state->bms.charge_perc = le16toh(rsp->bms.charge_perc);
+	state->bms.charge_time = le16toh(rsp->bms.charge_time);
 
 	/* Indicate we sleep here */
 	return 1;

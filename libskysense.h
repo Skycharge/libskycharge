@@ -143,6 +143,10 @@ struct sky_charging_state {
 	enum sky_dev_hw_state dev_hw_state;
 	unsigned short current;
 	unsigned short voltage;
+	struct {
+		unsigned short charge_perc; /* 0-100% */
+		unsigned short charge_time; /* seconds */
+	} bms;
 };
 
 /**

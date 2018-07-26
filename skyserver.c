@@ -150,6 +150,8 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	rsp.dev_hw_state = htole16(state->dev_hw_state);
 	rsp.current = htole16(state->current);
 	rsp.voltage = htole16(state->voltage);
+	rsp.bms.charge_perc = htole16(state->bms.charge_perc);
+	rsp.bms.charge_time = htole16(state->bms.charge_time);
 
 	msg = zmsg_new();
 	if (!msg) {
@@ -510,6 +512,10 @@ static void sky_execute_cmd(struct sky_server *serv,
 			rsp->dev_hw_state = htole32(state.dev_hw_state);
 			rsp->current = htole16(state.current);
 			rsp->voltage = htole16(state.voltage);
+			rsp->bms.charge_perc =
+				htole16(state.bms.charge_perc);
+			rsp->bms.charge_time =
+				htole16(state.bms.charge_time);
 		}
 
 		break;
