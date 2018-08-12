@@ -17,7 +17,7 @@ BINS := skybroker skysensed skysense-cli
 LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
-	            libskysense-remote.o
+	            libskysense-remote.o bms-btle.o
 
 # Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing
 -include Makefile.dummy

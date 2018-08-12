@@ -10,6 +10,7 @@
 #include <gps.h>
 
 #include "libskysense-pri.h"
+#include "bms-btle.h"
 #include "types.h"
 
 enum sky_serial_cmd {
@@ -42,7 +43,9 @@ struct skyloc_dev {
 	struct sky_dev_params params;
 	struct sky_dev_desc devdesc;
 	struct gps_data_t gpsdata;
+	struct bms *bms;
 	bool gps_nodev;
+	bool bms_nodev;
 	pthread_mutex_t mutex;
 	int lockfd;
 };
@@ -299,6 +302,11 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		/* Do not make much noise if GPS does not exist */
 		dev->gps_nodev = true;
 
+	rc = bms_open(&dev->bms);
+	if (rc)
+		/* Do not make much noise if BMS-BTLE dongle does not exist */
+		dev->bms_nodev = true;
+
 	sp_free_config(spconf);
 	pthread_mutex_init(&dev->mutex, NULL);
 	*dev_ = dev;
@@ -319,6 +327,8 @@ free_dev:
 
 static void devclose(struct skyloc_dev *dev)
 {
+	if (!dev->bms_nodev)
+		bms_close(dev->bms);
 	if (!dev->gps_nodev)
 		gps_close(&dev->gpsdata);
 	close(dev->lockfd);
@@ -512,6 +522,7 @@ static int skyloc_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
 	struct skyloc_dev *dev;
+	uint16_t charge_perc;
 	uint16_t vol, cur;
 	uint8_t status;
 	int rc;
@@ -538,12 +549,24 @@ static int skyloc_chargingstate(struct sky_dev *dev_,
 	state->current = cur;
 	state->dev_hw_state = status;
 
-	/*
-	 * TODO: request BMS here
-	 *
-	 * state->bms.charge_perc = ;
-	 * state->bms.charge_time = ;
-	 */
+	/* First reset bms values to non valid */
+	state->bms.charge_time = 0;
+	state->bms.charge_perc = 0;
+
+	if (!dev->bms_nodev) {
+		rc = bms_request_nearest(dev->bms, &charge_perc, NULL);
+		if (!rc) {
+			/* XXX HOLY CRAP! */
+			unsigned secs_in_h = 3600;
+			unsigned capacity_mah = 32000; /* two batteries 16'000 mAh each */
+			unsigned charged_mah = capacity_mah / 100 * charge_perc;
+			unsigned charging_secs = charged_mah * secs_in_h / capacity_mah;
+			unsigned left_secs = secs_in_h - charging_secs;
+
+			state->bms.charge_time = left_secs;
+			state->bms.charge_perc = charge_perc;
+		}
+	}
 
 	return 0;
 }

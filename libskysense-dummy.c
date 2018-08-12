@@ -8,6 +8,7 @@
 #include <gps.h>
 
 #include "libskysense-pri.h"
+#include "bms-btle.h"
 #include "types.h"
 
 struct skydum_dev {
@@ -16,11 +17,11 @@ struct skydum_dev {
 	struct sky_dev_params params;
 	struct sky_dev_desc devdesc;
 	struct gps_data_t gpsdata;
+	struct bms *bms;
 	bool gps_nodev;
+	bool bms_nodev;
 
 	unsigned cur, vol;
-	unsigned bms_charge_perc;
-	unsigned bms_charge_time;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -76,6 +77,11 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 		/* Do not make much noise if GPS does not exist */
 		dev->gps_nodev = true;
 
+	rc = bms_open(&dev->bms);
+	if (rc)
+		/* Do not make much noise if BMS-BTLE dongle does not exist */
+		dev->bms_nodev = true;
+
 	dev->cur = rand_between(100,  5000);
 	dev->vol = rand_between(10000, 30000);
 
@@ -89,6 +95,8 @@ static void skydum_devclose(struct sky_dev *dev_)
 	struct skydum_dev *dev;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
+	if (!dev->bms_nodev)
+		bms_close(dev->bms);
 	if (!dev->gps_nodev)
 		gps_close(&dev->gpsdata);
 	free(dev);
@@ -141,17 +149,13 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
 	struct skydum_dev *dev;
+	uint16_t charge_perc;
+	int rc;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
 
 	dev->state.current = dev->cur;
 	dev->state.voltage = dev->vol;
-	dev->state.bms.charge_perc = dev->bms_charge_perc;
-	dev->state.bms.charge_time = dev->bms_charge_time;
-
-	dev->bms_charge_perc += 1;
-	dev->bms_charge_perc %= 101;
-	dev->bms_charge_time += 1;
 
 	dev->state.dev_hw_state += 1;
 	if (dev->state.dev_hw_state == 4)
@@ -163,6 +167,25 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 	dev->state.dev_hw_state %= 26;
 
 	*state = dev->state;
+
+	/* First reset bms values to non valid */
+	state->bms.charge_time = 0;
+	state->bms.charge_perc = 0;
+
+	if (!dev->bms_nodev) {
+		rc = bms_request_nearest(dev->bms, &charge_perc, NULL);
+		if (!rc) {
+			/* XXX HOLY CRAP! */
+			unsigned secs_in_h = 3600;
+			unsigned capacity_mah = 32000; /* two batteries 16'000 mAh each */
+			unsigned charged_mah = capacity_mah / 100 * charge_perc;
+			unsigned charging_secs = charged_mah * secs_in_h / capacity_mah;
+			unsigned left_secs = secs_in_h - charging_secs;
+
+			state->bms.charge_time = left_secs;
+			state->bms.charge_perc = charge_perc;
+		}
+	}
 
 	return 0;
 }
