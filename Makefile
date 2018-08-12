@@ -13,11 +13,11 @@ REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
-BINS := skybroker skysensed skysense-cli
+BINS := skybroker skysensed skybmsd skysense-cli
 LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 
-LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o \
-	            libskysense-remote.o
+LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
+		    libskybms.o bms-btle.o
 
 # Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing
 -include Makefile.dummy
@@ -84,6 +84,15 @@ skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
 	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 ##
+## skybms (skysensed)
+##
+skybms.o: skybms-cmd.h version.h
+
+skybmsd: skybms.o libskybms.o bms-btle.o skybms-cmd.tab.o skybms-cmd.lex.o
+	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+
+
+##
 ## skyclient (skysense-cli)
 ##
 skyclient.o: skyclient-cmd.h version.h
@@ -99,6 +108,8 @@ clean:
 		skyserver-cmd.lex.c skyserver-cmd.tab.* \
 		skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y \
 		skybroker-cmd.lex.c skybroker-cmd.tab.* \
-		skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y
+		skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y \
+		skybms-cmd.lex.c skybms-cmd.tab.* \
+		skybms-cmd.h skybms-cmd.l skybms-cmd.y
 
 .PHONY: all clean

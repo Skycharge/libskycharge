@@ -10,6 +10,7 @@
 #include <gps.h>
 
 #include "libskysense-pri.h"
+#include "libskybms.h"
 #include "types.h"
 
 enum sky_serial_cmd {
@@ -42,6 +43,7 @@ struct skyloc_dev {
 	struct sky_dev_params params;
 	struct sky_dev_desc devdesc;
 	struct gps_data_t gpsdata;
+	struct bms_lib bms;
 	bool gps_nodev;
 	pthread_mutex_t mutex;
 	int lockfd;
@@ -306,7 +308,7 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	} else {
 		dev->gps_nodev = true;
 	}
-
+	bms_init(&dev->bms);
 	sp_free_config(spconf);
 	pthread_mutex_init(&dev->mutex, NULL);
 	*dev_ = dev;
@@ -329,6 +331,7 @@ static void devclose(struct skyloc_dev *dev)
 {
 	if (!dev->gps_nodev)
 		gps_close(&dev->gpsdata);
+	bms_deinit(&dev->bms);
 	close(dev->lockfd);
 	sp_close(dev->port);
 	sp_free_port(dev->port);
@@ -519,6 +522,7 @@ static int skyloc_paramsset(struct sky_dev *dev_,
 static int skyloc_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
+	struct bms_data bms_data;
 	struct skyloc_dev *dev;
 	uint16_t vol, cur;
 	uint8_t status;
@@ -546,12 +550,14 @@ static int skyloc_chargingstate(struct sky_dev *dev_,
 	state->current = cur;
 	state->dev_hw_state = status;
 
-	/*
-	 * TODO: request BMS here
-	 *
-	 * state->bms.charge_perc = ;
-	 * state->bms.charge_time = ;
-	 */
+	rc = bms_request_data(&dev->bms, &bms_data);
+	if (!rc) {
+		state->bms.charge_time = bms_data.charge_time;
+		state->bms.charge_perc = bms_data.charge_perc;
+	} else {
+		state->bms.charge_time = 0;
+		state->bms.charge_perc = 0;
+	}
 
 	return 0;
 }

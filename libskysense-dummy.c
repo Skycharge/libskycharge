@@ -8,6 +8,7 @@
 #include <gps.h>
 
 #include "libskysense-pri.h"
+#include "libskybms.h"
 #include "types.h"
 
 struct skydum_dev {
@@ -16,11 +17,10 @@ struct skydum_dev {
 	struct sky_dev_params params;
 	struct sky_dev_desc devdesc;
 	struct gps_data_t gpsdata;
+	struct bms_lib bms;
 	bool gps_nodev;
 
 	unsigned cur, vol;
-	unsigned bms_charge_perc;
-	unsigned bms_charge_time;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -76,6 +76,8 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 		/* Do not make much noise if GPS does not exist */
 		dev->gps_nodev = true;
 
+	bms_init(&dev->bms);
+
 	dev->cur = rand_between(100,  5000);
 	dev->vol = rand_between(10000, 30000);
 
@@ -89,6 +91,7 @@ static void skydum_devclose(struct sky_dev *dev_)
 	struct skydum_dev *dev;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
+	bms_deinit(&dev->bms);
 	if (!dev->gps_nodev)
 		gps_close(&dev->gpsdata);
 	free(dev);
@@ -140,18 +143,14 @@ static int skydum_paramsset(struct sky_dev *dev_,
 static int skydum_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
+	struct bms_data bms_data;
 	struct skydum_dev *dev;
+	int rc;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
 
 	dev->state.current = dev->cur;
 	dev->state.voltage = dev->vol;
-	dev->state.bms.charge_perc = dev->bms_charge_perc;
-	dev->state.bms.charge_time = dev->bms_charge_time;
-
-	dev->bms_charge_perc += 1;
-	dev->bms_charge_perc %= 101;
-	dev->bms_charge_time += 1;
 
 	dev->state.dev_hw_state += 1;
 	if (dev->state.dev_hw_state == 4)
@@ -163,6 +162,15 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 	dev->state.dev_hw_state %= 26;
 
 	*state = dev->state;
+
+	rc = bms_request_data(&dev->bms, &bms_data);
+	if (!rc) {
+		state->bms.charge_time = bms_data.charge_time;
+		state->bms.charge_perc = bms_data.charge_perc;
+	} else {
+		state->bms.charge_time = 0;
+		state->bms.charge_perc = 0;
+	}
 
 	return 0;
 }
