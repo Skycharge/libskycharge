@@ -1,0 +1,14 @@
+[Unit]
+Description=Skysense BMS service
+BindsTo=dev-skybmsUSB.device
+After=dev-skybmsUSB.device
+
+[Service]
+Type=forking
+User=root
+Restart=always
+PIDFile=/var/run/skybmsd.pid
+ExecStart=/usr/sbin/skybmsd --daemon --pidfile /var/run/skybmsd.pid
+
+[Install]
+WantedBy=multi-user.target
