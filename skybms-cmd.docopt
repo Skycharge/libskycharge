@@ -1,0 +1,8 @@
+Skysense BMS service.
+
+Usage:
+    skybmsd [(--daemon (--pidfile <pidf>))]
+
+Options:
+    Skysense BMS service which talks to BMS-BTLE dongle and provides shared
+    memory with BMS data.
