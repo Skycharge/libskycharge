@@ -143,28 +143,6 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 	struct skydum_dev *dev;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
-	memcpy(state, &dev->state, sizeof(*state));
-
-	return 0;
-}
-
-static int skydum_subscribe(struct sky_dev *dev_)
-{
-	/* Nop for now */
-	return 0;
-}
-
-static void skydum_unsubscribe(struct sky_dev *dev_)
-{
-	/* Nop for now */
-}
-
-static int skydum_subscription_work(struct sky_dev *dev_,
-				    struct sky_charging_state *state)
-{
-	struct skydum_dev *dev;
-
-	dev = container_of(dev_, struct skydum_dev, dev);
 
 	dev->state.current = dev->cur;
 	dev->state.voltage = dev->vol;
@@ -187,6 +165,23 @@ static int skydum_subscription_work(struct sky_dev *dev_,
 	*state = dev->state;
 
 	return 0;
+}
+
+static int skydum_subscribe(struct sky_dev *dev_)
+{
+	/* Nop for now */
+	return 0;
+}
+
+static void skydum_unsubscribe(struct sky_dev *dev_)
+{
+	/* Nop for now */
+}
+
+static int skydum_subscription_work(struct sky_dev *dev_,
+				    struct sky_charging_state *state)
+{
+	return skydum_chargingstate(dev_, state);
 }
 
 static int skydum_reset(struct sky_dev *dev_)
