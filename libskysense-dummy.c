@@ -22,6 +22,10 @@ struct skydum_dev {
 	bool bms_nodev;
 
 	unsigned cur, vol;
+
+	//XXX REMOVE ASAP
+	unsigned XXX_charge_current_ma;
+	unsigned XXX_battery_capacity_mah;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -71,6 +75,17 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 	dev = calloc(1, sizeof(*dev));
 	if (!dev)
 		return -ENOMEM;
+
+	{
+		struct sky_conf conf;
+
+		//XXX REMOVE ASAP
+		(void)sky_confparse("/etc/skysense.conf", &conf);
+		dev->XXX_charge_current_ma =
+			conf.XXX_charge_current_ma ?: 32000;
+		dev->XXX_battery_capacity_mah =
+			conf.XXX_battery_capacity_mah ?: 32000;
+	}
 
 	rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
 	if (rc)
@@ -175,12 +190,15 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 	if (!dev->bms_nodev) {
 		rc = bms_request_nearest(dev->bms, &charge_perc, NULL);
 		if (!rc) {
-			/* XXX HOLY CRAP! */
-			unsigned secs_in_h = 3600;
-			unsigned capacity_mah = 32000; /* two batteries 16'000 mAh each */
-			unsigned charged_mah = capacity_mah / 100 * charge_perc;
-			unsigned charging_secs = charged_mah * secs_in_h / capacity_mah;
-			unsigned left_secs = secs_in_h - charging_secs;
+			/* XXX HOLY CRAP! REMOVE ASAP */
+			float secs_in_h = 3600.0;
+			float till_full_secs =
+				(float)dev->XXX_battery_capacity_mah /
+				(float)dev->XXX_charge_current_ma *
+				secs_in_h;
+
+			unsigned left_secs =
+				till_full_secs * (100 - charge_perc) / 100.0;
 
 			state->bms.charge_time = left_secs;
 			state->bms.charge_perc = charge_perc;

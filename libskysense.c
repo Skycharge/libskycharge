@@ -61,6 +61,18 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		cfg->subport = cfg->srvport + 1;
 		cfg->pubport = cfg->cliport + 1;
 	}
+	//XXX REMOVE ASAP
+	else if ((str = strstr(line, "charge-current-ma="))) {
+		rc = sscanf(str + 18, "%u", &cfg->XXX_charge_current_ma);
+		if (rc != 1)
+			return -ENODATA;
+	}
+	//XXX REMOVE ASAP
+	else if ((str = strstr(line, "battery-capacity-mah="))) {
+		rc = sscanf(str + 21, "%u", &cfg->XXX_battery_capacity_mah);
+		if (rc != 1)
+			return -ENODATA;
+	}
 
 	/*
 	 * No else: ignore unknown parameters

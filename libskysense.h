@@ -104,6 +104,10 @@ struct sky_conf {
 	unsigned subport;      /**< Servers subscribe port */
 	unsigned cliport;      /**< Clients command port */
 	unsigned pubport;      /**< Clients publish port */
+
+	//XXX REMOVE ASAP
+	unsigned XXX_charge_current_ma;
+	unsigned XXX_battery_capacity_mah;
 };
 
 /**
