@@ -8,7 +8,7 @@ Type=forking
 User=root
 Restart=always
 PIDFile=/var/run/skybmsd.pid
-ExecStart=/usr/sbin/skybmsd --daemon --pidfile /var/run/skybmsd.pid
+ExecStart=/usr/sbin/skybmsd --xxx-charge-current-ma 32000 --xxx-battery-capacity-mah 32000 --daemon --pidfile /var/run/skybmsd.pid
 
 [Install]
 WantedBy=multi-user.target

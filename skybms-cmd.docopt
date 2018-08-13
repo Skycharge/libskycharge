@@ -1,7 +1,7 @@
 Skysense BMS service.
 
 Usage:
-    skybmsd [(--daemon (--pidfile <pidf>))]
+    skybmsd --xxx-charge-current-ma <current-ma> --xxx-battery-capacity-mah <capacity-mah> [(--daemon (--pidfile <pidf>))]
 
 Options:
     Skysense BMS service which talks to BMS-BTLE dongle and provides shared
