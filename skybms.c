@@ -86,6 +86,25 @@ static int sky_daemonize(const char *pidfile)
 
 }
 
+/**
+ * XXX Proper time should be returned by the hardware!
+ * XXX The following is not accurate and crappy!
+ */
+static void calculate_left_time_to_full_charge(struct cli *cli,
+					       struct bms_data *bms_data)
+{
+	float secs_in_h = 3600.0;
+	float till_full_secs =
+		(float)atoi(cli->capacitymah) /
+		(float)atoi(cli->currentma) *
+		secs_in_h;
+
+	unsigned left_secs =
+		till_full_secs * (100 - bms_data->charge_perc) / 100.0;
+
+	bms_data->charge_time = left_secs;
+}
+
 int main(int argc, char *argv[])
 {
 	struct bms_btle *bms_btle;
@@ -118,6 +137,10 @@ int main(int argc, char *argv[])
 			sleep(1);
 			continue;
 		}
+
+		//XXX REMOVE ASAP, should be done by BMS
+		calculate_left_time_to_full_charge(&cli, &bms_data);
+
 		rc = bms_update_data(&bms_lib, &bms_data);
 		if (rc) {
 			fprintf(stderr, "bms_update_data(): %s\n",
