@@ -1,27 +1,17 @@
-3rdparty:
----------
-    git://sigrok.org/libserialport
+//// BUILD ARM PACKAGES IN CHROOT ENV
 
-library stack:
---------------
+losetup -o $((8192<<9))  /dev/loop0 ./bone-debian-9.4-iot-armhf-2018-06-17-4gb.img
+mount /dev/loop0 /mnt
 
-    apiserver     libskysense-cli
-        libskysense-ll
-libserialport     somegpiolib???
----------------------------------
- indoor PCB        outdoor PCB       [HW layer]
+mount -t proc fff /mnt/proc
+mount -t sysfs fff /mnt/sys
+mount -t devtmpfs fff /mnt/dev
 
+apt-get install qemu-user-static
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+   chroot /mnt qemu-arm-static /bin/bash
 
-To discuss:
-
-HW
-
-1. Hang on read on stop/start charge when auto in wrong mode.
-2. No current info on manual charging.
-
-3. Proper charging of LiPo battaries.
-4. Communication thru charging wires.
-
+dpkg-buildpackage -us -uc
 
 
 ///// GPSD INFO
