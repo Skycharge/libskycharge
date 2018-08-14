@@ -241,7 +241,7 @@ static int skyloc_peerinfo(const struct sky_dev_ops *ops,
 }
 
 static int devopen(const struct sky_dev_desc *devdesc,
-			  struct skyloc_dev **dev_)
+		   struct skyloc_dev **dev_, bool probbing)
 {
 	struct skyloc_dev *dev;
 	struct sp_port_config* spconf;
@@ -294,10 +294,18 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		sprc = SP_ERR_FAIL;
 		goto free_conf;
 	}
-	rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
-	if (rc)
-		/* Do not make much noise if GPS does not exist */
+
+	/*
+	 * Init GPS only on real open
+	 */
+	if (!probbing) {
+		rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
+		if (rc)
+			/* Do not make much noise if GPS does not exist */
+			dev->gps_nodev = true;
+	} else {
 		dev->gps_nodev = true;
+	}
 
 	sp_free_config(spconf);
 	pthread_mutex_init(&dev->mutex, NULL);
@@ -334,7 +342,7 @@ static int devprobe(struct sky_dev_desc *devdesc)
 	uint8_t major, minor, revis;
 	int rc;
 
-	rc = devopen(devdesc, &dev);
+	rc = devopen(devdesc, &dev, true);
 	if (rc)
 		return rc;
 
@@ -416,7 +424,7 @@ static int skyloc_devopen(const struct sky_dev_desc *devdesc,
 	struct skyloc_dev *dev = NULL;
 	int rc;
 
-	rc = devopen(devdesc, &dev);
+	rc = devopen(devdesc, &dev, false);
 	if (rc)
 		return rc;
 
