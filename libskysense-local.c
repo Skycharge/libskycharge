@@ -248,7 +248,7 @@ static int skyloc_peerinfo(const struct sky_dev_ops *ops,
 }
 
 static int devopen(const struct sky_dev_desc *devdesc,
-			  struct skyloc_dev **dev_)
+		   struct skyloc_dev **dev_, bool probbing)
 {
 	struct skyloc_dev *dev;
 	struct sp_port_config* spconf;
@@ -259,10 +259,11 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	if (!dev)
 		return -ENOMEM;
 
-	{
+	if (!probbing) {
+		//XXX REMOVE ASAP
+
 		struct sky_conf conf;
 
-		//XXX REMOVE ASAP
 		(void)sky_confparse("/etc/skysense.conf", &conf);
 		dev->XXX_charge_current_ma =
 			conf.XXX_charge_current_ma ?: 32000;
@@ -312,15 +313,24 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		sprc = SP_ERR_FAIL;
 		goto free_conf;
 	}
-	rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
-	if (rc)
-		/* Do not make much noise if GPS does not exist */
-		dev->gps_nodev = true;
 
-	rc = bms_open(&dev->bms);
-	if (rc)
-		/* Do not make much noise if BMS-BTLE dongle does not exist */
+	/*
+	 * Init GPS and BMS-BTLE only on real open
+	 */
+	if (!probbing) {
+		rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
+		if (rc)
+			/* Do not make much noise if GPS does not exist */
+			dev->gps_nodev = true;
+
+		rc = bms_open(&dev->bms);
+		if (rc)
+			/* Do not make much noise if BMS-BTLE dongle does not exist */
+			dev->bms_nodev = true;
+	} else {
+		dev->gps_nodev = true;
 		dev->bms_nodev = true;
+	}
 
 	sp_free_config(spconf);
 	pthread_mutex_init(&dev->mutex, NULL);
@@ -359,7 +369,7 @@ static int devprobe(struct sky_dev_desc *devdesc)
 	uint8_t major, minor, revis;
 	int rc;
 
-	rc = devopen(devdesc, &dev);
+	rc = devopen(devdesc, &dev, true);
 	if (rc)
 		return rc;
 
@@ -441,7 +451,7 @@ static int skyloc_devopen(const struct sky_dev_desc *devdesc,
 	struct skyloc_dev *dev = NULL;
 	int rc;
 
-	rc = devopen(devdesc, &dev);
+	rc = devopen(devdesc, &dev, false);
 	if (rc)
 		return rc;
 
