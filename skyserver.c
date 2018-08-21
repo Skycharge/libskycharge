@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <pthread.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include <zmq.h>
 #include <czmq.h>
@@ -1122,6 +1124,52 @@ static int discover_broker(struct sky_server *serv, struct sky_conf *conf)
 	return 0;
 }
 
+static int resolve_hostname(struct sky_conf *conf)
+{
+	struct addrinfo hints, *res, *rp;
+	bool resolved = false;
+	int rc;
+
+	memset(&hints, 0, sizeof (hints));
+	hints.ai_family   = AF_INET; /* IPv4 only */
+	hints.ai_socktype = SOCK_STREAM;
+
+	rc = getaddrinfo(conf->hostname, NULL, &hints, &res);
+	if (rc) {
+		sky_err("getaddrinfo(%s): %s\n", conf->hostname,
+			gai_strerror(rc));
+		return -ENODATA;
+	}
+	for (rp = res; rp != NULL; rp = rp->ai_next) {
+		const void *ptr;
+
+		switch (rp->ai_family)	{
+		case AF_INET:
+			ptr = &((struct sockaddr_in *) rp->ai_addr)->sin_addr;
+			break;
+		case AF_INET6:
+			ptr = &((struct sockaddr_in6 *) rp->ai_addr)->sin6_addr;
+			break;
+		default:
+			freeaddrinfo(res);
+			return -ENODATA;
+		}
+		ptr = inet_ntop(rp->ai_family, ptr, conf->hostname,
+				sizeof(conf->hostname));
+		if (ptr)
+			resolved = true;
+
+		/* TODO: do we need to test others? */
+		break;
+	}
+	freeaddrinfo(res);
+
+	if (!resolved)
+		return -ENODATA;
+
+	return 0;
+}
+
 static int parse_conf(struct sky_server *serv, struct sky_conf *conf)
 {
 	int rc;
@@ -1133,7 +1181,13 @@ static int parse_conf(struct sky_server *serv, struct sky_conf *conf)
 	if (conf->hostname[0] == '\0')
 		return -ENODATA;
 
-	return 0;
+	/*
+	 * That is utterly important to do dns lookup from here,
+	 * because if zmq does that, than if dns server does not
+	 * respond the whole zmq loop is stuck and no any other
+	 * IO is performed! Total disaster!
+	 */
+	return resolve_hostname(conf);
 }
 
 static void *sky_connect_to_broker(void *arg_)
