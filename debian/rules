@@ -13,8 +13,8 @@ override_dh_systemd_enable:
 	dh_systemd_enable -pskysensed --name=skybmsd   skybmsd.service
 	dh_systemd_enable -pskybroker --name=skybroker skybroker.service
 override_dh_systemd_start:
-	dh_systemd_start -pskysensed --restart-after-upgrade skysensed.service
-	dh_systemd_start -pskysensed --restart-after-upgrade skybmsd.service
+	dh_systemd_start -pskysensed --restart-after-upgrade --no-start skysensed.service
+	dh_systemd_start -pskysensed --restart-after-upgrade --no-start skybmsd.service
 	dh_systemd_start -pskybroker --restart-after-upgrade skybroker.service
 
 override_dh_strip:
