@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+	remove)
+		# Trigger udev rules to remove all /dev/sky*USB files
+		udevadm control --reload
+		udevadm trigger
+		;;
+	*)
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0
