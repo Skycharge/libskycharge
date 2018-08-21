@@ -1,0 +1,31 @@
+#!/bin/bash
+
+set -e
+
+case "$1" in
+	configure)
+		#
+		# Trigger udev rules and if USB devices (MUX or BTLE dongle) are
+		# plugged in - skysensed and skybmsd daemons will be started
+		#
+
+		udevadm control --reload
+		# Trigger and wait for events
+		udevadm trigger
+		udevadm settle
+
+		if [ -e /dev/skysenseUSB ]; then
+		   systemctl start skysensed.service
+		fi
+
+		if [ -e /dev/skybmsUSB ]; then
+		   systemctl start skybmsd.service
+		fi
+		;;
+	*)
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0
