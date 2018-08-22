@@ -686,6 +686,33 @@ static int setup_tcp_keepalive(void *sock)
 	return 0;
 }
 
+static void wait_for_ifaces_up(void)
+{
+	unsigned ITERS = 10;
+
+	while (ITERS--) {
+		ziflist_t *iflist;
+		const char *name;
+
+		iflist = ziflist_new();
+		if (!iflist)
+			goto rest_and_repeat;
+
+		name = ziflist_first(iflist);
+		while (name) {
+			if (!strncmp("eth", name, 3))
+				break;
+			name = ziflist_next(iflist);
+		}
+		ziflist_destroy(&iflist);
+		if (name)
+			/* Found something, leave the loop */
+			break;
+rest_and_repeat:
+		sleep(1);
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_discovery discovery = {
@@ -725,6 +752,23 @@ int main(int argc, char *argv[])
 		sky_err("zmq_ctx_new(): Failed\n");
 		return -1;
 	}
+
+	/*
+	 * That is needed if daemon is started on boot before
+	 * network is up.
+	 *
+	 * And yes, I know that systemd service should have
+	 *
+	 *   After=network-online.target
+	 *   Wants=network-online.target
+	 *
+	 * and actually it has, but it does not work.
+	 *
+	 * I am tired fighting with systemd and all this admin
+	 * stuff, so just wait for reasonable time and continue.
+	 */
+	wait_for_ifaces_up();
+
 	servers = zmq_socket(ctx, ZMQ_ROUTER);
 	clients = zmq_socket(ctx, ZMQ_ROUTER);
 	if (!servers || !clients) {
