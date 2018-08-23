@@ -112,4 +112,7 @@ clean:
 		skybms-cmd.lex.c skybms-cmd.tab.* \
 		skybms-cmd.h skybms-cmd.l skybms-cmd.y
 
-.PHONY: all clean
+distclean: clean
+	$(RM) docopt-gen
+
+.PHONY: all clean distclean
