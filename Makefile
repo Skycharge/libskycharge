@@ -19,8 +19,11 @@ LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
 		    libskybms.o bms-btle.o
 
-# Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing
+# Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing.
+# Do not include the file if dpkg-buildpackage build is performed.
+ifndef DEB_BUILD_ARCH
 -include Makefile.dummy
+endif
 
 all: $(BINS)
 
