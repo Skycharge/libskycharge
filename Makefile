@@ -104,6 +104,9 @@ skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
 	      skyclient-cmd.tab.o skyclient-cmd.lex.o
 	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS) -lz
 
+package:
+	dpkg-buildpackage -us -uc
+
 clean:
 	$(RM) $(DEPS) $(BINS) *.o *~ \
 		skyclient-cmd.lex.c skyclient-cmd.tab.* \
@@ -118,4 +121,4 @@ clean:
 distclean: clean
 	$(RM) docopt-gen
 
-.PHONY: all clean distclean
+.PHONY: all clean distclean package
