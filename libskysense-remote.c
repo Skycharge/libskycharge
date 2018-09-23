@@ -275,8 +275,7 @@ static int skyrem_discoverbroker(const struct sky_dev_ops *ops,
 	rc = 0;
 
 err:
-	if (rc)
-		zstr_free(&ip);
+	zstr_free(&ip);
 	zframe_destroy(&frame);
 	zactor_destroy(&beacon);
 

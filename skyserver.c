@@ -948,8 +948,10 @@ static int sky_zmq_proxy(struct req_proxy *p)
 					zframe_destroy(&frame);
 				}
 				/* Heartbeat message is empty, ignore */
-				if (!zmsg_first(msg))
+				if (!zmsg_first(msg)) {
+					zmsg_destroy(&msg);
 					continue;
+				}
 			}
 		} else {
 			/* Create heartbeat */
@@ -1063,6 +1065,7 @@ static int sky_send_first_req(struct sky_server *serv,
 		rc |= zmsg_addmem(msg, serv->conf.usruuid,
 				  sizeof(serv->conf.usruuid));
 	}
+	free(rsp_void);
 	if (!msg || rc) {
 		rc = -ENOMEM;
 		goto err;
@@ -1388,6 +1391,7 @@ close_devs:
 	}
 free_devs:
 	sky_devsfree(serv.devhead);
+	free(serv.devs);
 destroy_zocket:
 	sky_zocket_destroy(&serv);
 free_cli:
