@@ -1,3 +1,9 @@
+skysense (1.1.1) stretch; urgency=low
+  * skyserver,libskysense-remote: fix memory leaks
+  * skyserver: fix memory corruption in case of dev_params_bits == 0
+
+ -- Roman Pen <r.peniaev@gmail.com>  Thu, 1 Dec 2018 22:04:34 +0200
+
 skysense (1.1.0) stretch; urgency=low
    * proto v3, again incompatible
    * libskysense,skyserver: introduce new API call: sky_gpsdata()
