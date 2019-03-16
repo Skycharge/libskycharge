@@ -1,3 +1,10 @@
+skysense (1.1.2) stretch; urgency=low
+  * libskysense: compile on GPSD >= 7 API
+  * libskysense-remote,skybroker,skyserver: set ZMQ_LINGER for each ZMQ socket
+  * skyserver: check device-name and device-uuid config options
+
+ -- Roman Pen <r.peniaev@gmail.com>  Sat, 16 Mar 2019 18:04:34 +0200
+
 skysense (1.1.1) stretch; urgency=low
   * skyserver,libskysense-remote: fix memory leaks
   * skyserver: fix memory corruption in case of dev_params_bits == 0
