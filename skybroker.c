@@ -583,12 +583,19 @@ static int sky_setup_and_proxy_pub(void *ctx, struct sky_discovery *discovery,
 	void *pub = NULL;
 	void *pull = NULL;
 	char zaddr[128];
-	int rc;
+	int rc, opt;
 
 	pub = zmq_socket(ctx, ZMQ_PUB);
 	if (!pub) {
 		sky_err("zmq_socket(ZMQ_PUB): No memory\n");
 		rc = -ENOMEM;
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(pub, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(ZMQ_LINGER)\n");
 		goto err;
 	}
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
@@ -603,6 +610,13 @@ static int sky_setup_and_proxy_pub(void *ctx, struct sky_discovery *discovery,
 	if (!pull) {
 		sky_err("zmq_socket(ZMQ_PULL): No memory\n");
 		rc = -ENOMEM;
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(pull, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(ZMQ_LINGER)\n");
 		goto err;
 	}
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
@@ -727,7 +741,7 @@ int main(int argc, char *argv[])
 	struct cli cli;
 	char zaddr[32];
 	int timeout;
-	int rc, val;
+	int rc, opt;
 
 	rc = cli_parse(argc, argv, &cli);
 	if (rc) {
@@ -775,6 +789,19 @@ int main(int argc, char *argv[])
 		sky_err("zmq_socket(): Failed\n");
 		return -1;
 	}
+	opt = 0;
+	rc = zmq_setsockopt(servers, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		sky_err("zmq_setsockopt(ZMQ_LINGER)\n");
+		return -1;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(clients, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		sky_err("zmq_setsockopt(ZMQ_LINGER)\n");
+		return -1;
+	}
+
 	rc = setup_tcp_keepalive(servers);
 	if (rc)
 		return -1;
@@ -783,9 +810,9 @@ int main(int argc, char *argv[])
 	if (rc)
 		return -1;
 
-	val = 1;
-	rc = zmq_setsockopt(servers, ZMQ_ROUTER_HANDOVER, &val,
-			    sizeof(val));
+	opt = 1;
+	rc = zmq_setsockopt(servers, ZMQ_ROUTER_HANDOVER, &opt,
+			    sizeof(opt));
 	if (rc) {
 		sky_err("zmq_setsockopt(ZMQ_ROUTER_HANDOVER): %s\n",
 			strerror(errno));

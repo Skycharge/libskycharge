@@ -705,7 +705,7 @@ static int sky_zocket_create(struct sky_server *serv, const char *addr, int port
 {
 	struct zocket *z = &serv->zock;
 	char zaddr1[128], zaddr2[128];
-	uint32_t timeo;
+	uint32_t opt;
 	int rc;
 
 	rc = snprintf(zaddr1, sizeof(zaddr1), "tcp://%s:%d", addr, port);
@@ -731,15 +731,29 @@ static int sky_zocket_create(struct sky_server *serv, const char *addr, int port
 		goto err;
 	}
 
-	timeo = DEFAULT_TIMEOUT;
-	rc = zmq_setsockopt(z->pub, ZMQ_SNDTIMEO, &timeo, sizeof(timeo));
+	opt = DEFAULT_TIMEOUT;
+	rc = zmq_setsockopt(z->pub, ZMQ_SNDTIMEO, &opt, sizeof(opt));
 	if (rc != 0) {
 		rc = -errno;
 		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
 		goto err;
 	}
-	timeo = DEFAULT_TIMEOUT;
-	rc = zmq_setsockopt(z->router, ZMQ_SNDTIMEO, &timeo, sizeof(timeo));
+	opt = DEFAULT_TIMEOUT;
+	rc = zmq_setsockopt(z->router, ZMQ_SNDTIMEO, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(z->pub, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(z->router, ZMQ_LINGER, &opt, sizeof(opt));
 	if (rc != 0) {
 		rc = -errno;
 		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
@@ -818,12 +832,19 @@ static int sky_setup_and_proxy_pub(struct sky_server *serv,
 	void *sub = NULL;
 	void *push = NULL;
 	char zaddr[128];
-	int rc;
+	int rc, opt;
 
 	sub = zmq_socket(ctx, ZMQ_SUB);
 	if (!sub) {
 		sky_err("zmq_socket(ZMQ_SUB): No memory\n");
 		rc = -ENOMEM;
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(sub, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(ZMQ_LINGER): %s\n", strerror(-rc));
 		goto err;
 	}
 	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, NULL, 0);
@@ -844,6 +865,13 @@ static int sky_setup_and_proxy_pub(struct sky_server *serv,
 	if (!push) {
 		sky_err("zmq_socket(ZMQ_PUSH): No memory\n");
 		rc = -ENOMEM;
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(push, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(ZMQ_LINGER): %s\n", strerror(-rc));
 		goto err;
 	}
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d", conf->hostname,
@@ -1000,12 +1028,19 @@ static int sky_send_first_req(struct sky_server *serv,
 	char zaddr[128];
 	void *rsp_void;
 	size_t rsp_len;
-	int rc;
+	int rc, opt;
 
 	to_server = zmq_socket(ctx, ZMQ_REQ);
 	if (!to_server) {
 		sky_err("zmq_socket(): No memory\n");
 		rc = -ENOMEM;
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(to_server, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
 		goto err;
 	}
 	snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
@@ -1021,6 +1056,13 @@ static int sky_send_first_req(struct sky_server *serv,
 	if (!to_broker) {
 		rc = -errno;
 		sky_err("zmq_socket(): No memory\n");
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(to_broker, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
 		goto err;
 	}
 	rc = zmq_setsockopt(to_broker, ZMQ_IDENTITY, serv->conf.devuuid,
@@ -1057,6 +1099,13 @@ static int sky_send_first_req(struct sky_server *serv,
 	if (!monitor) {
 		sky_err("zmq_socket(): No memory\n");
 		rc = -ENOMEM;
+		goto err;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(monitor, ZMQ_LINGER, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
 		goto err;
 	}
 	rc = zmq_connect(monitor, zaddr);

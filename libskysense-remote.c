@@ -29,10 +29,9 @@ static int skyrem_send_recv(void *zctx,
 {
 	void *zock;
 	char zaddr[128];
-	uint32_t timeo;
 	zmsg_t *msg = NULL;
 	zframe_t *frame;
-	int rc;
+	int rc, opt;
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
 		      conf->remote.hostname,
@@ -44,14 +43,20 @@ static int skyrem_send_recv(void *zctx,
 	if (zock == NULL)
 		return -ENOMEM;
 
-	timeo = DEFAULT_TIMEOUT;
-	rc = zmq_setsockopt(zock, ZMQ_RCVTIMEO, &timeo, sizeof(timeo));
+	opt = DEFAULT_TIMEOUT;
+	rc = zmq_setsockopt(zock, ZMQ_RCVTIMEO, &opt, sizeof(opt));
 	if (rc != 0) {
 		rc = -errno;
 		goto out;
 	}
-	timeo = DEFAULT_TIMEOUT;
-	rc = zmq_setsockopt(zock, ZMQ_SNDTIMEO, &timeo, sizeof(timeo));
+	opt = DEFAULT_TIMEOUT;
+	rc = zmq_setsockopt(zock, ZMQ_SNDTIMEO, &opt, sizeof(opt));
+	if (rc != 0) {
+		rc = -errno;
+		goto out;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(zock, ZMQ_LINGER, &opt, sizeof(opt));
 	if (rc != 0) {
 		rc = -errno;
 		goto out;
@@ -537,10 +542,9 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 	struct skyrem_dev *dev;
 	char topic[128];
 	char zaddr[128];
-	uint32_t timeo;
 	size_t len;
 	void *sub;
-	int rc;
+	int rc, opt;
 
 	BUILD_BUG_ON(sizeof(devdesc->dev_uuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
@@ -558,14 +562,20 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 	if (!sub)
 		return -ENOMEM;
 
-	timeo = DEFAULT_TIMEOUT;
-	rc = zmq_setsockopt(sub, ZMQ_RCVTIMEO, &timeo, sizeof(timeo));
+	opt = DEFAULT_TIMEOUT;
+	rc = zmq_setsockopt(sub, ZMQ_RCVTIMEO, &opt, sizeof(opt));
 	if (rc != 0) {
 		zmq_close(sub);
 		return rc;
 	}
-	timeo = DEFAULT_TIMEOUT;
-	rc = zmq_setsockopt(sub, ZMQ_SNDTIMEO, &timeo, sizeof(timeo));
+	opt = DEFAULT_TIMEOUT;
+	rc = zmq_setsockopt(sub, ZMQ_SNDTIMEO, &opt, sizeof(opt));
+	if (rc != 0) {
+		zmq_close(sub);
+		return rc;
+	}
+	opt = 0;
+	rc = zmq_setsockopt(sub, ZMQ_LINGER, &opt, sizeof(opt));
 	if (rc != 0) {
 		zmq_close(sub);
 		return rc;
