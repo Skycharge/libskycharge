@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <uuid/uuid.h>
 
 #include <zmq.h>
 #include <czmq.h>
@@ -1245,8 +1246,21 @@ static int parse_conf(struct sky_server *serv, struct sky_conf *conf)
 	if (rc)
 		return rc;
 
-	if (conf->hostname[0] == '\0')
+	if (conf->hostname[0] == '\0') {
+		/*
+		 * Silently skip connection to the external broker if
+		 * broker-url is explicitly disabled.
+		 */
 		return -ENODATA;
+	}
+	if (conf->devname[0] == '\0') {
+		sky_err("parse_conf: invalid device-name\n");
+		return -ENODATA;
+	}
+	if (uuid_is_null(conf->devuuid)) {
+		sky_err("parse_conf: invalid device-uuid\n");
+		return -ENODATA;
+	}
 
 	/*
 	 * That is utterly important to do dns lookup from here,
