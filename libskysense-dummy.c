@@ -226,7 +226,11 @@ static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 
 	dev = container_of(dev_, struct skydum_dev, dev);
 	if (!dev->gps_nodev) {
+#if GPSD_API_MAJOR_VERSION <= 6
 		rc = gps_read(&dev->gpsdata);
+#else
+		rc = gps_read(&dev->gpsdata, NULL, 0);
+#endif
 		if (rc < 0)
 			return -ENODEV;
 
