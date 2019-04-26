@@ -60,6 +60,37 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 		cfg->subport = cfg->srvport + 1;
 		cfg->pubport = cfg->cliport + 1;
+
+	} else if ((str = strstr(line, "psu-type="))) {
+		if (0 == strcasecmp(str + 9, "rsp-750-48") ||
+		    0 == strcasecmp(str + 9, "rsp750-48"))
+			cfg->psu.type = SKY_PSU_RSP_750_48;
+		/* TODO not yet supported! */
+		/* else if (0 == strcasecmp(str + 9, "rsp-1600-48") || */
+		/* 	 0 == strcasecmp(str + 9, "rsp1600-48")) */
+		/* 	cfg->psu.type = SKY_PSU_RSP_1600_48; */
+		else
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "psu-voltage="))) {
+		rc = sscanf(str + 12, "%f", &cfg->psu.voltage);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "psu-current="))) {
+		rc = sscanf(str + 12, "%f", &cfg->psu.current);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "psu-precharge-current="))) {
+		rc = sscanf(str + 22, "%f", &cfg->psu.precharge_current);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "psu-precharge-secs="))) {
+		rc = sscanf(str + 19, "%u", &cfg->psu.precharge_secs);
+		if (rc != 1)
+			return -ENODATA;
 	}
 
 	/*

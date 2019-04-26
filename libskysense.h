@@ -93,6 +93,15 @@ enum sky_drone_status {
 };
 
 /**
+ * enum sky_psu_type - Power supply unit type.
+ */
+enum sky_psu_type {
+	SKY_PSU_UNKNOWN,
+	SKY_PSU_RSP_750_48,
+	SKY_PSU_RSP_1600_48
+};
+
+/**
  * struct sky_conf - Generic configuration options.
  */
 struct sky_conf {
@@ -104,6 +113,14 @@ struct sky_conf {
 	unsigned subport;      /**< Servers subscribe port */
 	unsigned cliport;      /**< Clients command port */
 	unsigned pubport;      /**< Clients publish port */
+
+	struct {
+		enum sky_psu_type type;
+		float    voltage;
+		float    current;
+		float    precharge_current;
+		unsigned precharge_secs;
+	} psu;
 };
 
 /**
