@@ -206,18 +206,4 @@ struct sky_dronedetect_rsp {
 
 #pragma GCC diagnostic pop
 
-#define sky_err(fmt, ...) \
-	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
-		__func__, ##__VA_ARGS__)
-
-#define sky_err_lim(fmt, ...) ({			\
-	static int count = 5;				\
-	if (count > 0 && count--)			\
-		sky_err(fmt, __VA_ARGS__);		\
-	else if (!count) {				\
-		sky_err("log line is suppressed, won't be shown anymore!\n");	\
-		count = -1;				\
-	}						\
-})
-
 #endif /* SKYPROTO_H */

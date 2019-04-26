@@ -3,6 +3,7 @@
 
 #include <inttypes.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #define MAX_ERRNO	255
 #define IS_ERR_VALUE(x) unlikely((x) >= (unsigned long)-MAX_ERRNO)
@@ -41,5 +42,19 @@
 typedef uint16_t le16;
 typedef uint32_t le32;
 typedef uint64_t le64;
+
+#define sky_err(fmt, ...) \
+	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
+		__func__, ##__VA_ARGS__)
+
+#define sky_err_lim(fmt, ...) ({			\
+	static int count = 5;				\
+	if (count > 0 && count--)			\
+		sky_err(fmt, __VA_ARGS__);		\
+	else if (!count) {				\
+		sky_err("log line is suppressed, won't be shown anymore!\n");	\
+		count = -1;				\
+	}						\
+})
 
 #endif /* TYPES_H */

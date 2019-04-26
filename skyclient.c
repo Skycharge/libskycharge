@@ -18,10 +18,6 @@
 
 #define CONFFILE "/etc/skysense.conf"
 
-#define sky_err(fmt, ...) \
-	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
-		__func__, ##__VA_ARGS__)
-
 #define X(state) \
 	case state: return #state
 
