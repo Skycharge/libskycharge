@@ -655,16 +655,6 @@ static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 	return 0;
 }
 
-static inline bool is_charging(enum sky_dev_hw_state hw_state)
-{
-	return  hw_state != SKY_SCANNING_INIT &&
-		hw_state != SKY_SCANNING_RUN &&
-		hw_state != SKY_SCANNING_CHECK_MATRIX &&
-		hw_state != SKY_SCANNING_PRINT &&
-		hw_state != SKY_SCANNING_CHECK_WATER &&
-		hw_state != SKY_SCANNING_DETECTING;
-}
-
 static int skyloc_dronedetect(struct sky_dev *dev_,
 			      enum sky_drone_status *status)
 {
@@ -681,7 +671,7 @@ static int skyloc_dronedetect(struct sky_dev *dev_,
 	if (rc)
 		return rc;
 
-	*status = is_charging(state.dev_hw_state) ?
+	*status = sky_hw_is_charging(state.dev_hw_state) ?
 		SKY_DRONE_DETECTED :
 		SKY_DRONE_NOT_DETECTED;
 
