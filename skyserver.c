@@ -17,6 +17,7 @@
 
 #include "skyserver-cmd.h"
 #include "libskysense.h"
+#include "skypsu.h"
 #include "skyproto.h"
 #include "version.h"
 #include "types.h"
@@ -33,6 +34,9 @@ struct sky_server_dev {
 	struct sky_server *serv;
 	struct sky_dev_desc *devdesc;
 	struct sky_dev *dev;
+	struct sky_psu *psu;
+	struct sky_charging_state prev_state;
+	unsigned precharge_iter;
 };
 
 struct sky_server {
@@ -42,6 +46,7 @@ struct sky_server {
 	struct zocket zock;
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
+	struct sky_psu global_psu;
 };
 
 static int sky_pidfile_create(const char *pidfile, int pid)
@@ -132,6 +137,29 @@ static int sky_kill_pthread(pthread_t thread)
 	return rc;
 }
 
+static float get_precharge_current(struct sky_server_dev *servdev)
+{
+	struct sky_server *serv = servdev->serv;
+	struct sky_conf *conf = &serv->conf;
+
+	float current_delta;
+
+	/*
+	 * TODO Here we assume this function is called exactly with
+	 *      1 second rate
+	 */
+	if (servdev->precharge_iter >= conf->psu.precharge_secs)
+		return conf->psu.current;
+
+	servdev->precharge_iter++;
+
+	current_delta =	conf->psu.current - conf->psu.precharge_current;
+	current_delta /= conf->psu.precharge_secs;
+
+	return conf->psu.precharge_current +
+		current_delta * servdev->precharge_iter;
+}
+
 static pthread_mutex_t subsc_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
@@ -147,6 +175,36 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 
 	BUILD_BUG_ON(sizeof(serv->conf.devuuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
+
+	if (sky_psu_is_precharge_set(servdev->psu)) {
+		bool was_charging, is_charging;
+
+		was_charging =
+			sky_hw_is_charging(servdev->prev_state.dev_hw_state);
+		is_charging =
+			sky_hw_is_charging(state->dev_hw_state);
+
+		if (was_charging && is_charging) {
+			/*
+			 * Increment precharge current
+			 */
+			float current;
+
+			current = get_precharge_current(servdev);
+			sky_psu_set_current(servdev->psu, current);
+
+		} else if (was_charging ^ is_charging) {
+			/*
+			 * Set to precharge current if charging has been
+			 * started or has been stopped.
+			 */
+			sky_psu_set_current(servdev->psu,
+				serv->conf.psu.precharge_current);
+			servdev->precharge_iter = 0;
+		}
+
+		servdev->prev_state = *state;
+	}
 
 	rsp.hdr.type = htole16(SKY_CHARGING_STATE_EV);
 	rsp.hdr.error = 0;
@@ -1390,13 +1448,38 @@ int main(int argc, char *argv[])
 
 	rc = cli_parse(argc, argv, &serv.cli);
 	if (rc) {
-		fprintf(stderr, "%s\n", cli_usage);
+		sky_err("%s\n", cli_usage);
 		return -1;
 	}
 	rc = sky_confparse(serv.cli.conff, &serv.conf);
 	if (rc) {
-		fprintf(stderr, "sky_confparse(): %s\n", strerror(-rc));
-		return -1;
+		sky_err("sky_confparse(): %s\n", strerror(-rc));
+		goto free_cli;
+	}
+	if (serv.conf.psu.type != SKY_PSU_UNKNOWN) {
+		rc = sky_psu_init(&serv.conf, &serv.global_psu);
+		if (rc)
+			goto free_cli;
+
+		/* Set voltage */
+		rc = sky_psu_set_voltage(&serv.global_psu,
+					 serv.conf.psu.voltage);
+		if (rc) {
+			sky_err("psu: can't set voltage");
+			goto deinit_psu;
+		}
+
+		/* Set precharge current if specified */
+		if (sky_psu_is_precharge_set(&serv.global_psu))
+			rc = sky_psu_set_current(&serv.global_psu,
+					serv.conf.psu.precharge_current);
+		else
+			rc = sky_psu_set_current(&serv.global_psu,
+					serv.conf.psu.current);
+		if (rc) {
+			sky_err("psu: can't set current: %s", strerror(-rc));
+			goto deinit_psu;
+		}
 	}
 
 	/*
@@ -1414,7 +1497,7 @@ int main(int argc, char *argv[])
 	rc = sky_zocket_create(&serv, serv.cli.addr, atoi(serv.cli.port));
 	if (rc) {
 		sky_err("Can't create server sockets: %s\n", strerror(-rc));
-		goto free_cli;
+		goto deinit_psu;
 	}
 	rc = sky_devslist(&conf, 1, &serv.devhead);
 	if (rc) {
@@ -1433,6 +1516,10 @@ int main(int argc, char *argv[])
 	foreach_devdesc(devdesc, serv.devhead) {
 		struct sky_subscription subsc = {
 			.on_state = sky_on_charging_state,
+			/*
+			 * Before changing 1 sec rate consider precharge
+			 * current updates, see get_precharge_current()
+			 */
 			.interval_msecs = 1000,
 		};
 		struct sky_server_dev *servdev;
@@ -1440,6 +1527,11 @@ int main(int argc, char *argv[])
 		servdev = &serv.devs[num];
 		servdev->serv = &serv;
 		servdev->devdesc = devdesc;
+
+		/* We init global PSU for the first device only! */
+		if (num == 0 && sky_psu_is_precharge_set(&serv.global_psu))
+			servdev->psu = &serv.global_psu;
+
 		rc = sky_devopen(devdesc, &servdev->dev);
 		if (rc) {
 			sky_err("sky_devpopen(): %s\n", strerror(-rc));
@@ -1472,6 +1564,9 @@ free_devs:
 	free(serv.devs);
 destroy_zocket:
 	sky_zocket_destroy(&serv);
+deinit_psu:
+	if (serv.conf.psu.type != SKY_PSU_UNKNOWN)
+		sky_psu_deinit(&serv.global_psu);
 free_cli:
 	cli_free(&serv.cli);
 
