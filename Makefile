@@ -17,7 +17,7 @@ BINS := skybroker skysensed skybmsd skysense-cli
 LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
-		    libskybms.o bms-btle.o
+		    libskybms.o bms-btle.o skypsu.o libi2c/i2c.o
 
 # Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing.
 # Do not include the file if dpkg-buildpackage build is performed.
@@ -108,7 +108,7 @@ package:
 	dpkg-buildpackage -us -uc
 
 clean:
-	$(RM) $(DEPS) $(BINS) *.o *~ \
+	$(RM) $(DEPS) $(BINS) *.o libi2c/*.o *~ \
 		skyclient-cmd.lex.c skyclient-cmd.tab.* \
 		skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y \
 		skyserver-cmd.lex.c skyserver-cmd.tab.* \
