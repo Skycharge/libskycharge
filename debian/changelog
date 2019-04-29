@@ -1,3 +1,16 @@
+skysense (1.2.0) stretch; urgency=low
+  * libskysense: make charging check more strict
+  * libskysense: introduce power supply unit (psu) config options
+  * types,skyclient,skyproto: move sky_err() to types header
+  * skypsu,libi2c: introduce skypsu to control PSU
+  * libskysense,libskysense-local: HW2 support
+  * Add script for ARM chroot build
+  * libskysense-local: remove unused members from skyloc_dev
+  * libskysense-local: gix compilation error on GPSD >= 9
+  * libskysense-local: fix possible strncpy overflow
+
+ -- Roman Pen <r.peniaev@gmail.com>  Thu, 16 Oct 2020 21:00:34 +0200
+
 skysense (1.1.2) stretch; urgency=low
   * libskysense: compile on GPSD >= 7 API
   * libskysense-remote,skybroker,skyserver: set ZMQ_LINGER for each ZMQ socket
