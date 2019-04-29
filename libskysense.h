@@ -227,12 +227,8 @@ struct sky_gpsdata {
  */
 static inline int sky_hw_is_charging(enum sky_dev_hw_state hw_state)
 {
-	return  hw_state != SKY_SCANNING_INIT &&
-		hw_state != SKY_SCANNING_RUN &&
-		hw_state != SKY_SCANNING_CHECK_MATRIX &&
-		hw_state != SKY_SCANNING_PRINT &&
-		hw_state != SKY_SCANNING_CHECK_WATER &&
-		hw_state != SKY_SCANNING_DETECTING;
+	return  hw_state == SKY_CHARGING_RUN ||
+		hw_state == SKY_CHARGING_MONITOR_CURRENT;
 }
 
 /**
