@@ -1,3 +1,11 @@
+skysense (1.2.0-rc1) stretch; urgency=low
+  * libskysense: make charging check more strict
+  * libskysense: introduce power supply unit (psu) config options
+  * types,skyclient,skyproto: move sky_err() to types header
+  * skypsu,libi2c: introduce skypsu to control PSU
+
+ -- Roman Pen <r.peniaev@gmail.com>  Mon, 29 Apr 2019 12:19:34 +0200
+
 skysense (1.1.2) stretch; urgency=low
   * libskysense: compile on GPSD >= 7 API
   * libskysense-remote,skybroker,skyserver: set ZMQ_LINGER for each ZMQ socket
