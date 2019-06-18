@@ -136,6 +136,9 @@ struct sky_dev_conf {
 	} remote;
 };
 
+struct sky_dev_ops;
+struct sky_hw_ops;
+
 /**
  * struct sky_dev_desc - Device descriptor.
  */
@@ -143,7 +146,8 @@ struct sky_dev_desc {
 	struct sky_dev_desc *next;
 	struct sky_dev_conf conf;
 	enum sky_dev_type dev_type;
-	const void *opaque_ops;
+	const struct sky_dev_ops *dev_ops;
+	const struct sky_hw_ops *hw_ops;
 	unsigned firmware_version;
 	char dev_name[16];
 	unsigned char dev_uuid[16];

@@ -51,4 +51,14 @@ struct sky_dev {
 	pthread_t thread;
 };
 
+static inline const struct sky_dev_ops *get_devops(struct sky_dev *dev)
+{
+	return dev->devdesc.dev_ops;
+}
+
+static inline const struct sky_hw_ops *get_hwops(struct sky_dev *dev)
+{
+	return dev->devdesc.hw_ops;
+}
+
 #endif /* LIBSKYSENSE_PRI_H */
