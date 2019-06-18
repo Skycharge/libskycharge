@@ -202,14 +202,9 @@ void sky_devsfree(struct sky_dev_desc *head)
 	}
 }
 
-static inline const struct sky_dev_ops *get_devops(struct sky_dev *dev)
-{
-	return dev->devdesc.opaque_ops;
-}
-
 int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 {
-	const struct sky_dev_ops *ops = devdesc->opaque_ops;
+	const struct sky_dev_ops *ops = devdesc->dev_ops;
 	int rc;
 
 	rc = ops->devopen(devdesc, dev_);

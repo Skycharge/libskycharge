@@ -464,7 +464,7 @@ int main(int argc, char *argv[])
 
 		rc = sky_chargingstate(dev, &state);
 		if (rc) {
-			sky_err("sky_closecover(): %s\n", strerror(-rc));
+			sky_err("sky_chargingstate(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 

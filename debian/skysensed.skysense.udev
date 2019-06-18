@@ -1,1 +1,1 @@
-SUBSYSTEM=="tty", ATTRS{product}=="SkySense*", SYMLINK="skysenseUSB", TAG+="systemd", ENV{SYSTEMD_WANTS}="skysensed.service"
+SUBSYSTEM=="tty", ATTRS{product}=="SkySense*|sky-hw2*", SYMLINK="skysenseUSB", TAG+="systemd", ENV{SYSTEMD_WANTS}="skysensed.service"

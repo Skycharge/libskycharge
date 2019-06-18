@@ -13,20 +13,31 @@
 #include "libskybms.h"
 #include "types.h"
 
-enum sky_serial_cmd {
-	SKY_RESET_CMD              = 0x01,
-	SKY_SAVE_DATA_TO_EEP_CMD   = 0x02,
-	SKY_READ_DATA_FROM_EEP_CMD = 0x03,
-	SKY_AUTOMATIC_SCAN_CMD     = 0x04,
-	SKY_SET_PARAMETER_CMD      = 0x05,
-	SKY_GET_PARAMETER_CMD      = 0x06,
-	SKY_GET_STATUS_CMD         = 0x07,
-	SKY_GET_CURRENT_CMD        = 0x08,
-	SKY_GET_VOLTAGE_CMD        = 0x09,
-	SKY_COUPLE_SCAN_CMD        = 0x0a,
-	SKY_COUPLE_ACTIVATE_CMD    = 0x0b,
-	SKY_COUPLE_DEACTIVATE_CMD  = 0x0c,
-	SKY_FIRMWARE_VERSION_CMD   = 0x0d,
+enum hw1_sky_serial_cmd {
+	HW1_SKY_RESET_CMD              = 0x01,
+	HW1_SKY_SAVE_DATA_TO_EEP_CMD   = 0x02,
+	HW1_SKY_READ_DATA_FROM_EEP_CMD = 0x03,
+	HW1_SKY_AUTOMATIC_SCAN_CMD     = 0x04,
+	HW1_SKY_SET_PARAMETER_CMD      = 0x05,
+	HW1_SKY_GET_PARAMETER_CMD      = 0x06,
+	HW1_SKY_GET_STATUS_CMD         = 0x07,
+	HW1_SKY_GET_CURRENT_CMD        = 0x08,
+	HW1_SKY_GET_VOLTAGE_CMD        = 0x09,
+	HW1_SKY_COUPLE_SCAN_CMD        = 0x0a,
+	HW1_SKY_COUPLE_ACTIVATE_CMD    = 0x0b,
+	HW1_SKY_COUPLE_DEACTIVATE_CMD  = 0x0c,
+	HW1_SKY_FIRMWARE_VERSION_CMD   = 0x0d,
+};
+
+enum hw2_sky_serial_cmd {
+	HW2_SKY_UNKNOWN_CMD            = 0x00,
+	HW2_SKY_FIRMWARE_VERSION_CMD   = 0x01,
+	HW2_SKY_RESET_CMD              = 0x02,
+	HW2_SKY_STATE_CMD              = 0x03,
+	HW2_SKY_SCAN_CMD               = 0x04,
+
+	/* The last one */
+	HW2_SKY_ERROR                  = 0xff,
 };
 
 enum {
@@ -38,6 +49,7 @@ enum {
 
 struct skyloc_dev {
 	struct sky_dev dev;
+	struct sky_hw_ops *hw_ops;
 	struct sp_port *port;
 	struct sky_charging_state state;
 	struct sky_dev_params params;
@@ -47,6 +59,27 @@ struct skyloc_dev {
 	bool gps_nodev;
 	pthread_mutex_t mutex;
 	int lockfd;
+};
+
+struct skyserial_desc {
+	uint8_t hdr_len;
+	uint8_t data_off;
+	void (*fill_cmd_hdr)(char *cmd_buf, uint8_t len, uint8_t cmd);
+	int (*is_valid_rsp_hdr)(const char *rsp_buf, uint8_t len, uint8_t cmd);
+	int (*check_crc)(const char *rsp_buf);
+};
+
+struct sky_hw_ops {
+	int (*firmware_version)(struct skyloc_dev *dev, uint8_t *major,
+				uint8_t *minor, uint8_t *revis);
+	int (*get_params)(struct skyloc_dev *dev,
+			  struct sky_dev_params *params);
+	int (*set_params)(struct skyloc_dev *dev,
+			  const struct sky_dev_params *params);
+	int (*get_state)(struct skyloc_dev *dev,
+			 struct sky_charging_state *state);
+	int (*reset)(struct skyloc_dev *dev);
+	int (*scan)(struct skyloc_dev *dev, unsigned autoscan);
 };
 
 static inline int sprc_to_errno(enum sp_return sprc)
@@ -133,23 +166,20 @@ out:
 	return len;
 }
 
-static inline int is_valid_rsp_hdr(const char *rsp, uint8_t len, uint8_t cmd)
-{
-	return (rsp[0] == 0x55 && rsp[1] == len && rsp[2] == cmd);
-}
-
-static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
-			     unsigned req_num, int rsp_num,
+static int skycmd_serial_cmd(struct skyloc_dev *dev,
+			     struct skyserial_desc *proto,
+			     uint8_t cmd, unsigned req_num,
+			     int rsp_num,
 			     ...)
 {
-	char cmd_buf[8], rsp_buf[8];
+	char cmd_buf[8], rsp_buf[16];
 	enum sp_return sprc;
 	int rc, args, off;
 	uint8_t len;
 	va_list ap;
 
 	va_start(ap, rsp_num);
-	for (len = 0, off = 3, args = 0; args < req_num; args++) {
+	for (len = 0, off = proto->data_off, args = 0; args < req_num; args++) {
 		rc = skycmd_arg_copy(&ap, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
 		if (rc < 0)
@@ -158,11 +188,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 		len += rc;
 		off += rc;
 	}
-
-	cmd_buf[0] = 0x55;
-	cmd_buf[1] = len + 4;
-	cmd_buf[2] = cmd;
-	cmd_buf[len + 3] = 0x00;
+	proto->fill_cmd_hdr(cmd_buf, len, cmd);
 
 	rc = flock(dev->lockfd, LOCK_EX);
 	if (rc < 0) {
@@ -175,11 +201,12 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 		rc = sprc_to_errno(sprc);
 		goto out_unlock;
 	}
-	sprc = sp_blocking_write(dev->port, cmd_buf, len + 4, TIMEOUT_MS);
+	sprc = sp_blocking_write(dev->port, cmd_buf, len + proto->hdr_len,
+				 TIMEOUT_MS);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
 		goto out_unlock;
-	} else if (sprc != len + 4) {
+	} else if (sprc != len + proto->hdr_len) {
 		rc = -ETIMEDOUT;
 		goto out_unlock;
 	}
@@ -189,35 +216,41 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev, uint8_t cmd,
 			goto out_unlock;
 
 		len = rc;
-		if (len > sizeof(rsp_buf) - 4) {
+		if (len > sizeof(rsp_buf) - proto->hdr_len) {
 			rc = -EINVAL;
 			goto out_unlock;
 		}
 		/* Firstly read header */
-		sprc = sp_blocking_read(dev->port, rsp_buf, 3, TIMEOUT_MS);
+		sprc = sp_blocking_read(dev->port, rsp_buf, proto->data_off,
+					TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			goto out_unlock;
-		} else if (sprc != 3) {
+		} else if (sprc != proto->data_off) {
 			rc = -ETIMEDOUT;
 			goto out_unlock;
-		} else if (!is_valid_rsp_hdr(rsp_buf, len + 4, cmd)) {
+		} else if (!proto->is_valid_rsp_hdr(rsp_buf,
+					len + proto->hdr_len, cmd)) {
 			rc = -EPROTO;
 			goto out_unlock;
 		}
 		/* Read the rest */
-		sprc = sp_blocking_read(dev->port, rsp_buf + 3,
-					len + 1, TIMEOUT_MS);
+		sprc = sp_blocking_read(dev->port, rsp_buf + proto->data_off,
+				len + (proto->hdr_len - proto->data_off),
+				TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			goto out_unlock;
-		} else if (sprc != len + 1) {
+		} else if (sprc != len + (proto->hdr_len - proto->data_off)) {
 			rc = -ETIMEDOUT;
 			goto out_unlock;
+		} else if (!proto->check_crc(rsp_buf)) {
+			rc = -EPROTO;
+			goto out_unlock;
 		}
-		for (off = 3, args = 0; args < rsp_num; args++) {
+		for (off = proto->data_off, args = 0; args < rsp_num; args++) {
 			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
-					     len + 4 - 1);
+					     len + proto->data_off);
 			if (rc < 0)
 				goto out_unlock;
 
@@ -234,6 +267,303 @@ out:
 
 	return rc;
 }
+
+/*
+ * HW1 specific operations
+ */
+
+static int hw1_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
+				    uint8_t cmd)
+{
+	return (rsp_buf[0] == 0x55 && rsp_buf[1] == len && rsp_buf[2] == cmd);
+}
+
+static void hw1_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
+{
+	cmd_buf[0] = 0x55;
+	cmd_buf[1] = len + 4;
+	cmd_buf[2] = cmd;
+	cmd_buf[len + 3] = 0x00;
+}
+
+static int hw1_sky_check_crc(const char *rsp_buf)
+{
+	return 1;
+}
+
+struct skyserial_desc hw1_sky_serial = {
+	.hdr_len  = 4,
+	.data_off = 3,
+	.fill_cmd_hdr     = hw1_sky_fill_cmd_hdr,
+	.is_valid_rsp_hdr = hw1_sky_is_valid_rsp_hdr,
+	.check_crc        = hw1_sky_check_crc,
+};
+
+static int hw1_sky_firmware_version(struct skyloc_dev *dev,
+				    uint8_t *major,
+				    uint8_t *minor,
+				    uint8_t *revis)
+{
+	return skycmd_serial_cmd(dev, &hw1_sky_serial,
+				 HW1_SKY_FIRMWARE_VERSION_CMD,
+				 0, 3,
+				 sizeof(*major), major,
+				 sizeof(*minor), minor,
+				 sizeof(*revis), revis);
+}
+
+static int hw1_sky_get_param(struct skyloc_dev *dev,
+			     uint8_t param, uint16_t *val)
+{
+	return skycmd_serial_cmd(dev, &hw1_sky_serial,
+				 HW1_SKY_GET_PARAMETER_CMD,
+				 1, 2,
+				 sizeof(param), &param,
+				 sizeof(param), &param, sizeof(*val), val);
+}
+
+static int hw1_sky_get_params(struct skyloc_dev *dev,
+			      struct sky_dev_params *params)
+{
+	uint16_t val = 0;
+	int rc, i;
+
+	/* Fetch params from EEPROM */
+	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
+			       HW1_SKY_READ_DATA_FROM_EEP_CMD,
+			       0, 0);
+	if (rc)
+		return rc;
+
+	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+		if (!(params->dev_params_bits & (1<<i)))
+				continue;
+		rc = hw1_sky_get_param(dev, i, &val);
+		if (rc)
+			return rc;
+		params->dev_params[i] = val;
+	}
+
+	return 0;
+}
+
+static int hw1_sky_set_param(struct skyloc_dev *dev,
+			     uint8_t param, uint16_t val)
+{
+	return skycmd_serial_cmd(dev, &hw1_sky_serial,
+				 HW1_SKY_SET_PARAMETER_CMD,
+				 2, 2,
+				 sizeof(param), &param, sizeof(val), &val,
+				 sizeof(param), &param, sizeof(val), &val);
+}
+
+static int hw1_sky_set_params(struct skyloc_dev *dev,
+			      const struct sky_dev_params *params)
+{
+	uint16_t val;
+	int rc, i;
+
+	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+		if (!(params->dev_params_bits & (1<<i)))
+				continue;
+		val = params->dev_params[i];
+		rc = hw1_sky_set_param(dev, i, val);
+		if (rc)
+			return rc;
+	}
+	/* Commit params to EEPROM */
+	return skycmd_serial_cmd(dev, &hw1_sky_serial,
+				 HW1_SKY_SAVE_DATA_TO_EEP_CMD,
+				 0, 0);
+}
+
+static int hw1_sky_get_state(struct skyloc_dev *dev,
+			     struct sky_charging_state *state)
+{
+	uint16_t vol, cur;
+	uint8_t status;
+	int rc;
+
+	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
+			       HW1_SKY_GET_VOLTAGE_CMD,
+			       0, 1,
+			       sizeof(vol), &vol);
+	if (rc)
+		return rc;
+	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
+			       HW1_SKY_GET_CURRENT_CMD,
+			       0, 1,
+			       sizeof(cur), &cur);
+	if (rc)
+		return rc;
+	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
+			       HW1_SKY_GET_STATUS_CMD,
+			       0, 1,
+			       sizeof(status), &status);
+	if (rc)
+		return rc;
+
+	state->voltage = vol;
+	state->current = cur;
+	state->dev_hw_state = status;
+
+	return 0;
+}
+
+static int hw1_sky_reset(struct skyloc_dev *dev)
+{
+	return skycmd_serial_cmd(dev, &hw1_sky_serial,
+				 HW1_SKY_RESET_CMD, 0, -1);
+}
+
+static int hw1_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
+{
+	uint8_t ascan = !!autoscan;
+
+	return skycmd_serial_cmd(dev, &hw1_sky_serial,
+				 HW1_SKY_AUTOMATIC_SCAN_CMD,
+				 1, 1,
+				 sizeof(ascan), &ascan,
+				 sizeof(ascan), &ascan);
+}
+
+static struct sky_hw_ops hw1_sky_ops = {
+	.firmware_version = hw1_sky_firmware_version,
+	.get_params       = hw1_sky_get_params,
+	.set_params       = hw1_sky_set_params,
+	.get_state        = hw1_sky_get_state,
+	.reset            = hw1_sky_reset,
+	.scan             = hw1_sky_scan,
+};
+
+/*
+ * HW2 specific operations
+ */
+
+static inline uint8_t crc8(uint8_t *data, uint16_t len)
+{
+    uint8_t crc = 0xff;
+    uint8_t i;
+
+    while (len--) {
+        crc ^= *data++;
+
+        for (i = 0; i < 8; i++)
+		crc = crc & 0x80 ? (crc << 1) ^ 0x31 : crc << 1;
+    }
+
+    return crc;
+}
+
+static int hw2_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
+				    uint8_t cmd)
+{
+	if (!(rsp_buf[0] == 0x42 && rsp_buf[2] == len && rsp_buf[3] == cmd))
+		return 0;
+
+	return 1;
+}
+
+static void hw2_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
+{
+	cmd_buf[0] = 0x42;
+	cmd_buf[2] = len + 4;
+	cmd_buf[3] = cmd;
+	cmd_buf[1] = crc8((uint8_t *)cmd_buf + 2, len + 4 - 2);
+}
+
+static int hw2_sky_check_crc(const char *rsp_buf)
+{
+	uint8_t crc = crc8((uint8_t *)rsp_buf + 2, rsp_buf[2] - 2);
+
+	return (crc == (uint8_t)rsp_buf[1]);
+}
+
+struct skyserial_desc hw2_sky_serial = {
+	.hdr_len  = 4,
+	.data_off = 4,
+	.fill_cmd_hdr     = hw2_sky_fill_cmd_hdr,
+	.is_valid_rsp_hdr = hw2_sky_is_valid_rsp_hdr,
+	.check_crc        = hw2_sky_check_crc,
+};
+
+static int hw2_sky_firmware_version(struct skyloc_dev *dev,
+				    uint8_t *major,
+				    uint8_t *minor,
+				    uint8_t *revis)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 HW2_SKY_FIRMWARE_VERSION_CMD,
+				 0, 3,
+				 sizeof(*major), major,
+				 sizeof(*minor), minor,
+				 sizeof(*revis), revis);
+}
+
+static int hw2_sky_get_params(struct skyloc_dev *dev,
+			      struct sky_dev_params *params)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw2_sky_set_params(struct skyloc_dev *dev,
+			      const struct sky_dev_params *params)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw2_sky_get_state(struct skyloc_dev *dev,
+			     struct sky_charging_state *state)
+{
+	uint16_t vol, cur, st;
+	int rc;
+
+	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
+			       HW2_SKY_STATE_CMD,
+			       0, 3,
+			       sizeof(vol), &vol,
+			       sizeof(cur), &cur,
+			       sizeof(st),  &st);
+	if (rc)
+		return rc;
+
+	state->voltage = vol;
+	state->current = cur;
+	/* HW1 and HW2 states are equal */
+	state->dev_hw_state = st;
+
+	return 0;
+}
+
+static int hw2_sky_reset(struct skyloc_dev *dev)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 HW2_SKY_RESET_CMD, 0, -1);
+}
+
+static int hw2_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
+{
+	uint8_t scan = !!autoscan, ret;
+
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 HW2_SKY_SCAN_CMD,
+				 1, 1,
+				 sizeof(scan), &scan,
+				 sizeof(ret),  &ret);
+}
+
+static struct sky_hw_ops hw2_sky_ops = {
+	.firmware_version = hw2_sky_firmware_version,
+	.get_params       = hw2_sky_get_params,
+	.set_params       = hw2_sky_set_params,
+	.get_state        = hw2_sky_get_state,
+	.reset            = hw2_sky_reset,
+	.scan             = hw2_sky_scan,
+};
+
+/*
+ * Common API
+ */
 
 static int skyloc_peerinfo(const struct sky_dev_ops *ops,
 			   const struct sky_dev_conf *conf,
@@ -349,11 +679,7 @@ static int devprobe(struct sky_dev_desc *devdesc)
 	if (rc)
 		return rc;
 
-	rc = skycmd_serial_cmd(dev, SKY_FIRMWARE_VERSION_CMD,
-			       0, 3,
-			       sizeof(major), &major,
-			       sizeof(minor), &minor,
-			       sizeof(revis), &revis);
+	rc = devdesc->hw_ops->firmware_version(dev, &major, &minor, &revis);
 	if (!rc)
 		devdesc->firmware_version = major << 16 | minor << 8 | revis;
 
@@ -362,12 +688,13 @@ static int devprobe(struct sky_dev_desc *devdesc)
 	return rc;
 }
 
-static int skyloc_devslist(const struct sky_dev_ops *ops,
+static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 			   const struct sky_dev_conf *conf,
 			   struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *devdesc, *head = NULL, *tail = NULL;
 	struct sp_port **ports = NULL;
+	struct sky_hw_ops *hw_ops;
 	enum sp_return sprc;
 	int i, rc;
 
@@ -380,7 +707,14 @@ static int skyloc_devslist(const struct sky_dev_ops *ops,
 
 		desc = sp_get_port_description(ports[i]);
 		name = sp_get_port_name(ports[i]);
-		if (!desc || !name || strncasecmp(desc, "skysense", 8))
+		if (!desc || !name)
+			continue;
+
+		if (!strncasecmp(desc, "skysense", 8))
+			hw_ops = &hw1_sky_ops;
+		else if (!strncasecmp(desc, "sky-hw2", 7))
+			hw_ops = &hw2_sky_ops;
+		else
 			continue;
 
 		devdesc = calloc(1, sizeof(*devdesc));
@@ -391,7 +725,8 @@ static int skyloc_devslist(const struct sky_dev_ops *ops,
 		strncpy(devdesc->portname, name, sizeof(devdesc->portname));
 		devdesc->dev_type = SKY_INDOOR;
 		devdesc->conf = *conf;
-		devdesc->opaque_ops = ops;
+		devdesc->dev_ops = dev_ops;
+		devdesc->hw_ops = hw_ops;
 		rc = devprobe(devdesc);
 		if (rc) {
 			free(devdesc);
@@ -444,20 +779,10 @@ static void skyloc_devclose(struct sky_dev *dev_)
 	devclose(dev);
 }
 
-static int skyloc_serial_get_param(struct skyloc_dev *dev,
-				   uint8_t param, uint16_t *val)
-{
-	return skycmd_serial_cmd(dev, SKY_GET_PARAMETER_CMD,
-			1, 2,
-			sizeof(param), &param,
-			sizeof(param), &param, sizeof(*val), val);
-}
 
 static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 {
 	struct skyloc_dev *dev;
-	uint16_t val = 0;
-	int rc, i;
 
 	if (params->dev_params_bits == 0)
 		return -EINVAL;
@@ -467,38 +792,14 @@ static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
 
-	/* Fetch params from EEPROM */
-	rc = skycmd_serial_cmd(dev, SKY_READ_DATA_FROM_EEP_CMD, 0, 0);
-	if (rc)
-		return rc;
-
-	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (!(params->dev_params_bits & (1<<i)))
-				continue;
-		rc = skyloc_serial_get_param(dev, i, &val);
-		if (rc)
-			return rc;
-		params->dev_params[i] = val;
-	}
-
-	return 0;
+	return get_hwops(dev_)->get_params(dev, params);
 }
 
-static int skyloc_serial_set_param(struct skyloc_dev *dev,
-				   uint8_t param, uint16_t val)
-{
-	return skycmd_serial_cmd(dev, SKY_SET_PARAMETER_CMD,
-			2, 2,
-			sizeof(param), &param, sizeof(val), &val,
-			sizeof(param), &param, sizeof(val), &val);
-}
 
 static int skyloc_paramsset(struct sky_dev *dev_,
 			    const struct sky_dev_params *params)
 {
 	struct skyloc_dev *dev;
-	uint16_t val;
-	int rc, i;
 
 	if (params->dev_params_bits == 0)
 		return -EINVAL;
@@ -507,48 +808,24 @@ static int skyloc_paramsset(struct sky_dev *dev_,
 		     SKY_NUM_DEVPARAM);
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
-	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-		if (!(params->dev_params_bits & (1<<i)))
-				continue;
-		val = params->dev_params[i];
-		rc = skyloc_serial_set_param(dev, i, val);
-		if (rc)
-			return rc;
-	}
-	/* Commit params to EEPROM */
-	return skycmd_serial_cmd(dev, SKY_SAVE_DATA_TO_EEP_CMD, 0, 0);
+
+	return get_hwops(dev_)->set_params(dev, params);
 }
+
 
 static int skyloc_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
 {
 	struct bms_data bms_data;
 	struct skyloc_dev *dev;
-	uint16_t vol, cur;
-	uint8_t status;
+
 	int rc;
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
 
-	rc = skycmd_serial_cmd(dev, SKY_GET_VOLTAGE_CMD,
-			       0, 1,
-			       sizeof(vol), &vol);
+	rc = get_hwops(dev_)->get_state(dev, state);
 	if (rc)
 		return rc;
-	rc = skycmd_serial_cmd(dev, SKY_GET_CURRENT_CMD,
-			       0, 1,
-			       sizeof(cur), &cur);
-	if (rc)
-		return rc;
-	rc = skycmd_serial_cmd(dev, SKY_GET_STATUS_CMD,
-			       0, 1,
-			       sizeof(status), &status);
-	if (rc)
-		return rc;
-
-	state->voltage = vol;
-	state->current = cur;
-	state->dev_hw_state = status;
 
 	rc = bms_request_data(&dev->bms, &bms_data);
 	if (!rc) {
@@ -579,27 +856,24 @@ static int skyloc_subscription_work(struct sky_dev *dev_,
 	return skyloc_chargingstate(dev_, state);
 }
 
+
 static int skyloc_reset(struct sky_dev *dev_)
 {
 	struct skyloc_dev *dev;
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
 
-	return skycmd_serial_cmd(dev, SKY_RESET_CMD, 0, -1);
+	return get_hwops(dev_)->reset(dev);
 }
+
 
 static int skyloc_autoscan(struct sky_dev *dev_, unsigned autoscan)
 {
 	struct skyloc_dev *dev;
-	uint8_t ascan;
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
-	ascan = autoscan;
 
-	return skycmd_serial_cmd(dev, SKY_AUTOMATIC_SCAN_CMD,
-				 1, 1,
-				 sizeof(ascan), &ascan,
-				 sizeof(ascan), &ascan);
+	return get_hwops(dev_)->scan(dev, autoscan);
 }
 
 static int skyloc_chargestart(struct sky_dev *dev_)
