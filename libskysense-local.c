@@ -916,12 +916,25 @@ static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 		return -ENODEV;
 
 	memset(gpsdata, 0, sizeof(*gpsdata));
+#if GPSD_API_MAJOR_VERSION < 10
 	gpsdata->status = dev->gpsdata.status;
+#else
+	gpsdata->status = dev->gpsdata.fix.status;
+#endif
 	gpsdata->satellites_used = dev->gpsdata.satellites_used;
 	BUILD_BUG_ON(sizeof(gpsdata->dop) != sizeof(dev->gpsdata.dop));
 	memcpy(&gpsdata->dop, &dev->gpsdata.dop, sizeof(gpsdata->dop));
 	gpsdata->fix.mode = dev->gpsdata.fix.mode;
+#if GPSD_API_MAJOR_VERSION < 9
 	gpsdata->fix.time = dev->gpsdata.fix.time;
+#else
+	{
+		double tstamp = dev->gpsdata.fix.time.tv_sec;
+
+		tstamp += dev->gpsdata.fix.time.tv_nsec / 1000000000.0;
+		gpsdata->fix.time = tstamp;
+	}
+#endif
 	gpsdata->fix.latitude  = dev->gpsdata.fix.latitude;
 	gpsdata->fix.longitude = dev->gpsdata.fix.longitude;
 	gpsdata->fix.altitude  = dev->gpsdata.fix.altitude;
