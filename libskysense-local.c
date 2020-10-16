@@ -720,7 +720,7 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 		}
 		strncpy(devdesc->portname, name, sizeof(devdesc->portname) - 1);
 		devdesc->dev_type = SKY_INDOOR;
-		devdesc->conf = *conf;
+		devdesc->devconf = *conf;
 		devdesc->dev_ops = dev_ops;
 		devdesc->hw_ops = hw_ops;
 		rc = devprobe(devdesc);

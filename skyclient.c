@@ -128,24 +128,19 @@ static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 {
 	if (cli->addr && cli->port) {
 		const char *conffile = cli->conff ?: CONFFILE;
-		struct sky_conf conf;
 		int rc;
 
-		rc = sky_confparse(conffile, &conf);
+		rc = sky_confparse(conffile, &devconf->conf);
 		if (rc) {
 			sky_err("sky_confparse(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 		devconf->contype = SKY_REMOTE;
-		BUILD_BUG_ON(sizeof(devconf->remote.usruuid) !=
-			     sizeof(conf.usruuid));
-		memcpy(devconf->remote.usruuid, conf.usruuid,
-		       sizeof(devconf->remote.usruuid));
 		/* TODO: we still get addr and port from command line */
-		devconf->remote.cmdport = strtol(cli->port, NULL, 10);
-		devconf->remote.subport = devconf->remote.cmdport + 1;
-		strncpy(devconf->remote.hostname, cli->addr,
-			sizeof(devconf->remote.hostname)-1);
+		devconf->conf.cliport = strtol(cli->port, NULL, 10);
+		devconf->conf.subport = devconf->conf.cliport + 1;
+		strncpy(devconf->conf.hostname, cli->addr,
+			sizeof(devconf->conf.hostname)-1);
 	} else
 		devconf->contype = SKY_LOCAL;
 }
@@ -336,8 +331,8 @@ int main(int argc, char *argv[])
 			sky_err("sky_peerinfo(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		printf("Remote peer %s:%d:\n", devconf.remote.hostname,
-		       devconf.remote.cmdport);
+		printf("Remote peer %s:%d:\n", devconf.conf.hostname,
+		       devconf.conf.cliport);
 		printf("\tServer version:   %u.%u.%u\n",
 		       (peerinfo.server_version >> 16) & 0xff,
 		       (peerinfo.server_version >> 8)  & 0xff,

@@ -42,7 +42,7 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 
 	dev->dev_type = SKY_INDOOR;
 	dev->firmware_version = 0x00010203;
-	dev->conf = *conf;
+	dev->devconf = *conf;
 	dev->dev_ops = ops;
 	strcpy(dev->portname, "dummy0");
 

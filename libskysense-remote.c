@@ -23,7 +23,7 @@ struct skyrem_dev {
 };
 
 static int skyrem_send_recv(void *zctx,
-			    const struct sky_dev_conf *conf,
+			    const struct sky_dev_conf *devconf,
 			    const struct sky_dev_desc *devdesc,
 			    void *req, size_t req_len, void **rsp)
 {
@@ -34,8 +34,8 @@ static int skyrem_send_recv(void *zctx,
 	int rc, opt;
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      conf->remote.hostname,
-		      conf->remote.cmdport);
+		      devconf->conf.hostname,
+		      devconf->conf.cliport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
@@ -81,8 +81,8 @@ static int skyrem_send_recv(void *zctx,
 					  sizeof(devdesc->dev_uuid));
 		} else {
 			/* USRUUID frame is the last one */
-			rc = zmsg_addmem(msg, conf->remote.usruuid,
-					 sizeof(conf->remote.usruuid));
+			rc = zmsg_addmem(msg, devconf->conf.usruuid,
+					 sizeof(devconf->conf.usruuid));
 		}
 	}
 	if (rc != 0) {
@@ -178,7 +178,7 @@ static int skyrem_complex_req_rsp(struct skyrem_dev *dev,
 		assert(0);
 		return -EINVAL;
 	}
-	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &devdesc->conf,
+	rc = __skyrem_complex_req_rsp(dev->zock.ctx, &devdesc->devconf,
 				      devdesc, req_type, req_,
 				      req_len, &rsp);
 	if (rc < 0)
@@ -375,7 +375,7 @@ static int skyrem_devslist(const struct sky_dev_ops *ops,
 			       sizeof(devdesc->dev_uuid));
 			devdesc->firmware_version =
 				le32toh(info->firmware_version);
-			devdesc->conf = *conf;
+			devdesc->devconf = *conf;
 			devdesc->dev_ops = ops;
 			memcpy(devdesc->portname, info->portname,
 			       sizeof(info->portname));
@@ -553,8 +553,8 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 	dev = container_of(dev_, struct skyrem_dev, dev);
 
 	rc = snprintf(zaddr, sizeof(zaddr), "tcp://%s:%d",
-		      devdesc->conf.remote.hostname,
-		      devdesc->conf.remote.subport);
+		      devdesc->devconf.conf.hostname,
+		      devdesc->devconf.conf.subport);
 	if (rc < 0 || rc >= sizeof(zaddr))
 		return -EINVAL;
 
