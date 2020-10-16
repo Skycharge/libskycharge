@@ -42,7 +42,7 @@ struct sky_server_dev {
 struct sky_server {
 	bool exit;
 	struct cli cli;
-	struct sky_conf conf;
+	struct sky_dev_conf devconf; /* Local device config */
 	struct zocket zock;
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
@@ -140,7 +140,7 @@ static int sky_kill_pthread(pthread_t thread)
 static float get_precharge_current(struct sky_server_dev *servdev)
 {
 	struct sky_server *serv = servdev->serv;
-	struct sky_conf *conf = &serv->conf;
+	struct sky_conf *conf = &serv->devconf.conf;
 
 	float current_delta;
 
@@ -166,6 +166,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
 	struct sky_server_dev *servdev = data;
 	struct sky_server *serv = servdev->serv;
+	struct sky_conf *conf = &serv->devconf.conf;
 	struct sky_dev_desc *devdesc = servdev->devdesc;
 	struct sky_charging_state_rsp rsp;
 	char topic[128];
@@ -173,7 +174,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	size_t len;
 	int rc;
 
-	BUILD_BUG_ON(sizeof(serv->conf.devuuid) + sizeof(devdesc->portname) >
+	BUILD_BUG_ON(sizeof(conf->devuuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
 
 	if (sky_psu_is_precharge_set(servdev->psu)) {
@@ -199,7 +200,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 			 * started or has been stopped.
 			 */
 			sky_psu_set_current(servdev->psu,
-				serv->conf.psu.precharge_current);
+					    conf->psu.precharge_current);
 			servdev->precharge_iter = 0;
 		}
 
@@ -220,10 +221,10 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 		return;
 	}
 	/* Publisher topic */
-	memcpy(topic, serv->conf.devuuid, sizeof(serv->conf.devuuid));
+	memcpy(topic, conf->devuuid, sizeof(conf->devuuid));
 	len = strlen(devdesc->portname);
-	memcpy(topic + sizeof(serv->conf.devuuid), devdesc->portname, len);
-	len += sizeof(serv->conf.devuuid);
+	memcpy(topic + sizeof(conf->devuuid), devdesc->portname, len);
+	len += sizeof(conf->devuuid);
 	rc = zmsg_addmem(msg, topic, len);
 	if (!rc)
 		rc = zmsg_addmem(msg, &rsp, sizeof(rsp));
@@ -291,11 +292,9 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 			     void **rsp_hdr, size_t *rsp_len)
 {
+	struct sky_dev_conf *devconf = &serv->devconf;
 	struct sky_dev_desc *dev, *head;
 	struct sky_devs_list_rsp *rsp;
-	struct sky_dev_conf local_conf = {
-		.contype = SKY_LOCAL
-	};
 	void *rsp_void = NULL;
 	size_t len;
 	int rc;
@@ -305,7 +304,7 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 	if (!rsp)
 		return -ENOMEM;
 
-	rc = sky_devslist(&local_conf, 1, &head);
+	rc = sky_devslist(devconf, 1, &head);
 
 	rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
 	rsp->hdr.error = htole16(-rc);
@@ -331,8 +330,8 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 				htole32(dev->firmware_version);
 			memcpy(info->portname, dev->portname,
 			       sizeof(dev->portname));
-			memcpy(info->dev_uuid, serv->conf.devuuid,
-			       sizeof(serv->conf.devuuid));
+			memcpy(info->dev_uuid, devconf->conf.devuuid,
+			       sizeof(devconf->conf.devuuid));
 			strncpy(info->dev_name, dev_name, sizeof(info->dev_name));
 		}
 		sky_devsfree(head);
@@ -619,7 +618,8 @@ static void sky_execute_cmd(struct sky_server *serv,
 		break;
 	}
 	case SKY_DEVS_LIST_REQ: {
-		rc = sky_devs_list_rsp(serv, serv->conf.devname, &rsp_void, &len);
+		rc = sky_devs_list_rsp(serv, serv->devconf.conf.devname,
+				       &rsp_void, &len);
 		if (rc)
 			goto emergency;
 		break;
@@ -1124,8 +1124,8 @@ static int sky_send_first_req(struct sky_server *serv,
 		sky_err("zmq_setsockopt(): %s\n", strerror(-rc));
 		goto err;
 	}
-	rc = zmq_setsockopt(to_broker, ZMQ_IDENTITY, serv->conf.devuuid,
-			    sizeof(serv->conf.devuuid));
+	rc = zmq_setsockopt(to_broker, ZMQ_IDENTITY, serv->devconf.conf.devuuid,
+			    sizeof(serv->devconf.conf.devuuid));
 	if (rc) {
 		rc = -errno;
 		sky_err("zmq_setsockopt(ZMQ_SUBSCRIBE): %s\n", strerror(-rc));
@@ -1173,7 +1173,8 @@ static int sky_send_first_req(struct sky_server *serv,
 		sky_err("zmq_connect(): %s\n", strerror(-rc));
 		goto err;
 	}
-	rc = sky_devs_list_rsp(serv, serv->conf.devname, &rsp_void, &rsp_len);
+	rc = sky_devs_list_rsp(serv, serv->devconf.conf.devname,
+			       &rsp_void, &rsp_len);
 	if (rc) {
 		sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
 		goto err;
@@ -1185,8 +1186,8 @@ static int sky_send_first_req(struct sky_server *serv,
 		/* Frame with actual data */
 		rc |= zmsg_addmem(msg, rsp_void, rsp_len);
 		/* USRUUID frame is the last */
-		rc |= zmsg_addmem(msg, serv->conf.usruuid,
-				  sizeof(serv->conf.usruuid));
+		rc |= zmsg_addmem(msg, serv->devconf.conf.usruuid,
+				  sizeof(serv->devconf.conf.usruuid));
 	}
 	free(rsp_void);
 	if (!msg || rc) {
@@ -1438,11 +1439,12 @@ static int sky_server_loop(struct sky_server *serv)
 
 int main(int argc, char *argv[])
 {
-	struct sky_dev_conf conf = {
-		.contype = SKY_LOCAL,
-	};
 	struct sky_server serv = {
+		.devconf = {
+			.contype = SKY_LOCAL,
+		},
 	};
+	struct sky_dev_conf *devconf = &serv.devconf;
 	struct sky_dev_desc *devdesc;
 	int num, rc;
 
@@ -1451,19 +1453,19 @@ int main(int argc, char *argv[])
 		sky_err("%s\n", cli_usage);
 		return -1;
 	}
-	rc = sky_confparse(serv.cli.conff, &serv.conf);
+	rc = sky_confparse(serv.cli.conff, &devconf->conf);
 	if (rc) {
 		sky_err("sky_confparse(): %s\n", strerror(-rc));
 		goto free_cli;
 	}
-	if (serv.conf.psu.type != SKY_PSU_UNKNOWN) {
-		rc = sky_psu_init(&serv.conf, &serv.global_psu);
+	if (devconf->conf.psu.type != SKY_PSU_UNKNOWN) {
+		rc = sky_psu_init(&devconf->conf, &serv.global_psu);
 		if (rc)
 			goto free_cli;
 
 		/* Set voltage */
 		rc = sky_psu_set_voltage(&serv.global_psu,
-					 serv.conf.psu.voltage);
+					 devconf->conf.psu.voltage);
 		if (rc) {
 			sky_err("psu: can't set voltage");
 			goto deinit_psu;
@@ -1472,10 +1474,10 @@ int main(int argc, char *argv[])
 		/* Set precharge current if specified */
 		if (sky_psu_is_precharge_set(&serv.global_psu))
 			rc = sky_psu_set_current(&serv.global_psu,
-					serv.conf.psu.precharge_current);
+					devconf->conf.psu.precharge_current);
 		else
 			rc = sky_psu_set_current(&serv.global_psu,
-					serv.conf.psu.current);
+					 devconf->conf.psu.current);
 		if (rc) {
 			sky_err("psu: can't set current: %s", strerror(-rc));
 			goto deinit_psu;
@@ -1499,7 +1501,7 @@ int main(int argc, char *argv[])
 		sky_err("Can't create server sockets: %s\n", strerror(-rc));
 		goto deinit_psu;
 	}
-	rc = sky_devslist(&conf, 1, &serv.devhead);
+	rc = sky_devslist(devconf, 1, &serv.devhead);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		goto destroy_zocket;
@@ -1565,7 +1567,7 @@ free_devs:
 destroy_zocket:
 	sky_zocket_destroy(&serv);
 deinit_psu:
-	if (serv.conf.psu.type != SKY_PSU_UNKNOWN)
+	if (serv.devconf.conf.psu.type != SKY_PSU_UNKNOWN)
 		sky_psu_deinit(&serv.global_psu);
 free_cli:
 	cli_free(&serv.cli);
