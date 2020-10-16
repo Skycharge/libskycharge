@@ -1,3 +1,17 @@
+skysense (1.2.1~rc2) stretch; urgency=low
+  * libskysense-dummy: fix gps compilation errors for version 9
+  * build-for-arm.sh: shell fixes
+  * libskysense,skysense: make sky_conf part of sky_dev_conf
+  * skyserver: make sky_dev_conf part of sky_server
+  * libskydp: support drone port GPIO interface
+  * libskysense-local: use DP drone detect
+  * test-psu: read and show voltage
+  * skypsu: decrease voltage slowly, step by step
+  * libskypsu: rename skypsu to libskypsu
+  * Makefile: build skypsu by default and ship with skysensed package
+
+ -- Roman Pen <r.peniaev@gmail.com>  Thu, 11 Dec 2020 19:28:34 +0200
+
 skysense (1.2.0) stretch; urgency=low
   * libskysense: make charging check more strict
   * libskysense: introduce power supply unit (psu) config options
