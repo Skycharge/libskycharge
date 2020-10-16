@@ -722,7 +722,7 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 			rc = -ENOMEM;
 			goto err;
 		}
-		strncpy(devdesc->portname, name, sizeof(devdesc->portname));
+		strncpy(devdesc->portname, name, sizeof(devdesc->portname) - 1);
 		devdesc->dev_type = SKY_INDOOR;
 		devdesc->conf = *conf;
 		devdesc->dev_ops = dev_ops;
