@@ -49,11 +49,7 @@ enum {
 
 struct skyloc_dev {
 	struct sky_dev dev;
-	struct sky_hw_ops *hw_ops;
 	struct sp_port *port;
-	struct sky_charging_state state;
-	struct sky_dev_params params;
-	struct sky_dev_desc devdesc;
 	struct gps_data_t gpsdata;
 	struct bms_lib bms;
 	bool gps_nodev;
