@@ -102,6 +102,14 @@ enum sky_psu_type {
 };
 
 /**
+ * enum sky_dp_hw_interface - HW interface between BBone and DP
+ */
+enum sky_dp_hw_interface {
+	SKY_DP_UNKNOWN = 0,
+	SKY_DP_GPIO,
+};
+
+/**
  * struct sky_conf - Generic configuration options.
  */
 struct sky_conf {
@@ -121,6 +129,21 @@ struct sky_conf {
 		float    precharge_current;
 		unsigned precharge_secs;
 	} psu;
+
+	struct {
+		enum sky_dp_hw_interface hw_interface;
+		struct {
+			/* Before changing the size check parse function */
+			char open_pin[8];
+			char close_pin[8];
+			char is_opened_pin[8];
+			char is_closed_pin[8];
+			char in_progress_pin[8];
+			char is_landing_err_pin[8];
+			char is_ready_pin[8];
+			char is_drone_detected_pin[8];
+		} gpio;
+	} dp;
 };
 
 /**

@@ -126,11 +126,14 @@ static void unix_to_iso8601(double fixtime, char isotime[], size_t len)
 
 static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 {
-	if (cli->addr && cli->port) {
-		const char *conffile = cli->conff ?: CONFFILE;
-		int rc;
+	const char *conffile = cli->conff ?: CONFFILE;
+	int rc;
 
-		rc = sky_confparse(conffile, &devconf->conf);
+	rc = sky_confparse(conffile, &devconf->conf);
+
+	if (cli->addr && cli->port) {
+		/* Remote client, config should exist and parsed successfully */
+
 		if (rc) {
 			sky_err("sky_confparse(): %s\n", strerror(-rc));
 			exit(-1);
@@ -141,8 +144,15 @@ static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 		devconf->conf.subport = devconf->conf.cliport + 1;
 		strncpy(devconf->conf.hostname, cli->addr,
 			sizeof(devconf->conf.hostname)-1);
-	} else
+	} else {
+		/* Local client, config may be missing */
+
+		if (rc && rc != -ENOENT) {
+			sky_err("sky_confparse(): %s\n", strerror(-rc));
+			exit(-1);
+		}
 		devconf->contype = SKY_LOCAL;
+	}
 }
 
 static struct sky_dev_desc *sky_find_devdesc_by_id(struct sky_dev_desc *head,

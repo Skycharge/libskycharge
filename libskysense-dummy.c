@@ -9,6 +9,7 @@
 
 #include "libskysense-pri.h"
 #include "libskybms.h"
+#include "libskydp.h"
 #include "types.h"
 
 struct skydum_dev {
@@ -75,6 +76,14 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 	if (rc)
 		/* Do not make much noise if GPS does not exist */
 		dev->gps_nodev = true;
+
+	rc = dp_configure(devdesc);
+	if (rc && rc != -ENODEV) {
+		if (!dev->gps_nodev)
+			gps_close(&dev->gpsdata);
+		free(dev);
+		return rc;
+	}
 
 	bms_init(&dev->bms);
 
@@ -207,14 +216,14 @@ static int skydum_chargestop(struct sky_dev *dev_)
 	return 0;
 }
 
-static int skydum_coveropen(struct sky_dev *dev_)
+static int skydum_coveropen(struct sky_dev *dev)
 {
-	return 0;
+	return dp_open(dev);
 }
 
-static int skydum_coverclose(struct sky_dev *dev_)
+static int skydum_coverclose(struct sky_dev *dev)
 {
-	return 0;
+	return dp_close(dev);
 }
 
 static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
@@ -304,8 +313,15 @@ static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 static int skydum_dronedetect(struct sky_dev *dev_,
 			      enum sky_drone_status *status)
 {
-	*status = SKY_DRONE_NOT_DETECTED;
-	return 0;
+	int rc;
+
+	rc = dp_drone_detect(dev_);
+	if (rc >= 0) {
+		*status = rc ? SKY_DRONE_DETECTED : SKY_DRONE_NOT_DETECTED;
+		return 0;
+	}
+
+	return rc;
 }
 
 static struct sky_dev_ops sky_dummy_devops = {

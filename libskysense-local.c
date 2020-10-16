@@ -11,6 +11,7 @@
 
 #include "libskysense-pri.h"
 #include "libskybms.h"
+#include "libskydp.h"
 #include "types.h"
 
 enum hw1_sky_serial_cmd {
@@ -631,6 +632,10 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		if (rc)
 			/* Do not make much noise if GPS does not exist */
 			dev->gps_nodev = true;
+
+		rc = dp_configure(devdesc);
+		if (rc && rc != -ENODEV)
+			goto free_conf;
 	} else {
 		dev->gps_nodev = true;
 	}
@@ -884,14 +889,14 @@ static int skyloc_chargestop(struct sky_dev *dev_)
 	return skyloc_autoscan(dev_, 0);
 }
 
-static int skyloc_coveropen(struct sky_dev *dev_)
+static int skyloc_coveropen(struct sky_dev *dev)
 {
-	return -EOPNOTSUPP;
+	return dp_open(dev);
 }
 
-static int skyloc_coverclose(struct sky_dev *dev_)
+static int skyloc_coverclose(struct sky_dev *dev)
 {
-	return -EOPNOTSUPP;
+	return dp_close(dev);
 }
 
 static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)

@@ -91,6 +91,55 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		rc = sscanf(str + 19, "%u", &cfg->psu.precharge_secs);
 		if (rc != 1)
 			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-hw-interface="))) {
+		char buf[16];
+
+		strncpy(buf, str + 16, sizeof(buf) - 1);
+		if (!strcmp(buf, "gpio"))
+			cfg->dp.hw_interface = SKY_DP_GPIO;
+		else
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-open-pin="))) {
+		rc = sscanf(str + 12, "%8s", cfg->dp.gpio.open_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-close-pin="))) {
+		rc = sscanf(str + 13, "%8s", cfg->dp.gpio.close_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-is-opened-pin="))) {
+		rc = sscanf(str + 17, "%8s", cfg->dp.gpio.is_opened_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-is-closed-pin="))) {
+		rc = sscanf(str + 17, "%8s", cfg->dp.gpio.is_closed_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-in-progress-pin="))) {
+		rc = sscanf(str + 19, "%8s", cfg->dp.gpio.in_progress_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-is-landing-err-pin="))) {
+		rc = sscanf(str + 22, "%8s", cfg->dp.gpio.is_landing_err_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-is-ready-pin="))) {
+		rc = sscanf(str + 16, "%8s", cfg->dp.gpio.is_ready_pin);
+		if (rc != 1)
+			return -ENODATA;
+
+	} else if ((str = strstr(line, "dp-is-drone-detected-pin="))) {
+		rc = sscanf(str + 25, "%8s", cfg->dp.gpio.is_drone_detected_pin);
+		if (rc != 1)
+			return -ENODATA;
 	}
 
 	/*
