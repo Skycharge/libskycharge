@@ -949,6 +949,13 @@ static int skyloc_dronedetect(struct sky_dev *dev_,
 	struct sky_charging_state state;
 	int rc;
 
+	/* Firstly try to detect a drone with drone port sensors */
+	rc = dp_drone_detect(dev_);
+	if (rc >= 0) {
+		*status = rc ? SKY_DRONE_DETECTED : SKY_DRONE_NOT_DETECTED;
+		return 0;
+	}
+
 	/*
 	 * TODO: Here we use HW state for drone detection.
 	 *       Obviously that is not enough and in the future
