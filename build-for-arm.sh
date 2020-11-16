@@ -13,7 +13,8 @@ fi
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 VER=`head -1 $DIR/debian/changelog | awk -F'[()]' '{print $2}'`
 
-OUTDIR=$DIR/../builds/$VER
+# Abs path
+OUTDIR=`readlink -f $DIR/../builds/$VER`
 
 if [ -e $OUTDIR ]; then
 	printf "ERROR: output build directory '%s' exists.\n" $OUTDIR
@@ -63,7 +64,9 @@ UMOUNT_FUNC=$(declare -f umount_image)
 DEV=`sudo bash -c "$MOUNT_FUNC; mount_image $IMG"`
 
 # Prepare main libskysense folder
-git clone $DIR /mnt/tmp/libskysense
+rm -rf /mnt/tmp/libskysense
+# git clone $DIR /mnt/tmp/libskysense
+cp -a $DIR /mnt/tmp/libskysense
 
 # Build packages under chroot
 sudo PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
