@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#if [ "$EUID" -ne 0 ]; then
-#	echo "Please run as root"
-#	exit
-#fi
+if [ "$EUID" -eq 0 ]; then
+	echo "Please run as normal user"
+	exit
+fi
 
 if [ $# != 1 ]; then
 	echo "Usage: <path to bone-debian-9.4-iot-armhf-2018-06-17-4gb.img>"
@@ -33,9 +33,12 @@ set +e
 function mount_image()
 {
 	IMG=$1
-	DEV=`losetup -o $((8192<<9)) --find --show $IMG`
 
-	mount /dev/loop0 /mnt
+	set -e
+	DEV=`losetup -o $((8192<<9)) --find --show $IMG`
+	set +e
+
+	mount $DEV /mnt
 	mount -t proc proc /mnt/proc
 	mount -t sysfs sysfs /mnt/sys
 	mount -t devtmpfs devtmpfs /mnt/dev
@@ -70,7 +73,7 @@ cp -a $DIR /mnt/tmp/libskysense
 
 # Build packages under chroot
 sudo PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-	chroot /mnt qemu-arm-static /bin/bash -c 'cd /tmp/libskysense; dpkg-buildpackage -us -uc;'
+	chroot /mnt qemu-arm-static /bin/bash -c 'cd /tmp/libskysense; LC_ALL=en_US.UTF-8 dpkg-buildpackage -us -uc;'
 
 mkdir -p $OUTDIR
 # Copy only regular files
