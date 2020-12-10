@@ -21,4 +21,7 @@ bool sky_psu_is_precharge_set(struct sky_psu *psu);
 int sky_psu_set_voltage(struct sky_psu *psu, float voltage);
 int sky_psu_set_current(struct sky_psu *psu, float current);
 
+int sky_psu_get_voltage(struct sky_psu *psu, float *voltage);
+int sky_psu_get_current(struct sky_psu *psu, float *current);
+
 #endif /* SKYPSU_H */

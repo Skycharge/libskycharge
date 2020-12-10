@@ -197,14 +197,23 @@ static float map_current_to_external_voltage(struct sky_psu *psu,
 	return current / psu_table[psu->type].current_coef;
 }
 
-int sky_psu_set_voltage(struct sky_psu *psu, float voltage)
+static float map_external_voltage_to_voltage(struct sky_psu *psu,
+					     float voltage)
+{
+	return voltage * psu_table[psu->type].voltage_coef;
+}
+
+static float map_external_voltage_to_current(struct sky_psu *psu,
+					     float voltage)
+{
+	return voltage * psu_table[psu->type].current_coef;
+}
+
+static int __sky_psu_set_voltage(struct sky_psu *psu, float voltage)
 {
 	float ext_voltage;
 	unsigned value;
 	int rc;
-
-	if (psu->voltage == voltage)
-		return 0;
 
 	ext_voltage = map_voltage_to_external_voltage(psu, voltage);
 	value = (ext_voltage / DAC_VMAX) * RESOLUTION;
@@ -217,6 +226,48 @@ int sky_psu_set_voltage(struct sky_psu *psu, float voltage)
 		psu->voltage = voltage;
 
 	return rc;
+}
+
+int sky_psu_set_voltage(struct sky_psu *psu, float voltage)
+{
+	float actual_voltage;
+	int i, rc, steps;
+
+	if (psu->voltage == voltage)
+		return 0;
+
+	rc = sky_psu_get_voltage(psu, &actual_voltage);
+	if (rc)
+		return rc;
+
+	/*
+	 * The following 'if' branches below are needed only because RSP
+	 * goes to error (solid red) if voltage is decreased too fast
+	 * (I could not find anything in the spec :( Experimentally I
+	 * found out that we can safely decrease step by step on 3v
+	 * and wait for 500 ms between calls.
+	 */
+
+	/* We can safely increase voltage */
+	if (actual_voltage < voltage)
+		return __sky_psu_set_voltage(psu, voltage);
+
+	/* We can safely decrease voltage on 3v */
+	if (actual_voltage - voltage <= 3.0)
+		return __sky_psu_set_voltage(psu, voltage);
+
+	steps = (actual_voltage - voltage) / 3.0;
+
+	for (i = 1; i <= steps; i++) {
+		rc = __sky_psu_set_voltage(psu, actual_voltage - 3.0 * i);
+		if (rc)
+			return rc;
+
+		/* 500ms */
+		usleep(500000);
+	}
+
+	return __sky_psu_set_voltage(psu, voltage);
 }
 
 int sky_psu_set_current(struct sky_psu *psu, float current)
@@ -239,4 +290,34 @@ int sky_psu_set_current(struct sky_psu *psu, float current)
 		psu->current = current;
 
 	return rc;
+}
+
+int sky_psu_get_voltage(struct sky_psu *psu, float *voltage)
+{
+	float ext_voltage;
+	int value;
+
+	value = dac_read_register(psu, DAC0_REG);
+	if (value < 0)
+		return value;
+
+	ext_voltage = value * DAC_VMAX / RESOLUTION;
+	*voltage = map_external_voltage_to_voltage(psu, ext_voltage);
+
+	return 0;
+}
+
+int sky_psu_get_current(struct sky_psu *psu, float *current)
+{
+	float ext_voltage;
+	int value;
+
+	value = dac_read_register(psu, DAC1_REG);
+	if (value < 0)
+		return value;
+
+	ext_voltage = value * DAC_VMAX / RESOLUTION;
+	*current = map_external_voltage_to_current(psu, ext_voltage);
+
+	return 0;
 }
