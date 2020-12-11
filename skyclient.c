@@ -464,6 +464,24 @@ int main(int argc, char *argv[])
 			sky_err("sky_closecover(): %s\n", strerror(-rc));
 			exit(-1);
 		}
+	} else if (cli.dronedetect) {
+		enum sky_drone_status status;
+
+		rc = sky_dronedetect(dev, &status);
+		if (rc) {
+			sky_err("sky_dronedetect(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+		switch (status) {
+		case SKY_DRONE_NOT_DETECTED:
+			printf("Drone is not detected on the charging pad.\n");
+			break;
+		case SKY_DRONE_DETECTED:
+			printf("Drone is detected on the charging pad.\n");
+			break;
+		default:
+			printf("Unknown drone status: 0x%x\n", status);
+		}
 	} else if (cli.showchargingstate) {
 		struct sky_charging_state state;
 
