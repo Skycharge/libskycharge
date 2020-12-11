@@ -1,5 +1,5 @@
-#ifndef SKYPSU_H
-#define SKYPSU_H
+#ifndef LIBSKYPSU_H
+#define LIBSKYPSU_H
 
 #include "libi2c/i2c.h"
 #include "libskysense.h"
@@ -24,4 +24,4 @@ int sky_psu_set_current(struct sky_psu *psu, float current);
 int sky_psu_get_voltage(struct sky_psu *psu, float *voltage);
 int sky_psu_get_current(struct sky_psu *psu, float *current);
 
-#endif /* SKYPSU_H */
+#endif /* LIBSKYPSU_H */

@@ -17,7 +17,7 @@
 
 #include "skyserver-cmd.h"
 #include "libskysense.h"
-#include "skypsu.h"
+#include "libskypsu.h"
 #include "skyproto.h"
 #include "version.h"
 #include "types.h"
