@@ -2,6 +2,8 @@
 *.o
 skysense-cli
 skysensed
+skypsu
+skybmsd
 skybroker
 docopt-gen
 version.h

@@ -13,11 +13,11 @@ REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
-BINS := skybroker skysensed skybmsd skysense-cli
+BINS := skybroker skysensed skybmsd skypsu skysense-cli
 LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
-		    libskybms.o libskydp.o bms-btle.o skypsu.o libi2c/i2c.o \
+		    libskybms.o libskydp.o bms-btle.o libskypsu.o libi2c/i2c.o \
 		    gpio.c
 
 # Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing.
@@ -88,11 +88,19 @@ skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
 	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 ##
-## skybms (skysensed)
+## skybmsd (skysensed)
 ##
 skybms.o: skybms-cmd.h version.h
 
 skybmsd: skybms.o libskybms.o bms-btle.o skybms-cmd.tab.o skybms-cmd.lex.o
+	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+
+##
+## skypsu (skysensed)
+##
+skypsu.o: libskypsu.h
+
+skypsu: skypsu.o libskypsu.o libi2c/i2c.o
 	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
 
 
