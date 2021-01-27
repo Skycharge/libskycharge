@@ -14,11 +14,11 @@ REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
 BINS := skybroker skysensed skybmsd skypsu skysense-cli
-LIBS := -lczmq -lzmq -lserialport -lgps -lpthread -luuid -ldl
+LIBS := -lczmq -lzmq -lserialport -lgps -lavahi-common -lavahi-client -lpthread -luuid -ldl
 
 LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
 		    libskybms.o libskydp.o bms-btle.o libskypsu.o libi2c/i2c.o \
-		    gpio.c
+		    gpio.c avahi.o
 
 # Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing.
 # Do not include the file if dpkg-buildpackage build is performed.

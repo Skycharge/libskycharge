@@ -14,7 +14,8 @@ Build-Depends: autotools-dev,
 			   libzmq3-dev,
 			   libczmq-dev,
 			   libserialport-dev,
-			   libgps-dev
+			   libgps-dev,
+			   libavahi-client-dev,
 Standards-Version: 3.9.5
 
 Package: skysense-conf
@@ -52,7 +53,8 @@ Depends: ${misc:Depends},
 		 libzmq5,
 		 libczmq4,
 		 libserialport0,
-		 libgps22
+		 libgps22,
+		 libavahi-client3,
 Description: server to control charging pad
  This package contains Skysense server
 

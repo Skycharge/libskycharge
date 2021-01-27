@@ -18,6 +18,7 @@
 #include "skyserver-cmd.h"
 #include "libskysense.h"
 #include "libskypsu.h"
+#include "avahi.h"
 #include "skyproto.h"
 #include "version.h"
 #include "types.h"
@@ -47,6 +48,7 @@ struct sky_server {
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
 	struct sky_psu global_psu;
+	struct avahi *avahi;
 };
 
 static int sky_pidfile_create(const char *pidfile, int pid)
@@ -1437,6 +1439,23 @@ static int sky_server_loop(struct sky_server *serv)
 	return rc;
 }
 
+static int sky_avahi_publish_device(struct sky_server *serv,
+				    struct sky_server_dev *servdev)
+{
+	char name[128];
+	int rc;
+
+	rc = snprintf(name, sizeof(name), "Skycharge Device ");
+	uuid_unparse(serv->devconf.conf.devuuid, name + rc);
+
+	rc = avahi_publish_service(serv->avahi, name, "_skydevice._tcp",
+				   NULL, NULL, atoi(serv->cli.port), NULL);
+	if (rc)
+		return -EINVAL;
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_server serv = {
@@ -1496,10 +1515,15 @@ int main(int argc, char *argv[])
 	 */
 	zsys_catch_interrupts();
 
+	rc = avahi_init(&serv.avahi);
+	if (rc) {
+		sky_err("Can't create avahi: %s\n", strerror(-rc));
+		goto deinit_psu;
+	}
 	rc = sky_zocket_create(&serv, serv.cli.addr, atoi(serv.cli.port));
 	if (rc) {
 		sky_err("Can't create server sockets: %s\n", strerror(-rc));
-		goto deinit_psu;
+		goto deinit_avahi;
 	}
 	rc = sky_devslist(devconf, 1, &serv.devhead);
 	if (rc) {
@@ -1547,6 +1571,13 @@ int main(int argc, char *argv[])
 			servdev->dev = NULL;
 			goto close_devs;
 		}
+		rc = sky_avahi_publish_device(&serv, servdev);
+		if (rc) {
+			sky_err("sky_avahi_publish_device(): %s\n", strerror(-rc));
+			sky_devclose(servdev->dev);
+			servdev->dev = NULL;
+			goto close_devs;
+		}
 		num++;
 	}
 	rc = sky_server_loop(&serv);
@@ -1554,18 +1585,20 @@ int main(int argc, char *argv[])
 close_devs:
 	num = 0;
 	foreach_devdesc(devdesc, serv.devhead) {
-		struct sky_dev *dev = serv.devs[num++].dev;
+		struct sky_server_dev *servdev = &serv.devs[num++];
 
-		if (dev == NULL)
+		if (servdev->dev == NULL)
 			continue;
-		sky_unsubscribe(dev);
-		sky_devclose(dev);
+		sky_unsubscribe(servdev->dev);
+		sky_devclose(servdev->dev);
 	}
 free_devs:
 	sky_devsfree(serv.devhead);
 	free(serv.devs);
 destroy_zocket:
 	sky_zocket_destroy(&serv);
+deinit_avahi:
+	avahi_deinit(serv.avahi);
 deinit_psu:
 	if (serv.devconf.conf.psu.type != SKY_PSU_UNKNOWN)
 		sky_psu_deinit(&serv.global_psu);
