@@ -87,6 +87,11 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		if (rc != 1)
 			return -ENODATA;
 
+	} else if ((str = strstr(line, "psu-precharge-current-coef="))) {
+		rc = sscanf(str + 27, "%f", &cfg->psu.precharge_current_coef);
+		if (rc != 1)
+			return -ENODATA;
+
 	} else if ((str = strstr(line, "psu-precharge-secs="))) {
 		rc = sscanf(str + 19, "%u", &cfg->psu.precharge_secs);
 		if (rc != 1)

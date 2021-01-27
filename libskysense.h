@@ -127,6 +127,7 @@ struct sky_conf {
 		float    voltage;
 		float    current;
 		float    precharge_current;
+		float    precharge_current_coef;
 		unsigned precharge_secs;
 	} psu;
 

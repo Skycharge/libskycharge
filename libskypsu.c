@@ -123,22 +123,50 @@ static int validate_conf(struct sky_conf *conf)
 		return -EINVAL;
 	}
 	if (conf->psu.precharge_secs ||
-	    conf->psu.precharge_current != 0.0) {
+	    conf->psu.precharge_current != 0.0 ||
+	    conf->psu.precharge_current_coef != 0.0) {
 		if (!conf->psu.precharge_secs) {
 			sky_err("psu precharge secs is not specified\n");
 			return -EINVAL;
 		}
-		if (conf->psu.precharge_current == 0.0) {
-			sky_err("psu precharge current is not specified\n");
+		if (conf->psu.precharge_current == 0.0 &&
+		    conf->psu.precharge_current_coef == 0.0) {
+			sky_err("neither psu precharge current nor precharge current coefficient are specified\n");
 			return -EINVAL;
 		}
-		if (conf->psu.precharge_current < 1.0 ||
-		    conf->psu.precharge_current >= conf->psu.current) {
-			sky_err("incorrect psu precharge current: %f, expected "
-				"in range [1, %f)\n",
-				conf->psu.precharge_current,
-				conf->psu.current);
+		if (conf->psu.precharge_current != 0.0 &&
+		    conf->psu.precharge_current_coef != 0.0) {
+			sky_err("either psu precharge current or precharge current coefficient should be specified\n");
 			return -EINVAL;
+		}
+		if (conf->psu.precharge_current != 0.0) {
+			if (conf->psu.precharge_current < 1.0 ||
+			    conf->psu.precharge_current >= conf->psu.current) {
+				sky_err("incorrect psu precharge current: %f, expected "
+					"in range [1, %f)\n",
+					conf->psu.precharge_current,
+					conf->psu.current);
+				return -EINVAL;
+			}
+		}
+		else {
+			float precharge_current;
+
+			if (conf->psu.precharge_current_coef >= 1.0) {
+				sky_err("incorrect psu precharge current coefficient: %f, expected "
+					"< 1.0\n",
+					conf->psu.precharge_current_coef);
+				return -EINVAL;
+			}
+
+			precharge_current = conf->psu.current * conf->psu.precharge_current_coef;
+			if (precharge_current < 1.0) {
+				sky_err("incorrect psu precharge current coefficient: %f, result current should be >= 1.0\n",
+					conf->psu.precharge_current_coef);
+				return -EINVAL;
+			}
+			/* Set precharge current according to the coefficient */
+			conf->psu.precharge_current = precharge_current;
 		}
 	}
 
