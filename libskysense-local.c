@@ -625,7 +625,7 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	}
 
 	/*
-	 * Init GPS only on real open
+	 * Init GPS and DP only on real open
 	 */
 	if (!probbing) {
 		rc = gps_open(GPSD_SHARED_MEMORY, NULL, &dev->gpsdata);
