@@ -1,3 +1,10 @@
+skysense (1.2.2) stretch; urgency=low
+  * libskysense,skysense.conf: provide psu-precharge-current-coef
+  * skyserver,avahi: implement publishing sky service through avahi
+  * debian/skysensed: don't output error if we install in env without udevd
+
+ -- Roman Pen <r.peniaev@gmail.com>  Fri, 29 Jan 2021 17:41:34 +0200
+
 skysense (1.2.1) stretch; urgency=low
   * libskysense-dummy: fix gps compilation errors for version 9
   * build-for-arm.sh: shell fixes
