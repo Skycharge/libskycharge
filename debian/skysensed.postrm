@@ -5,8 +5,10 @@ set -e
 case "$1" in
 	remove)
 		# Trigger udev rules to remove all /dev/sky*USB files
-		udevadm control --reload
-		udevadm trigger
+		# Can be that we run from env where udevd is stopped,
+		# thus || true
+		udevadm control --reload || true
+		udevadm trigger || true
 		;;
 	*)
 		;;

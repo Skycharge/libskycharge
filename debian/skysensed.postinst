@@ -9,10 +9,12 @@ case "$1" in
 		# plugged in - skysensed and skybmsd daemons will be started
 		#
 
-		udevadm control --reload
+		# Can be that we run from env where udevd is stopped,
+		# thus || true
+		udevadm control --reload || true
 		# Trigger and wait for events
-		udevadm trigger
-		udevadm settle
+		udevadm trigger || true
+		udevadm settle || true
 
 		if [ -e /dev/skysenseUSB ]; then
 		   systemctl start skysensed.service
