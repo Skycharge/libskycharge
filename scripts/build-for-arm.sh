@@ -12,9 +12,10 @@ fi
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 VER=`head -1 $DIR/debian/changelog | awk -F'[()]' '{print $2}'`
+PROJ=`basename $DIR`
 
 # Abs path
-OUTDIR=`readlink -f $DIR/../builds/$VER`
+OUTDIR=`realpath -m $DIR/../builds/$PROJ/$VER`
 
 if [ -e $OUTDIR ]; then
 	printf "ERROR: output build directory '%s' exists.\n" $OUTDIR
@@ -66,14 +67,18 @@ UMOUNT_FUNC=$(declare -f umount_image)
 # Mount everything we need for chrooting
 DEV=`sudo bash -c "$MOUNT_FUNC; mount_image $IMG"`
 
-# Prepare main libskysense folder
-rm -rf /mnt/tmp/libskysense
-# git clone $DIR /mnt/tmp/libskysense
-cp -a $DIR /mnt/tmp/libskysense
+# Prepare main folder
+rm -rf /mnt/tmp/$PROJ
+# git clone $DIR /mnt/tmp/$PROJ
+cp -a $DIR /mnt/tmp/$PROJ
+
+if [ ! -e /mnt/usr/bin/qemu-arm-static ]; then
+	sudo cp /usr/bin/qemu-arm-static /mnt/usr/bin/qemu-arm-static
+fi
 
 # Build packages under chroot
 sudo PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-	chroot /mnt qemu-arm-static /bin/bash -c 'cd /tmp/libskysense; LC_ALL=en_US.UTF-8 dpkg-buildpackage -us -uc;'
+	 chroot /mnt qemu-arm-static /bin/bash -c "cd /tmp/$PROJ; LC_ALL=en_US.UTF-8 dpkg-buildpackage -us -uc;"
 
 mkdir -p $OUTDIR
 # Copy only regular files
