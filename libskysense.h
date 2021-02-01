@@ -302,11 +302,11 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
 
 /**
  * sky_peerinfo() - Fills in peer information.
- * @conf:     Array of configuration options.
- * @num:      Number of elements in @conf.
- * @peerinfo: Array of peerinfo structures.
+ * @confs:     Array of configuration options.
+ * @num:       Number of elements in @confs.
+ * @peerinfos: Array of peerinfo structures.
  *
- * Function fills in @peerinfo for specified @conf.  @conf->contype
+ * Function fills in @peerinfos for specified @confs.  @confs[i].contype
  * must be @SKY_REMOTE, otherwise -EOPNOTSUPP is returned.
  *
  * RETURNS:
@@ -314,13 +314,13 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
  *
  * -EINVAL invalid parameters.
  */
-int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
-		 struct sky_peerinfo *peerinfo);
+int sky_peerinfo(const struct sky_dev_conf *confs, size_t num,
+		 struct sky_peerinfo *peerinfos);
 
 /**
  * sky_devslist() - Returns list of found devices.
- * @conf:     Array of configuration options.
- * @num:      Number of elements in @conf.
+ * @confs:    Array of configuration options.
+ * @num:      Number of elements in @confs.
  * @list:     Fills list of all found devices.
  *
  * Functions scans for all Sky devices and puts them to the
@@ -332,7 +332,7 @@ int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
  * -EPERM  if operation is not permitted.
  * -ENOMEM if memory allocation failed.
  */
-int sky_devslist(const struct sky_dev_conf *conf, size_t num,
+int sky_devslist(const struct sky_dev_conf *confs, size_t num,
 		 struct sky_dev_desc **list);
 
 /**

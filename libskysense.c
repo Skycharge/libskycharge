@@ -193,17 +193,20 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
 	return -EOPNOTSUPP;
 }
 
-int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
-		 struct sky_peerinfo *peerinfo)
+int sky_peerinfo(const struct sky_dev_conf *confs, size_t num,
+		 struct sky_peerinfo *peerinfos)
 {
 	struct sky_dev_ops *ops;
 	int i, rc = -EINVAL;
 
 	for (i = 0; i < num; i++) {
+		const struct sky_dev_conf *conf = &confs[i];
+		struct sky_peerinfo *peerinfo = &peerinfos[i];
+
 		foreach_devops(ops, devops) {
 			if (ops->contype != conf->contype)
 				continue;
-			rc = ops->peerinfo(ops, conf, &peerinfo[i]);
+			rc = ops->peerinfo(ops, conf, peerinfo);
 			if (rc)
 				return rc;
 		}
@@ -212,7 +215,7 @@ int sky_peerinfo(const struct sky_dev_conf *conf, size_t num,
 	return rc;
 }
 
-int sky_devslist(const struct sky_dev_conf *conf, size_t num,
+int sky_devslist(const struct sky_dev_conf *confs, size_t num,
 		 struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *head = NULL;
@@ -220,6 +223,8 @@ int sky_devslist(const struct sky_dev_conf *conf, size_t num,
 	int i, rc = -EINVAL;
 
 	for (i = 0; i < num; i++) {
+		const struct sky_dev_conf *conf = &confs[i];
+
 		foreach_devops(ops, devops) {
 			if (ops->contype != conf->contype)
 				continue;
