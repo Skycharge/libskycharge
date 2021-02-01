@@ -8,7 +8,7 @@ Type=forking
 User=root
 Restart=always
 PIDFile=/var/run/skybroker.pid
-ExecStart=/usr/sbin/skybroker 0.0.0.0 --servers-port 6666 --clients-port 5555 --daemon --pidfile /var/run/skybroker.pid
+ExecStart=/usr/bin/skybroker 0.0.0.0 --servers-port 6666 --clients-port 5555 --daemon --pidfile /var/run/skybroker.pid
 
 [Install]
 WantedBy=multi-user.target

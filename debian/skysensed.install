@@ -1,3 +1,3 @@
-skysensed    /usr/sbin
-skybmsd      /usr/sbin
-skypsu       /usr/sbin
+skysensed    usr/bin
+skybmsd      usr/bin
+skypsu       usr/bin

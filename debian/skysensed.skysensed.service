@@ -8,7 +8,7 @@ Type=forking
 User=root
 Restart=always
 PIDFile=/var/run/skysensed.pid
-ExecStart=/usr/sbin/skysensed 0.0.0.0 5555 --conffile /etc/skysense.conf --daemon --pidfile /var/run/skysensed.pid
+ExecStart=/usr/bin/skysensed 0.0.0.0 5555 --conffile /etc/skysense.conf --daemon --pidfile /var/run/skysensed.pid
 
 [Install]
 WantedBy=multi-user.target
