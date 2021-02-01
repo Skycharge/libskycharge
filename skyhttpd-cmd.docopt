@@ -1,0 +1,8 @@
+Skycharge HTTP server.
+
+Usage:
+    skyhttpd <http_addr> <http_port> <sky_addr> <sky_port> [(--daemon (--pidfile <pidf>))]
+
+Options:
+    Light and fast Skycharge HTTP server for serving JSON requests and forward
+    them to Skycharge device or broker.

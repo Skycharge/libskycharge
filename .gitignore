@@ -5,6 +5,7 @@ skysensed
 skypsu
 skybmsd
 skybroker
+skyhttpd
 docopt-gen
 version.h
 cscope.*

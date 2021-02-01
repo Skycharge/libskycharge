@@ -14,7 +14,7 @@ REV = $(shell echo "$(VER)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
-BINS := skybroker skysensed skybmsd skypsu skysense-cli
+BINS := skybroker skysensed skybmsd skypsu skyhttpd skysense-cli
 
 LIBSKYCHARGE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
 		     libskybms.o libskydp.o bms-btle.o libskypsu.o libi2c/i2c.o \
@@ -105,6 +105,18 @@ ifneq ($(MAKECMDGOALS),clean)
 endif
 
 ##
+## skyhttpd
+##
+skyhttpd.o: skyhttpd-cmd.h version.h
+
+skyhttpd: skyhttpd.o $(LIBSKYCHARGE-SRCS) \
+	  skyhttpd-cmd.tab.o skyhttpd-cmd.lex.o
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lmicrohttpd $(LIBSKYCHARGE-LIBS)
+
+##
 ## skybroker
 ##
 skybroker.o: skybroker-cmd.h version.h
@@ -173,6 +185,8 @@ clean:
 		skyserver-cmd.h skyserver-cmd.l skyserver-cmd.y \
 		skybroker-cmd.lex.c skybroker-cmd.tab.* \
 		skybroker-cmd.h skybroker-cmd.l skybroker-cmd.y \
+		skyhttpd-cmd.lex.c skyhttpd-cmd.tab.* \
+		skyhttpd-cmd.h skyhttpd-cmd.l skyhttpd-cmd.y \
 		skybms-cmd.lex.c skybms-cmd.tab.* \
 		skybms-cmd.h skybms-cmd.l skybms-cmd.y
 
