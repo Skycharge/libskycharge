@@ -16,6 +16,7 @@ Build-Depends: autotools-dev,
 			   libserialport-dev,
 			   libgps-dev,
 			   libavahi-client-dev,
+			   libmicrohttpd-dev,
 Standards-Version: 3.9.5
 
 Package: skysense-conf
@@ -68,6 +69,20 @@ Depends: ${misc:Depends},
 Description: broker which accepts connections from pads and clients
  This package contains Skysense broker, which acts as a router and
  accepts many pads and clients and orchestrates requests between them.
+
+Package: skyhttpd
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+		 libuuid1,
+		 libzmq5,
+		 libczmq4,
+		 libserialport0,
+		 libgps22,
+		 libmicrohttpd12,
+Description: Light and fast Skycharge httpd server for serving JSON
+ requests. This package contains Skycharge httpd server, which can be
+ run both on skycharge device and broker sides.
 
 Package: skysense-dbg
 Architecture: any
