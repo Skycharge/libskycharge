@@ -14,16 +14,29 @@ REV = $(shell echo "$(VERS)" | cut -d . -f 3)
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
 BINS := skybroker skysensed skybmsd skypsu skysense-cli
-LIBS := -lczmq -lzmq -lserialport -lgps -lavahi-common -lavahi-client -lpthread -luuid -ldl
 
-LIBSKYSENSE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
-		    libskybms.o libskydp.o bms-btle.o libskypsu.o libi2c/i2c.o \
-		    gpio.c avahi.o
+LIBSKYCHARGE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
+		     libskybms.o libskydp.o bms-btle.o libskypsu.o libi2c/i2c.o \
+		     gpio.o
+LIBSKYCHARGE-LIBS := -lpthread -lserialport -lczmq -lzmq -luuid -lgps -lz
 
-# Put there "LIBSKYSENSE-SRCS += libskysense-dummy.o" for testing.
+# Put there "LIBSKYCHARGE-SRCS += libskysense-dummy.o" for testing.
 # Do not include the file if dpkg-buildpackage build is performed.
 ifndef DEB_BUILD_ARCH
 -include Makefile.dummy
+endif
+
+ifeq ("$(origin V)", "command line")
+  VERBOSE = $(V)
+endif
+ifndef VERBOSE
+  VERBOSE = 0
+endif
+
+ifeq ($(VERBOSE),1)
+  Q =
+else
+  Q = @
 endif
 
 all: $(BINS)
@@ -33,15 +46,21 @@ all: $(BINS)
 ##
 
 docopt-gen:
-	$(MAKE) -C docopt
-	cp docopt/docopt docopt-gen
-	$(MAKE) -C docopt clean
+ifneq ($(VERBOSE),1)
+	@echo " LD $@"
+endif
+	$(Q)$(MAKE) -C docopt
+	$(Q)cp docopt/docopt docopt-gen
+	$(Q)$(MAKE) -C docopt clean
 
 ##
 ## version.h
 ##
 
 version.h: debian/changelog
+ifneq ($(VERBOSE),1)
+	@echo " GEN $@"
+endif
 	@printf "/* File is automatically generated */\n" >  version.h
 	@printf "#ifndef VERSION_H\n"                     >> version.h
 	@printf "#define VERSION_H\n\n"                   >> version.h
@@ -51,20 +70,32 @@ version.h: debian/changelog
 
 
 %-cmd.h %-cmd.y %-cmd.l: | docopt-gen %-cmd.docopt
-	$(RM) $*-cmd.h $*-cmd.l $*-cmd.y
-	./docopt-gen $*-cmd.docopt
+ifneq ($(VERBOSE),1)
+	@echo " GEN $@"
+endif
+	$(Q)$(RM) $*-cmd.h $*-cmd.l $*-cmd.y
+	$(Q)./docopt-gen $*-cmd.docopt
 
 %-cmd.tab.c: %-cmd.y
-	$(YACC) -o $@ --defines $*-cmd.y
+ifneq ($(VERBOSE),1)
+	@echo "YACC $@"
+endif
+	$(Q)$(YACC) -o $@ --defines $*-cmd.y
 
 %-cmd.lex.c: %-cmd.l %-cmd.tab.c
-	$(LEX) -o $@ $*-cmd.l
+ifneq ($(VERBOSE),1)
+	@echo " LEX $@"
+endif
+	$(Q)$(LEX) -o $@ $*-cmd.l
 
 # Generate automatic prerequisites, i.e. dependencies
 # http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
 %.o : %.c
 	@$(MAKEDEPEND)
-	$(COMPILE.c) -o $@ $<
+ifneq ($(VERBOSE),1)
+	@echo "  CC $@"
+endif
+	$(Q)$(COMPILE.c) -o $@ $<
 
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPS)
@@ -76,16 +107,22 @@ endif
 skybroker.o: skybroker-cmd.h version.h
 
 skybroker: skybroker.o skybroker-cmd.tab.o skybroker-cmd.lex.o
-	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lczmq -lzmq -lpthread
 
 ##
 ## skyserver (skysensed)
 ##
 skyserver.o: skyserver-cmd.h version.h
 
-skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
+skysensed: skyserver.o avahi.o $(LIBSKYCHARGE-SRCS) \
 	   skyserver-cmd.tab.o skyserver-cmd.lex.o
-	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS) -lavahi-client -lavahi-common
 
 ##
 ## skybmsd (skysensed)
@@ -93,7 +130,10 @@ skysensed: skyserver.o $(LIBSKYSENSE-SRCS) \
 skybms.o: skybms-cmd.h version.h
 
 skybmsd: skybms.o libskybms.o bms-btle.o skybms-cmd.tab.o skybms-cmd.lex.o
-	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lserialport
 
 ##
 ## skypsu (skysensed)
@@ -101,7 +141,10 @@ skybmsd: skybms.o libskybms.o bms-btle.o skybms-cmd.tab.o skybms-cmd.lex.o
 skypsu.o: libskypsu.h
 
 skypsu: skypsu.o libskypsu.o libi2c/i2c.o
-	$(CC) $(LFLAGS) -o $@ $^ $(LIBS)
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(LFLAGS) -o $@ $^
 
 
 ##
@@ -109,15 +152,18 @@ skypsu: skypsu.o libskypsu.o libi2c/i2c.o
 ##
 skyclient.o: skyclient-cmd.h version.h
 
-skysense-cli: skyclient.o $(LIBSKYSENSE-SRCS) \
+skysense-cli: skyclient.o $(LIBSKYCHARGE-SRCS) \
 	      skyclient-cmd.tab.o skyclient-cmd.lex.o
-	$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBS) -lz
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS)
 
 package:
 	dpkg-buildpackage -us -uc
 
 clean:
-	$(RM) $(DEPS) $(BINS) *.o libi2c/*.o *~ \
+	$(Q)$(RM) $(DEPS) $(BINS) *.o libi2c/*.o *~ \
 		skyclient-cmd.lex.c skyclient-cmd.tab.* \
 		skyclient-cmd.h skyclient-cmd.l skyclient-cmd.y \
 		skyserver-cmd.lex.c skyserver-cmd.tab.* \
@@ -128,6 +174,10 @@ clean:
 		skybms-cmd.h skybms-cmd.l skybms-cmd.y
 
 distclean: clean
-	$(RM) docopt-gen
+	$(Q)$(RM) docopt-gen
+
+# Don't delete intermediate files like *-cmd.lex.c or *-cmd.tab.c
+# We don't need them, but I don't know how to silent 'rm' command
+.SECONDARY:
 
 .PHONY: all clean distclean package
