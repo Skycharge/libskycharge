@@ -484,7 +484,8 @@ static int skyrem_paramsset(struct sky_dev *dev_,
 	int sz, i, ind;
 
 	if (params->dev_params_bits == 0)
-		return -EINVAL;
+		/* Nothing to set */
+		return 0;
 
 	dev = container_of(dev_, struct skyrem_dev, dev);
 	req_uni.req.dev_params_bits = htole32(params->dev_params_bits);

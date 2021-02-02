@@ -1496,6 +1496,16 @@ int main(int argc, char *argv[])
 			sky_err("sky_devpopen(): %s\n", strerror(-rc));
 			goto close_devs;
 		}
+		if (version_major(devdesc->firmware_version) == 1) {
+			/* Apply MUX hw1 params */
+			rc = sky_paramsset(servdev->dev, &devconf->conf.mux_hw1_params);
+			if (rc) {
+				sky_err("sky_paramsset(): %s\n", strerror(-rc));
+				sky_devclose(servdev->dev);
+				servdev->dev = NULL;
+				goto close_devs;
+			}
+		}
 		subsc.data = servdev;
 		rc = sky_subscribe(servdev->dev, &subsc);
 		if (rc) {

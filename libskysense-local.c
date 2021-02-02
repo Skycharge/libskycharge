@@ -803,7 +803,8 @@ static int skyloc_paramsset(struct sky_dev *dev_,
 	struct skyloc_dev *dev;
 
 	if (params->dev_params_bits == 0)
-		return -EINVAL;
+		/* Nothing to set */
+		return 0;
 
 	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);
