@@ -1,3 +1,15 @@
+skysense (1.3.0~rc1) stretch; urgency=low
+  * libskysense: fix sky_devslist(), sky_peerinfo()
+  * Makefile: silent output and link properly
+  * debian: make /usr/bin instead of /usr/sbin
+  * daemon: move common daemon related functions to header
+  * skyclient: remove INDOOR/OUTDOOR type from output
+  * libskysense,skyserver,skysense.conf: apply MUX config on each skysensed start
+  * Makefile: parse version string in all possible combinations
+  * skyclient: remove interval-ms from monitor command
+
+ -- Roman Pen <r.peniaev@gmail.com>  Sat, 6 Feb 2021 22:39:30 +0200
+
 skysense (1.2.2) stretch; urgency=low
   * libskysense,skysense.conf: provide psu-precharge-current-coef
   * skyserver,avahi: implement publishing sky service through avahi
