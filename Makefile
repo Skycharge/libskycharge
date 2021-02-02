@@ -6,10 +6,11 @@ LEX  := flex
 
 # dpkg-parsechangelog is significantly slow
 CHANGELOG = $(shell head -n 1 ./debian/changelog)
-VERS = $(shell echo "$(CHANGELOG)" | sed -n -e 's/.*(\([0-9]\+\.[0-9]\+\.[0-9]\+\).*).*/\1/p')
-MAJ = $(shell echo "$(VERS)" | cut -d . -f 1)
-MIN = $(shell echo "$(VERS)" | cut -d . -f 2)
-REV = $(shell echo "$(VERS)" | cut -d . -f 3)
+VER_STR = $(shell echo "$(CHANGELOG)" | sed -n -e 's/.*(\(.*[0-9]\+\.[0-9]\+\.[0-9]\+.*\)).*/\1/p')
+VER = $(shell echo "$(VER_STR)" | sed -n -e 's/.*\([0-9]\+\.[0-9]\+\.[0-9]\+\).*/\1/p')
+MAJ = $(shell echo "$(VER)" | cut -d . -f 1)
+MIN = $(shell echo "$(VER)" | cut -d . -f 2)
+REV = $(shell echo "$(VER)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
@@ -64,8 +65,10 @@ endif
 	@printf "/* File is automatically generated */\n" >  version.h
 	@printf "#ifndef VERSION_H\n"                     >> version.h
 	@printf "#define VERSION_H\n\n"                   >> version.h
-	@printf "#define SKY_VERSION 0x%08x\n\n" \
-		$$(($(MAJ) << 16 | $(MIN) << 8 | $(REV))) >>  version.h
+	@printf "#define SKY_VERSION     0x%08x\n" \
+		$$(($(MAJ) << 16 | $(MIN) << 8 | $(REV))) >> version.h
+	@printf "#define SKY_VERSION_STR \"%s\"\n\n" $(VER_STR) \
+							  >> version.h
 	@printf "#endif /* VERSION_H */\n"                >> version.h
 
 
