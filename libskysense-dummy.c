@@ -134,7 +134,7 @@ static int skydum_paramsset(struct sky_dev *dev_,
 	int i;
 
 	if (params->dev_params_bits == 0)
-		return -EINVAL;
+		return 0;
 
 	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
 		     SKY_NUM_DEVPARAM);

@@ -339,12 +339,12 @@ int main(int argc, char *argv[])
 		printf("Remote peer %s:%d:\n", devconf.conf.hostname,
 		       devconf.conf.cliport);
 		printf("\tServer version:   %u.%u.%u\n",
-		       (peerinfo.server_version >> 16) & 0xff,
-		       (peerinfo.server_version >> 8)  & 0xff,
-		       peerinfo.server_version & 0xff);
+		       version_major(peerinfo.server_version),
+		       version_minor(peerinfo.server_version),
+		       version_revis(peerinfo.server_version));
 		printf("\tProtocol version: %u.%u\n",
-		       (peerinfo.proto_version >> 8)  & 0xff,
-		       peerinfo.proto_version & 0xff);
+		       version_minor(peerinfo.proto_version),
+		       version_revis(peerinfo.proto_version));
 
 		cli_free(&cli);
 
@@ -503,9 +503,9 @@ int main(int argc, char *argv[])
 
 		printf("Device portname:  %s\n", devdesc.portname);
 		printf("Firmware version: %d.%d.%d\n",
-		       (devdesc.firmware_version >> 16) & 0xff,
-		       (devdesc.firmware_version >> 8) & 0xff,
-		       devdesc.firmware_version & 0xff);
+		       version_major(devdesc.firmware_version),
+		       version_minor(devdesc.firmware_version),
+		       version_revis(devdesc.firmware_version));
 	} else if (cli.gpsinfo) {
 		struct sky_gpsdata gpsdata;
 

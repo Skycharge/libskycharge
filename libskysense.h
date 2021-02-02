@@ -85,6 +85,14 @@ enum sky_dev_param {
 };
 
 /**
+ * struct sky_dev_params - Device configuration parameters.
+ */
+struct sky_dev_params {
+	uint32_t dev_params_bits;
+	uint32_t dev_params[SKY_NUM_DEVPARAM];
+};
+
+/**
  * enum sky_drone_status - Drone status on charging pad.
  */
 enum sky_drone_status {
@@ -121,6 +129,8 @@ struct sky_conf {
 	unsigned subport;      /**< Servers subscribe port */
 	unsigned cliport;      /**< Clients command port */
 	unsigned pubport;      /**< Clients publish port */
+
+	struct sky_dev_params mux_hw1_params;
 
 	struct {
 		enum sky_psu_type type;
@@ -173,6 +183,10 @@ struct sky_dev_desc {
 	char portname[32];
 };
 
+#define version_major(v) (((v) >> 16) & 0xff)
+#define version_minor(v) (((v) >> 8) & 0xff)
+#define version_revis(v) ((v) & 0xff)
+
 #define foreach_devdesc(devdesc, head)		\
 	for (devdesc = head; devdesc; devdesc = devdesc->next)
 
@@ -196,14 +210,6 @@ struct sky_subscription {
 	void *data;
 	void (*on_state)(void *data, struct sky_charging_state *state);
 	unsigned interval_msecs;
-};
-
-/**
- * struct sky_dev_params - Device configuration parameters.
- */
-struct sky_dev_params {
-	uint32_t dev_params_bits;
-	uint32_t dev_params[SKY_NUM_DEVPARAM];
 };
 
 /**
