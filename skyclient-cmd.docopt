@@ -4,7 +4,7 @@ Usage:
     skysense-cli discover-broker               [<timeout-secs>]
     skysense-cli peer-info                       <addr> <port>
     skysense-cli list-devs                     [(<addr> <port>)]  [(--conffile <conff>)]
-    skysense-cli monitor <interval-ms> [--raw] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli monitor          [--pretty]   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli show-dev-params               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
@@ -18,6 +18,9 @@ Usage:
     skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
 
 Options:
+    --pretty - outputs charging status in pretty human readable format.
+
+Description:
     Skysense console client communicates with local and remote devices.
     Almost each command has non obligatory <addr> and <port> to execute
     command remotely on a server.  If <addr> and <port> are not specified

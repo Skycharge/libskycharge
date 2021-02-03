@@ -222,7 +222,7 @@ static void sky_print_charging_state(struct cli *cli,
 	snprintf(timestr + len, sizeof(timestr) - len,
 		 ".%03ld", tv.tv_usec/1000);
 
-	if (cli->raw) {
+	if (!cli->pretty) {
 		printf("%s\t%d\t%d\t%s\t%u\t%u",
 		       timestr, state->voltage, state->current,
 		       sky_devstate_to_str(state->dev_hw_state),
@@ -383,7 +383,7 @@ int main(int argc, char *argv[])
 		struct sky_subscription sub = {
 			.data = &cli,
 			.on_state = sky_on_charging_state,
-			.interval_msecs = strtol(cli.intervalms, NULL, 10),
+			.interval_msecs = 1000,
 		};
 
 		rc = sky_subscribe(dev, &sub);
