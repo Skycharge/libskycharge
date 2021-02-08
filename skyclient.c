@@ -223,7 +223,7 @@ static void sky_print_charging_state(struct cli *cli,
 		 ".%03ld", tv.tv_usec/1000);
 
 	if (!cli->pretty) {
-		printf("%s\t%d\t%d\t%s\t%u\t%u",
+		printf("%s\t%d\t%d\t%s\t%u\t%u\n",
 		       timestr, state->voltage, state->current,
 		       sky_devstate_to_str(state->dev_hw_state),
 		       state->bms.charge_perc, state->bms.charge_time);
@@ -280,7 +280,6 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	struct cli *cli = data;
 
 	sky_print_charging_state(cli, state);
-	printf("\n");
 }
 
 int main(int argc, char *argv[])
@@ -484,7 +483,7 @@ int main(int argc, char *argv[])
 			sky_err("sky_chargingstate(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-
+		cli.pretty = 1;
 		sky_print_charging_state(&cli, &state);
 	} else if (cli.reset) {
 		rc = sky_reset(dev);
