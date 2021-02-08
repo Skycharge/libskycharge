@@ -45,7 +45,6 @@ Description: command line utility to control charging pad
 
 Package: skysensed
 Architecture: any
-Conflicts: skybroker
 Depends: ${misc:Depends},
          ${shlibs:Depends},
 		 skysense-conf (>= ${binary:Version}),
@@ -60,7 +59,6 @@ Description: server to control charging pad
 
 Package: skybroker
 Architecture: any
-Conflicts: skysensed
 Depends: ${misc:Depends},
          ${shlibs:Depends},
 		 libzmq5,
