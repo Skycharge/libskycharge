@@ -245,6 +245,11 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	return 0;
 }
 
+void sky_confinit(struct sky_conf *cfg)
+{
+	memset(cfg, 0, sizeof(*cfg));
+}
+
 int sky_confparse(const char *path, struct sky_conf *cfg)
 {
 	FILE *fp;
@@ -252,7 +257,7 @@ int sky_confparse(const char *path, struct sky_conf *cfg)
 	size_t len = 0;
 	int rc = 0;
 
-	memset(cfg, 0, sizeof(*cfg));
+	sky_confinit(cfg);
 
 	fp = fopen(path, "r");
 	if (fp == NULL)
@@ -370,6 +375,8 @@ int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev_)
 
 void sky_devclose(struct sky_dev *dev)
 {
+	if (!dev)
+		return;
 	(void)sky_unsubscribe(dev);
 	get_devops(dev)->devclose(dev);
 }

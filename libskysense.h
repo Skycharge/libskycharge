@@ -278,6 +278,14 @@ static inline int sky_hw_is_charging(enum sky_dev_hw_state hw_state)
 }
 
 /**
+ * sky_confinit() - Inits generic configuration to zero.
+ * @cfg:        Conf structure to be zeroed out.
+ *
+ * Sets all values of the @cfg structure to zero.
+ */
+void sky_confinit(struct sky_conf *cfg);
+
+/**
  * sky_confparse() - Parse generic skysense configuration.
  * @path:       Path to config.
  * @cfg:        Conf structure to be filled in.
