@@ -289,45 +289,34 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
 	return -EOPNOTSUPP;
 }
 
-int sky_peerinfo(const struct sky_dev_conf *confs, size_t num,
-		 struct sky_peerinfo *peerinfos)
+int sky_peerinfo(const struct sky_dev_conf *conf,
+		 struct sky_peerinfo *peerinfo)
 {
 	struct sky_dev_ops *ops;
-	int i, rc = -EINVAL;
+	int rc = -EINVAL;
 
-	for (i = 0; i < num; i++) {
-		const struct sky_dev_conf *conf = &confs[i];
-		struct sky_peerinfo *peerinfo = &peerinfos[i];
-
-		foreach_devops(ops, devops) {
-			if (ops->contype != conf->contype)
-				continue;
-			rc = ops->peerinfo(ops, conf, peerinfo);
-			if (rc)
-				return rc;
-		}
+	foreach_devops(ops, devops) {
+		if (ops->contype != conf->contype)
+			continue;
+		return ops->peerinfo(ops, conf, peerinfo);
 	}
 
 	return rc;
 }
 
-int sky_devslist(const struct sky_dev_conf *confs, size_t num,
+int sky_devslist(const struct sky_dev_conf *conf,
 		 struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *head = NULL;
 	struct sky_dev_ops *ops;
-	int i, rc = -EINVAL;
+	int rc = -EINVAL;
 
-	for (i = 0; i < num; i++) {
-		const struct sky_dev_conf *conf = &confs[i];
-
-		foreach_devops(ops, devops) {
-			if (ops->contype != conf->contype)
-				continue;
-			rc = ops->devslist(ops, conf, &head);
-			if (rc)
-				goto err;
-		}
+	foreach_devops(ops, devops) {
+		if (ops->contype != conf->contype)
+			continue;
+		rc = ops->devslist(ops, conf, &head);
+		if (rc)
+			goto err;
 	}
 	if (rc)
 		/* No ops found */

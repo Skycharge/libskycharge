@@ -239,7 +239,7 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 	if (!rsp)
 		return -ENOMEM;
 
-	rc = sky_devslist(devconf, 1, &head);
+	rc = sky_devslist(devconf, &head);
 
 	rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
 	rsp->hdr.error = htole16(-rc);
@@ -1458,7 +1458,7 @@ int main(int argc, char *argv[])
 		sky_err("Can't create server sockets: %s\n", strerror(-rc));
 		goto deinit_avahi;
 	}
-	rc = sky_devslist(devconf, 1, &serv.devhead);
+	rc = sky_devslist(devconf, &serv.devhead);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		goto destroy_zocket;

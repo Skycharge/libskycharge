@@ -173,7 +173,7 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 
 	sky_prepare_conf(cli, &devconf);
 
-	rc = sky_devslist(&devconf, 1, devdescs);
+	rc = sky_devslist(&devconf, devdescs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		exit(-1);
@@ -330,7 +330,7 @@ int main(int argc, char *argv[])
 
 		sky_prepare_conf(&cli, &devconf);
 
-		rc = sky_peerinfo(&devconf, 1, &peerinfo);
+		rc = sky_peerinfo(&devconf, &peerinfo);
 		if (rc) {
 			sky_err("sky_peerinfo(): %s\n", strerror(-rc));
 			exit(-1);
