@@ -325,7 +325,7 @@ static int skydum_dronedetect(struct sky_dev *dev_,
 }
 
 static struct sky_dev_ops sky_dummy_devops = {
-	.contype = SKY_LOCAL,
+	.contype = SKY_DUMMY,
 	.peerinfo = skydum_peerinfo,
 	.devslist = skydum_devslist,
 	.devopen = skydum_devopen,

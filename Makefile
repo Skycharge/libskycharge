@@ -17,15 +17,9 @@ DEPS := $(SRCS:.c=.d)
 BINS := skybroker skysensed skybmsd skypsu skyhttpd skysense-cli
 
 LIBSKYCHARGE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
-		     libskybms.o libskydp.o bms-btle.o libskypsu.o libi2c/i2c.o \
-		     gpio.o
+		     libskysense-dummy.o libskybms.o libskydp.o bms-btle.o \
+		     libskypsu.o libi2c/i2c.o gpio.o
 LIBSKYCHARGE-LIBS := -lpthread -lserialport -lczmq -lzmq -luuid -lgps -lz
-
-# Put there "LIBSKYCHARGE-SRCS += libskysense-dummy.o" for testing.
-# Do not include the file if dpkg-buildpackage build is performed.
-ifndef DEB_BUILD_ARCH
--include Makefile.dummy
-endif
 
 ifeq ("$(origin V)", "command line")
   VERBOSE = $(V)

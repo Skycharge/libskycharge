@@ -15,8 +15,16 @@ static struct sky_dev_ops *devops;
 
 void __sky_register_devops(struct sky_dev_ops *ops)
 {
-       ops->next = devops;
-       devops = ops;
+	struct sky_dev_ops *other_ops;
+
+	foreach_devops(other_ops, devops) {
+		if (ops->contype == other_ops->contype) {
+			sky_err("Duplicate ops type: %d\n", ops->contype);
+			exit(1);
+		}
+	}
+	ops->next = devops;
+	devops = ops;
 }
 
 static void trim(char *s)
@@ -51,6 +59,15 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 	} else if ((str = strstr(line, "device-name="))) {
 		strncpy(cfg->devname, str + 12, sizeof(cfg->devname) - 1);
+
+	} else if ((str = strstr(line, "device-is-dummy="))) {
+		unsigned is_dummy;
+		rc = sscanf(str + 16, "%d", &is_dummy);
+		if (rc != 1)
+			return -ENODATA;
+
+		if (is_dummy)
+			cfg->contype = SKY_DUMMY;
 
 	} else if ((str = strstr(line, "broker-url="))) {
 		rc = sscanf(str + 11, "%64[^:]:%u,%u", cfg->hostname,

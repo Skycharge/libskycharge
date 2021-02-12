@@ -20,6 +20,7 @@ struct sky_dev;
 enum sky_con_type {
 	SKY_LOCAL  = 0,
 	SKY_REMOTE = 1,
+	SKY_DUMMY  = 2,
 };
 
 /**
