@@ -10,10 +10,10 @@ struct sky_dev_ops {
 			      struct sky_brokerinfo *brokerinfo,
 			      unsigned int timeout_ms);
 	int (*peerinfo)(const struct sky_dev_ops *ops,
-			const struct sky_dev_conf *conf,
+			const struct sky_conf *conf,
 			struct sky_peerinfo *peerinfo);
 	int (*devslist)(const struct sky_dev_ops *ops,
-			const struct sky_dev_conf *conf, struct sky_dev_desc **head);
+			const struct sky_conf *conf, struct sky_dev_desc **head);
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 	void (*devclose)(struct sky_dev *dev);
 	int (*paramsget)(struct sky_dev *dev, struct sky_dev_params *params);

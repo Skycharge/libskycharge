@@ -130,6 +130,7 @@ struct sky_conf {
 	unsigned cliport;      /**< Clients command port */
 	unsigned pubport;      /**< Clients publish port */
 
+	enum sky_con_type     contype;
 	struct sky_dev_params mux_hw1_params;
 
 	struct {
@@ -157,14 +158,6 @@ struct sky_conf {
 	} dp;
 };
 
-/**
- * struct sky_dev_conf - Device configuration options.
- */
-struct sky_dev_conf {
-	enum sky_con_type contype;
-	struct sky_conf   conf;
-};
-
 struct sky_dev_ops;
 struct sky_hw_ops;
 
@@ -173,7 +166,7 @@ struct sky_hw_ops;
  */
 struct sky_dev_desc {
 	struct sky_dev_desc *next;
-	struct sky_dev_conf devconf;
+	struct sky_conf   conf;
 	enum sky_dev_type dev_type;
 	const struct sky_dev_ops *dev_ops;
 	const struct sky_hw_ops *hw_ops;
@@ -327,7 +320,7 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
  *
  * -EINVAL invalid parameters.
  */
-int sky_peerinfo(const struct sky_dev_conf *conf,
+int sky_peerinfo(const struct sky_conf *conf,
 		 struct sky_peerinfo *peerinfo);
 
 /**
@@ -344,7 +337,7 @@ int sky_peerinfo(const struct sky_dev_conf *conf,
  * -EPERM  if operation is not permitted.
  * -ENOMEM if memory allocation failed.
  */
-int sky_devslist(const struct sky_dev_conf *conf,
+int sky_devslist(const struct sky_conf *conf,
 		 struct sky_dev_desc **list);
 
 /**

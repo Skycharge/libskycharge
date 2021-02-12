@@ -25,14 +25,14 @@ struct skydum_dev {
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
-			   const struct sky_dev_conf *conf,
+			   const struct sky_conf *conf,
 			   struct sky_peerinfo *peerinfo)
 {
 	return -EOPNOTSUPP;
 }
 
 static int skydum_devslist(const struct sky_dev_ops *ops,
-			   const struct sky_dev_conf *conf,
+			   const struct sky_conf *conf,
 			   struct sky_dev_desc **head)
 {
 	struct sky_dev_desc *dev;
@@ -43,7 +43,7 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 
 	dev->dev_type = SKY_INDOOR;
 	dev->firmware_version = 0x00010203;
-	dev->devconf = *conf;
+	dev->conf = *conf;
 	dev->dev_ops = ops;
 	strcpy(dev->portname, "dummy0");
 

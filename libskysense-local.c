@@ -563,7 +563,7 @@ static struct sky_hw_ops hw2_sky_ops = {
  */
 
 static int skyloc_peerinfo(const struct sky_dev_ops *ops,
-			   const struct sky_dev_conf *conf,
+			   const struct sky_conf *conf,
 			   struct sky_peerinfo *peerinfo)
 {
 	return -EOPNOTSUPP;
@@ -690,7 +690,7 @@ static int devprobe(struct sky_dev_desc *devdesc)
 }
 
 static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
-			   const struct sky_dev_conf *conf,
+			   const struct sky_conf *conf,
 			   struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *devdesc, *head = NULL, *tail = NULL;
@@ -725,7 +725,7 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 		}
 		strncpy(devdesc->portname, name, sizeof(devdesc->portname) - 1);
 		devdesc->dev_type = SKY_INDOOR;
-		devdesc->devconf = *conf;
+		devdesc->conf = *conf;
 		devdesc->dev_ops = dev_ops;
 		devdesc->hw_ops = hw_ops;
 		rc = devprobe(devdesc);

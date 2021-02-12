@@ -154,20 +154,20 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 }
 
 static void sky_prepare_conf(struct cli *cli, const char *user_uuid,
-			     struct sky_dev_conf *devconf)
+			     struct sky_conf *conf)
 {
 	int ret;
 
-	sky_confinit(&devconf->conf);
+	sky_confinit(conf);
 
-	devconf->contype = SKY_REMOTE;
+	conf->contype = SKY_REMOTE;
 	/* Expect valid uuid */
-	ret = uuid_parse(user_uuid, devconf->conf.usruuid);
+	ret = uuid_parse(user_uuid, conf->usruuid);
 	assert(!ret);
-	devconf->conf.cliport = strtol(cli->skyport, NULL, 10);
-	devconf->conf.subport = devconf->conf.cliport + 1;
-	strncpy(devconf->conf.hostname, cli->skyaddr,
-		sizeof(devconf->conf.hostname)-1);
+	conf->cliport = strtol(cli->skyport, NULL, 10);
+	conf->subport = conf->cliport + 1;
+	strncpy(conf->hostname, cli->skyaddr,
+		sizeof(conf->hostname)-1);
 }
 
 static int sky_find_and_open_dev(struct httpd *httpd,
@@ -176,15 +176,15 @@ static int sky_find_and_open_dev(struct httpd *httpd,
 				 struct sky_dev **pdev)
 {
 	struct sky_dev_desc *devdesc, *devdescs;
-	struct sky_dev_conf devconf;
+	struct sky_conf conf;
 	char dev_uuid[36];
 	int rc;
 
 	if (!device_uuid)
 		return -ENODEV;
 
-	sky_prepare_conf(&httpd->cli, user_uuid, &devconf);
-	rc = sky_devslist(&devconf, &devdescs);
+	sky_prepare_conf(&httpd->cli, user_uuid, &conf);
+	rc = sky_devslist(&conf, &devdescs);
 	if (rc)
 		return rc;
 
@@ -243,7 +243,7 @@ sky_devs_list_handler(struct httpd *httpd,
 		      unsigned int *http_status)
 {
 	struct sky_dev_desc *devdesc, *devdescs;
-	struct sky_dev_conf devconf;
+	struct sky_conf conf;
 
 	char *buffer = NULL;
 	int off = 0, size = 0;
@@ -257,8 +257,8 @@ sky_devs_list_handler(struct httpd *httpd,
 		return MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
 	}
 
-	sky_prepare_conf(&httpd->cli, user_uuid, &devconf);
-	rc = sky_devslist(&devconf, &devdescs);
+	sky_prepare_conf(&httpd->cli, user_uuid, &conf);
+	rc = sky_devslist(&conf, &devdescs);
 	ret = snprintf_buffer(&buffer, &off, &size,
 			      "{\n\t\"errno\": %d,\n\t\"devices\": [\n",
 			      -rc);

@@ -33,7 +33,7 @@ static int dp_is_drone_detected(struct sky_conf *conf)
 
 int dp_configure(const struct sky_dev_desc *desc)
 {
-	const struct sky_conf *conf = &desc->devconf.conf;
+	const struct sky_conf *conf = &desc->conf;
 	int lockfd, rc;
 
 	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
@@ -112,7 +112,7 @@ unlock:
 
 int dp_open(struct sky_dev *dev)
 {
-	struct sky_conf *conf = &dev->devdesc.devconf.conf;
+	struct sky_conf *conf = &dev->devdesc.conf;
 	const char* pin = conf->dp.gpio.open_pin;
 	int lockfd, rc;
 
@@ -170,7 +170,7 @@ unlock:
 
 int dp_close(struct sky_dev *dev)
 {
-	struct sky_conf *conf = &dev->devdesc.devconf.conf;
+	struct sky_conf *conf = &dev->devdesc.conf;
 	const char *pin = conf->dp.gpio.close_pin;
 	int lockfd, rc;
 
@@ -228,7 +228,7 @@ unlock:
 
 int dp_drone_detect(struct sky_dev *dev)
 {
-	struct sky_conf *conf = &dev->devdesc.devconf.conf;
+	struct sky_conf *conf = &dev->devdesc.conf;
 
 	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
 		return -ENODEV;

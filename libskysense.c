@@ -289,7 +289,7 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
 	return -EOPNOTSUPP;
 }
 
-int sky_peerinfo(const struct sky_dev_conf *conf,
+int sky_peerinfo(const struct sky_conf *conf,
 		 struct sky_peerinfo *peerinfo)
 {
 	struct sky_dev_ops *ops;
@@ -304,7 +304,7 @@ int sky_peerinfo(const struct sky_dev_conf *conf,
 	return rc;
 }
 
-int sky_devslist(const struct sky_dev_conf *conf,
+int sky_devslist(const struct sky_conf *conf,
 		 struct sky_dev_desc **out)
 {
 	struct sky_dev_desc *head = NULL;

@@ -119,12 +119,12 @@ static void unix_to_iso8601(double fixtime, char isotime[], size_t len)
 	(void)snprintf(isotime, len, "%s%sZ", timestr, strchr(fractstr,'.'));
 }
 
-static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
+static void sky_prepare_conf(struct cli *cli, struct sky_conf *conf)
 {
 	const char *conffile = cli->conff ?: CONFFILE;
 	int rc;
 
-	rc = sky_confparse(conffile, &devconf->conf);
+	rc = sky_confparse(conffile, conf);
 
 	if (cli->addr && cli->port) {
 		/* Remote client, config should exist and parsed successfully */
@@ -133,12 +133,12 @@ static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 			sky_err("sky_confparse(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		devconf->contype = SKY_REMOTE;
+		conf->contype = SKY_REMOTE;
 		/* TODO: we still get addr and port from command line */
-		devconf->conf.cliport = strtol(cli->port, NULL, 10);
-		devconf->conf.subport = devconf->conf.cliport + 1;
-		strncpy(devconf->conf.hostname, cli->addr,
-			sizeof(devconf->conf.hostname)-1);
+		conf->cliport = strtol(cli->port, NULL, 10);
+		conf->subport = conf->cliport + 1;
+		strncpy(conf->hostname, cli->addr,
+			sizeof(conf->hostname)-1);
 	} else {
 		/* Local client, config may be missing */
 
@@ -146,7 +146,7 @@ static void sky_prepare_conf(struct cli *cli, struct sky_dev_conf *devconf)
 			sky_err("sky_confparse(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		devconf->contype = SKY_LOCAL;
+		conf->contype = SKY_LOCAL;
 	}
 }
 
@@ -168,12 +168,12 @@ static struct sky_dev_desc *sky_find_devdesc_by_id(struct sky_dev_desc *head,
 static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 			    struct sky_dev_desc **devdescs)
 {
-	struct sky_dev_conf devconf;
+	struct sky_conf conf;
 	int rc;
 
-	sky_prepare_conf(cli, &devconf);
+	sky_prepare_conf(cli, &conf);
 
-	rc = sky_devslist(&devconf, devdescs);
+	rc = sky_devslist(&conf, devdescs);
 	if (rc) {
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		exit(-1);
@@ -325,18 +325,18 @@ int main(int argc, char *argv[])
 
 	} else if (cli.peerinfo) {
 		struct sky_peerinfo peerinfo;
-		struct sky_dev_conf devconf;
+		struct sky_conf conf;
 		int rc;
 
-		sky_prepare_conf(&cli, &devconf);
+		sky_prepare_conf(&cli, &conf);
 
-		rc = sky_peerinfo(&devconf, &peerinfo);
+		rc = sky_peerinfo(&conf, &peerinfo);
 		if (rc) {
 			sky_err("sky_peerinfo(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		printf("Remote peer %s:%d:\n", devconf.conf.hostname,
-		       devconf.conf.cliport);
+		printf("Remote peer %s:%d:\n", conf.hostname,
+		       conf.cliport);
 		printf("\tServer version:   %u.%u.%u\n",
 		       version_major(peerinfo.server_version),
 		       version_minor(peerinfo.server_version),
