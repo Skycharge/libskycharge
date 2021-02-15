@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <time.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #include <uuid/uuid.h>
 
@@ -272,9 +273,17 @@ int sky_confparse(const char *path, struct sky_conf *cfg)
 	FILE *fp;
 	char *line = NULL;
 	size_t len = 0;
-	int rc = 0;
+	struct stat st;
+	int rc;
 
 	sky_confinit(cfg);
+
+	rc = stat(path, &st);
+	if (rc)
+		return -errno;
+
+	if (S_IFREG != (st.st_mode & S_IFMT))
+		return -ENOENT;
 
 	fp = fopen(path, "r");
 	if (fp == NULL)
