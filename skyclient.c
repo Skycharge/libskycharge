@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
 		struct sky_dev_params params;
 
 		for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-			if (strcasestr(sky_devparam_to_str(i), cli.key))
+			if (!strcasecmp(sky_devparam_to_str(i), cli.key))
 				break;
 		}
 		if (i == SKY_NUM_DEVPARAM) {
