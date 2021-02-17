@@ -780,7 +780,6 @@ static void skyloc_devclose(struct sky_dev *dev_)
 	devclose(dev);
 }
 
-
 static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 {
 	struct skyloc_dev *dev;
@@ -974,24 +973,135 @@ static int skyloc_dronedetect(struct sky_dev *dev_,
 	return 0;
 }
 
+static bool skyloc_asyncreq_cancel(struct sky_async *async,
+				   struct sky_async_req *req)
+{
+	bool res = false;
+
+	if (req->next != req) {
+		/* Request still in the submit queue */
+		assert(!req->tag);
+		sky_asyncreq_del(req);
+		res = true;
+	}
+
+	return res;
+}
+
+static int skyloc_asyncopen(const struct sky_conf *conf,
+			    const struct sky_dev_ops *ops,
+			    struct sky_async **async_)
+{
+	struct sky_async *async;
+
+	async = calloc(1, sizeof(*async));
+	if (!async)
+		return -ENOMEM;
+
+	sky_async_init(conf, ops, async);
+
+	*async_ = async;
+
+	return 0;
+}
+
+static void skyloc_asyncclose(struct sky_async *async)
+{
+	while (!sky_async_empty(async)) {
+		struct sky_async_req *req;
+
+		req = sky_asyncreq_pop(async);
+		sky_asyncreq_complete(async, req, -EIO);
+	}
+	free(async);
+}
+
+static int skyloc_asyncfd(struct sky_async *async)
+{
+	/* Probably in future we support that */
+	return -EOPNOTSUPP;
+}
+
+static int skyloc_asyncreq_execute(struct sky_async *async,
+				   struct sky_async_req *req)
+{
+	int rc;
+
+	switch (req->type) {
+	case SKY_GET_DEV_PARAMS_REQ:
+		rc = skyloc_paramsget(req->dev, req->out.ptr);
+		break;
+	case SKY_SET_DEV_PARAMS_REQ:
+		rc = skyloc_paramsset(req->dev, req->in.ptr);
+		break;
+	case SKY_START_CHARGE_REQ:
+		rc = skyloc_chargestart(req->dev);
+		break;
+	case SKY_STOP_CHARGE_REQ:
+		rc = skyloc_chargestop(req->dev);
+		break;
+	case SKY_OPEN_COVER_REQ:
+		rc = skyloc_coveropen(req->dev);
+		break;
+	case SKY_CLOSE_COVER_REQ:
+		rc = skyloc_coverclose(req->dev);
+		break;
+	case SKY_RESET_DEV_REQ:
+		rc = skyloc_reset(req->dev);
+		break;
+	case SKY_CHARGING_STATE_REQ:
+		rc = skyloc_chargingstate(req->dev, req->out.ptr);
+		break;
+	case SKY_DEVS_LIST_REQ:
+		rc = skyloc_devslist(async->ops, async->conf, req->out.ptr);
+		break;
+	case SKY_PEERINFO_REQ:
+		rc = skyloc_peerinfo(async->ops, async->conf, req->out.ptr);
+		break;
+	case SKY_GPSDATA_REQ:
+		rc = skyloc_gpsdata(req->dev, req->out.ptr);
+		break;
+	case SKY_DRONEDETECT_REQ:
+		rc = skyloc_dronedetect(req->dev, req->out.ptr);
+		break;
+	default:
+		/* Consider fatal */
+		sky_err("Unknown request: %d\n", req->type);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int skyloc_asyncexecute(struct sky_async *async, bool wait)
+{
+	int completed = 0;
+
+	while (!sky_async_empty(async)) {
+		struct sky_async_req *req;
+		int rc;
+
+		req = sky_asyncreq_pop(async);
+		rc = skyloc_asyncreq_execute(async, req);
+		sky_asyncreq_complete(async, req, rc);
+		completed++;
+	}
+
+	return completed;
+}
+
 static struct sky_dev_ops sky_local_devops = {
-	.contype = SKY_LOCAL,
-	.peerinfo = skyloc_peerinfo,
-	.devslist = skyloc_devslist,
-	.devopen = skyloc_devopen,
-	.devclose = skyloc_devclose,
-	.paramsget = skyloc_paramsget,
-	.paramsset = skyloc_paramsset,
-	.chargingstate = skyloc_chargingstate,
-	.subscribe = skyloc_subscribe,
-	.unsubscribe = skyloc_unsubscribe,
+	.contype           = SKY_LOCAL,
+	.asyncopen         = skyloc_asyncopen,
+	.asyncclose        = skyloc_asyncclose,
+	.asyncexecute      = skyloc_asyncexecute,
+	.asyncfd           = skyloc_asyncfd,
+	.asyncreq_cancel   = skyloc_asyncreq_cancel,
+	.devopen           = skyloc_devopen,
+	.devclose          = skyloc_devclose,
+	.subscribe         = skyloc_subscribe,
+	.unsubscribe       = skyloc_unsubscribe,
 	.subscription_work = skyloc_subscription_work,
-	.reset = skyloc_reset,
-	.chargestart = skyloc_chargestart,
-	.chargestop = skyloc_chargestop,
-	.coveropen = skyloc_coveropen,
-	.coverclose = skyloc_coverclose,
-	.gpsdata = skyloc_gpsdata,
-	.dronedetect = skyloc_dronedetect,
 };
 sky_register_devops(&sky_local_devops);

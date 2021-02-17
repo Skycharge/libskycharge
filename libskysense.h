@@ -2,6 +2,7 @@
 #define LIBSKYSENSE_H
 
 #include <stdlib.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <netinet/in.h>
 
@@ -13,6 +14,11 @@ extern "C" {
  * struct sky_dev - Opaque device context.
  */
 struct sky_dev;
+
+/**
+ * struct sky_async - Opaque async context.
+ */
+struct sky_async;
 
 /**
  * enum sky_con_type - Connection type.
@@ -263,6 +269,47 @@ struct sky_gpsdata {
 };
 
 /**
+ * union sky_async_storage - Storage for keeping all possible results structures
+ *                           of asynchronous commands.
+ */
+union sky_async_storage {
+	struct sky_peerinfo       peerinfo;
+	struct sky_dev_desc       *devdescs;
+	struct sky_dev_params     params;
+	struct sky_charging_state state;
+	struct sky_gpsdata        gpsdata;
+	enum sky_drone_status     status;
+};
+
+struct sky_async_req;
+
+/**
+ * Completion of a response of the asynchronous request.
+ */
+typedef void (sky_async_completion_t)(struct sky_async_req *req);
+
+/**
+ * struct sky_async_req - Request for asynchronous commands.
+ */
+struct sky_async_req {
+	struct sky_async_req   *next;
+	struct sky_async_req   *prev;
+	sky_async_completion_t *completion;
+	struct sky_dev         *dev;
+	const uint8_t          *usruuid;
+	unsigned int           type;
+	unsigned int           tag;  /* response tag */
+	struct {
+		const void *ptr;
+	}                    in;
+	struct {
+		void   *ptr;
+		bool   completed;
+		int    rc;
+	}                    out;
+};
+
+/**
  * sky_hw_is_charging() - returns true if hardware is in charge state
  */
 static inline int sky_hw_is_charging(enum sky_dev_hw_state hw_state)
@@ -292,157 +339,84 @@ void sky_confinit(struct sky_conf *cfg);
 int sky_confparse(const char *path, struct sky_conf *cfg);
 
 /**
- * sky_discoverbroker() - Discover broker on the local network.
- * @brokerinfo: Broker infor to be filled in.
- * @timeout_ms: Timeout in ms.
+ * sky_asyncopen() - Opens asynchronous context.
+ * @conf:       Generic device configuration.
+ * @async:      Output of asynchronous context.
  *
- * Function fills in @brokerinfo and returns 0 if skybroker was
- * disovered, otherwise -ENONET is returned.
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -ENONET      skybroker is not on the network
- * -EOPNOTSUPP  library does not support any remote access
- */
-int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
-		       unsigned int timeout_ms);
-
-/**
- * sky_peerinfo() - Fills in peer information.
- * @conf:      Device configuration.
- * @peerinfo:  Peerinfo structure.
- *
- * Function fills in @peerinfo for specified @conf.  @conf->contype
- * must be @SKY_REMOTE, otherwise -EOPNOTSUPP is returned.
+ * Opens asynchronous context.
  *
  * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EINVAL invalid parameters.
+ * Returns 0 on success and <0 otherwise.
  */
-int sky_peerinfo(const struct sky_conf *conf,
-		 struct sky_peerinfo *peerinfo);
+int sky_asyncopen(const struct sky_conf *conf,
+		  struct sky_async **async);
 
 /**
- * sky_devslist() - Returns list of found devices.
- * @conf:     Device configuration.
- * @list:     Fills list of all found devices.
+ * sky_asyncdeinit() - Closes asynchronous context.
+ * @async:      Asynchronous context.
  *
- * Functions scans for all Sky devices and puts them to the
- * list provided as an argument.  Do not forget to call sky_devsfree().
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EPERM  if operation is not permitted.
- * -ENOMEM if memory allocation failed.
+ * Closes asynchronous context.
  */
-int sky_devslist(const struct sky_conf *conf,
-		 struct sky_dev_desc **list);
+void sky_asyncclose(struct sky_async *async);
 
 /**
- * sky_devsfree() - Frees allocated list.
- * @list:     Devices list.
+ * sky_asyncfd() - Returns fd of this asynchronous context.
+ * @async:      Asynchronous context.
  *
- * Frees a list which was allocated by sky_devslist().
+ * Returns file descriptor of the asynchronous context.
+ * Using this file descriptor usual polling on incomming events
+ * can be done, so POLLIN events should be expected.
+ * After POLLIN events are received sky_asyncexecute() should be
+ * invoked with @false as @wait param.
  */
-void sky_devsfree(struct sky_dev_desc *list);
+int sky_asyncfd(struct sky_async *async);
 
 /**
- * sky_devopen() - Opens a device and returns its context.
- * @devdesc:   Device descriptor.
- * @dev:       Output pointer for storing device context.
+ * sky_asyncexecute() - Executes all asynchronous requests and completes
+ *                      corresponding responses.
+ * @async:       Asynchronous context.
+ * @wait:        Wait for submitted requests to complete
  *
- * Function opens a device, described by device descriptor.  In case
- * of success valid device context will be returned in @dev argument.
- * Do not forget to close the device with calling sky_devclose().
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EPERM  if operation is not permitted.
- * -ENOMEM if memory allocation failed.
+ * Returns >=0 indicating number of completed requests and received
+ * responses. Returns <0 in case of error. Error means mostly likely
+ * unrecoverably error and the whole asynchronous context has to be
+ * closed and all memory freed.
  */
-int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
+int sky_asyncexecute(struct sky_async *async, bool wait);
 
 /**
- * sky_devclose() - Closes a device context.
- * @dev:	Device context to be closed.
- *
- * Function disconnects from a device and frees all corresponding memory.
+ * sky_asyncreq_completionset() - Sets completion handler.
+ * @req:           Asynchronous request.
+ * @completion:    Completion handler to be associated with the request.
  */
-void sky_devclose(struct sky_dev *dev);
+void sky_asyncreq_completionset(struct sky_async_req *req,
+				sky_async_completion_t *completion);
 
 /**
- * sky_devinfo() - Returns device information.
- * @dev:		Device context.
- * @devdesc:	Device structure to be filled in.
+ * sky_asyncreq_useruuidset() - Sets user uuid for authentication.
+ * @req:        Asynchronous request.
+ * @uruuid:     User uuid, 16 bytes.
  *
- * Function fills in information about a device to which connection is
- * established (local or remote).
- *
- * E.g. that is needed to get a valid device type to be sure that functions
- * sky_coveropen() and sky_coverclose() will function.
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EPERM  if operation is not permitted.
- * -ECONNRESET connection reset by peer (in case of remote connection)
+ * NOTE: @usruuid is not copied, but is used as a pointer, so
+ *       memory should be available during live time of the
+ *       request.
  */
-int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc);
+void sky_asyncreq_useruuidset(struct sky_async_req *req,
+			      const uint8_t *usruuid);
 
 /**
- * sky_paramsget() - Fetches device configuration parameters.
- * @dev:	Device context.
- * @params:	Device params to be filled in.
+ * sky_asyncreq_cancel() - Cancels submitted request.
+ * @async:      Asynchronous context.
+ * @req:        Request to be cancelled.
  *
- * Accesses the hardware and fetches current parameters of a device.
- * Required bits of a device parameter must be set in a bitfield
- * @params->dev_params_bits.
+ * Cancel request which was previously submitted to the asynchronous
+ * context queue.
  *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
- * -EPERM  if operation is not permitted.
- * -ECONNRESET connection reset by peer (in case of remote connection)
+ * Returns true if request was successfully cancelled or false
+ * in case if request was already completed.
  */
-int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params);
-
-/**
- * sky_paramsset() - Saves device configuration parameters.
- * @dev:	Device context.
- * @params:	Device params to be saved.
- *
- * Accesses the hardware and saves parameters of a device.
- * Required bits of a device parameter must be set in a bitfield
- * @params->dev_params_bits.
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
- * -EPERM  if operation is not permitted.
- * -ECONNRESET connection reset by peer (in case of remote connection)
- */
-int sky_paramsset(struct sky_dev *dev, const struct sky_dev_params *params);
-
-/**
- * sky_chargingstate() - Charging device state.
- * @dev:	Device context.
- * @state:	Charging device state.
- *
- * Returns charging state of a device.
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EPERM  if operation is not permitted.
- * -ECONNRESET connection reset by peer (in case of remote connection)
- */
-int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state);
+bool sky_asyncreq_cancel(struct sky_async *async,
+			 struct sky_async_req *req);
 
 /**
  * sky_subscribe() - Subscribe on @sky_charging_state update events.
@@ -481,6 +455,212 @@ int sky_subscribe(struct sky_dev *dev, struct sky_subscription *sub);
 int sky_unsubscribe(struct sky_dev *dev);
 
 /**
+ * sky_discoverbroker() - Discover broker on the local network.
+ * @brokerinfo: Broker infor to be filled in.
+ * @timeout_ms: Timeout in ms.
+ *
+ * Function fills in @brokerinfo and returns 0 if skybroker was
+ * disovered, otherwise -ENONET is returned.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENONET      skybroker is not on the network
+ * -EOPNOTSUPP  library does not support any remote access
+ */
+int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
+		       unsigned int timeout_ms);
+
+/**
+ * sky_peerinfo() - Fills in peer information.
+ * @conf:      Device configuration.
+ * @peerinfo:  Peerinfo structure.
+ *
+ * Function fills in @peerinfo for specified @conf.  @conf->contype
+ * must be @SKY_REMOTE, otherwise -EOPNOTSUPP is returned.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameters.
+ */
+int sky_peerinfo(const struct sky_conf *conf,
+		 struct sky_peerinfo *peerinfo);
+
+/**
+ * sky_asyncreq_peerinfo() - Inits and submits an asynchronous request to
+ *                           receive the peer information.
+ *
+ * See synchronous sky_peerinfo() variant for details.
+ */
+int sky_asyncreq_peerinfo(struct sky_async *async,
+			  struct sky_peerinfo *peerinfo,
+			  struct sky_async_req *req);
+
+/**
+ * sky_devslist() - Returns list of found devices.
+ * @conf:     Device configuration.
+ * @list:     Fills list of all found devices.
+ *
+ * Functions scans for all Sky devices and puts them to the
+ * list provided as an argument.  Do not forget to call sky_devsfree().
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EPERM  if operation is not permitted.
+ * -ENOMEM if memory allocation failed.
+ */
+int sky_devslist(const struct sky_conf *conf,
+		 struct sky_dev_desc **list);
+
+/**
+ * sky_asyncreq_devslist() - Inits and submits an asynchronous request to
+ *                           fetch a list of devices.
+ *
+ * See synchronous sky_devslist() variant for details.
+ */
+int sky_asyncreq_devslist(struct sky_async *async,
+			   struct sky_dev_desc **list,
+			   struct sky_async_req *req);
+
+/**
+ * sky_devsfree() - Frees allocated list.
+ * @list:     Devices list.
+ *
+ * Frees a list which was allocated by sky_devslist().
+ */
+void sky_devsfree(struct sky_dev_desc *list);
+
+/**
+ * sky_devopen() - Opens a device and returns its context.
+ * @devdesc:   Device descriptor.
+ * @dev:       Output pointer for storing device context.
+ *
+ * Function opens a device, described by device descriptor.  In case
+ * of success valid device context will be returned in @dev argument.
+ * Do not forget to close the device with calling sky_devclose().
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EPERM  if operation is not permitted.
+ * -ENOMEM if memory allocation failed.
+ */
+int sky_devopen(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
+
+/**
+ * sky_devclose() - Closes a device context.
+ * @dev:	Device context to be closed.
+ *
+ * Function disconnects from a device and frees all corresponding memory.
+ */
+void sky_devclose(struct sky_dev *dev);
+
+/**
+ * sky_devinfo() - Returns device information.
+ * @dev:	Device context.
+ * @devdesc:	Device structure to be filled in.
+ *
+ * Function fills in information about a device to which connection is
+ * established (local or remote).
+ *
+ * E.g. that is needed to get a valid device type to be sure that functions
+ * sky_coveropen() and sky_coverclose() will function.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc);
+
+/**
+ * sky_paramsget() - Fetches device configuration parameters.
+ * @dev:	Device context.
+ * @params:	Device params to be filled in.
+ *
+ * Accesses the hardware and fetches current parameters of a device.
+ * Required bits of a device parameter must be set in a bitfield
+ * @params->dev_params_bits.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params);
+
+/**
+ * sky_asyncreq_paramsget() - Inits and submits an asynchronous request to
+ *                            fetch device configuration parameters.
+ *
+ * See synchronous sky_paramsget() variant for details.
+ */
+int sky_asyncreq_paramsget(struct sky_async *async,
+			   struct sky_dev *dev,
+			   struct sky_dev_params *params,
+			   struct sky_async_req *req);
+
+/**
+ * sky_paramsset() - Saves device configuration parameters.
+ * @dev:	Device context.
+ * @params:	Device params to be saved.
+ *
+ * Accesses the hardware and saves parameters of a device.
+ * Required bits of a device parameter must be set in a bitfield
+ * @params->dev_params_bits.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_paramsset(struct sky_dev *dev, const struct sky_dev_params *params);
+
+/**
+ * sky_asyncreq_paramsset() - Inits and submits an asynchronous request to
+ *                            save device configuration parameters.
+ *
+ * See synchronous sky_paramsset() variant for details.
+ */
+int sky_asyncreq_paramsset(struct sky_async *async,
+			   struct sky_dev *dev,
+			   const struct sky_dev_params *params,
+			   struct sky_async_req *req);
+
+/**
+ * sky_chargingstate() - Charging device state.
+ * @dev:	Device context.
+ * @state:	Charging device state.
+ *
+ * Returns charging state of a device.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state);
+
+/**
+ * sky_asyncreq_chargingstate() - Inits and submits an asynchronous request to
+ *                                get charging device state.
+ *
+ * See synchronous sky_chargingstate() variant for details.
+ */
+int sky_asyncreq_chargingstate(struct sky_async *async,
+			       struct sky_dev *dev,
+			       struct sky_charging_state *state,
+			       struct sky_async_req *req);
+
+/**
  * sky_reset() - Resets device.
  * @dev:	Device context.
  *
@@ -493,6 +673,16 @@ int sky_unsubscribe(struct sky_dev *dev);
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
 int sky_reset(struct sky_dev *dev);
+
+/**
+ * sky_asyncreq_reset() - Inits and submits an asynchronous request to
+ *                        reset a device.
+ *
+ * See synchronous sky_reset() variant for details.
+ */
+int sky_asyncreq_reset(struct sky_async *async,
+		       struct sky_dev *dev,
+		       struct sky_async_req *req);
 
 /**
  * sky_chargestart() - Starts device charge.
@@ -509,6 +699,16 @@ int sky_reset(struct sky_dev *dev);
 int sky_chargestart(struct sky_dev *dev);
 
 /**
+ * sky_asyncreq_chargestart() - Inits and submits an asynchronous request to
+ *                              start charging.
+ *
+ * See synchronous sky_chargestart() variant for details.
+ */
+int sky_asyncreq_chargestart(struct sky_async *async,
+			     struct sky_dev *dev,
+			     struct sky_async_req *req);
+
+/**
  * sky_chargestop() - Stops device charge.
  * @dev:	Device context.
  *
@@ -521,6 +721,16 @@ int sky_chargestart(struct sky_dev *dev);
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
 int sky_chargestop(struct sky_dev *dev);
+
+/**
+ * sky_asyncreq_chargestop() - Inits and submits an asynchronous request to
+ *                             stop charging.
+ *
+ * See synchronous sky_chargestop() variant for details.
+ */
+int sky_asyncreq_chargestop(struct sky_async *async,
+			    struct sky_dev *dev,
+			    struct sky_async_req *req);
 
 /**
  * sky_coveropen() - Opens a charging pad cover.
@@ -538,6 +748,16 @@ int sky_chargestop(struct sky_dev *dev);
 int sky_coveropen(struct sky_dev *dev);
 
 /**
+ * sky_asyncreq_coveropen() - Inits and submits an asynchronous request to
+ *                            open a cover.
+ *
+ * See synchronous sky_coveropen() variant for details.
+ */
+int sky_asyncreq_coveropen(struct sky_async *async,
+			   struct sky_dev *dev,
+			   struct sky_async_req *req);
+
+/**
  * sky_coverclose() - Closes a charging pad cover.
  * @dev:	Device context.
  *
@@ -551,6 +771,16 @@ int sky_coveropen(struct sky_dev *dev);
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
 int sky_coverclose(struct sky_dev *dev);
+
+/**
+ * sky_asyncreq_coverclose() - Inits and submits an asynchronous request to
+ *                             close a cover.
+ *
+ * See synchronous sky_coverclose() variant for details.
+ */
+int sky_asyncreq_coverclose(struct sky_async *async,
+			    struct sky_dev *dev,
+			    struct sky_async_req *req);
 
 /**
  * sky_gpsdata() - Gets the data collected by the GPS module.
@@ -569,6 +799,17 @@ int sky_coverclose(struct sky_dev *dev);
 int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata);
 
 /**
+ * sky_asyncreq_gpsdata() - Inits and submits an asynchronous request to
+ *                          get the gps data.
+ *
+ * See synchronous sky_gpsdata() variant for details.
+ */
+int sky_asyncreq_gpsdata(struct sky_async *async,
+			 struct sky_dev *dev,
+			 struct sky_gpsdata *gpsdata,
+			 struct sky_async_req *req);
+
+/**
  * sky_dronedetect() - Detects drone on charging pad and returns status.
  * @dev:	Device context.
  * @status:	Drone status on charging pad.
@@ -580,6 +821,17 @@ int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata);
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
 int sky_dronedetect(struct sky_dev *dev, enum sky_drone_status *status);
+
+/**
+ * sky_asyncreq_dronedetect() - Inits and submits an asynchronous request to
+ *                              detect a drone on the charging pad.
+ *
+ * See synchronous sky_dronedetect() variant for details.
+ */
+int sky_asyncreq_dronedetect(struct sky_async *async,
+			     struct sky_dev *dev,
+			     enum sky_drone_status *status,
+			     struct sky_async_req *req);
 
 #ifdef __cplusplus
 }

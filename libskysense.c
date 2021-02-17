@@ -11,6 +11,7 @@
 
 #include "libskysense-pri.h"
 #include "types.h"
+#include "skyproto.h"
 
 static struct sky_dev_ops *devops;
 
@@ -315,48 +316,380 @@ int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,
 	return -EOPNOTSUPP;
 }
 
-int sky_peerinfo(const struct sky_conf *conf,
-		 struct sky_peerinfo *peerinfo)
+int sky_asyncopen(const struct sky_conf *conf,
+		  struct sky_async **async)
 {
 	struct sky_dev_ops *ops;
-	int rc = -EINVAL;
 
 	foreach_devops(ops, devops) {
 		if (ops->contype != conf->contype)
 			continue;
-		return ops->peerinfo(ops, conf, peerinfo);
+		return ops->asyncopen(conf, ops, async);
 	}
+
+	return -EOPNOTSUPP;
+}
+
+void sky_asyncclose(struct sky_async *async)
+{
+	if (async)
+		async->ops->asyncclose(async);
+}
+
+int sky_asyncfd(struct sky_async *async)
+{
+	return async->ops->asyncfd(async);
+}
+
+int sky_asyncexecute(struct sky_async *async, bool wait)
+{
+	return async->ops->asyncexecute(async, wait);
+}
+
+void sky_asyncreq_completionset(struct sky_async_req *req,
+				sky_async_completion_t *completion)
+{
+	req->completion = completion;
+}
+
+void sky_asyncreq_useruuidset(struct sky_async_req *req,
+			      const uint8_t *usruuid)
+{
+	req->usruuid = usruuid;
+}
+
+bool sky_asyncreq_cancel(struct sky_async *async, struct sky_async_req *req)
+{
+	return async->ops->asyncreq_cancel(async, req);
+}
+
+int sky_asyncreq_peerinfo(struct sky_async *async,
+			  struct sky_peerinfo *peerinfo,
+			  struct sky_async_req *req)
+{
+	struct sky_dev *dev = NULL;
+
+	sky_asyncreq_init(SKY_PEERINFO_REQ, dev, NULL, peerinfo, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_devslist(struct sky_async *async,
+			  struct sky_dev_desc **list,
+			  struct sky_async_req *req)
+{
+	struct sky_dev *dev = NULL;
+
+	*list = NULL;
+
+	sky_asyncreq_init(SKY_DEVS_LIST_REQ, dev, NULL, list, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_paramsget(struct sky_async *async,
+			   struct sky_dev *dev,
+			   struct sky_dev_params *params,
+			   struct sky_async_req *req)
+{
+	if (!params->dev_params_bits)
+		return -EINVAL;
+
+	sky_asyncreq_init(SKY_GET_DEV_PARAMS_REQ, dev, params, params, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_paramsset(struct sky_async *async,
+			   struct sky_dev *dev,
+			   const struct sky_dev_params *params,
+			   struct sky_async_req *req)
+{
+	if (!params->dev_params_bits)
+		return -EINVAL;
+
+	sky_asyncreq_init(SKY_SET_DEV_PARAMS_REQ, dev, params, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_chargingstate(struct sky_async *async,
+			       struct sky_dev *dev,
+			       struct sky_charging_state *state,
+			       struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_CHARGING_STATE_REQ, dev, NULL, state, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_reset(struct sky_async *async,
+		       struct sky_dev *dev,
+		       struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_RESET_DEV_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_chargestart(struct sky_async *async,
+			     struct sky_dev *dev,
+			     struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_START_CHARGE_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_chargestop(struct sky_async *async,
+			    struct sky_dev *dev,
+			    struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_STOP_CHARGE_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_coveropen(struct sky_async *async,
+			   struct sky_dev *dev,
+			   struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_OPEN_COVER_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_coverclose(struct sky_async *async,
+			    struct sky_dev *dev,
+			    struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_CLOSE_COVER_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_gpsdata(struct sky_async *async,
+			 struct sky_dev *dev,
+			 struct sky_gpsdata *gpsdata,
+			 struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_GPSDATA_REQ, dev, NULL, gpsdata, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_dronedetect(struct sky_async *async,
+			     struct sky_dev *dev,
+			     enum sky_drone_status *status,
+			     struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_DRONEDETECT_REQ, dev, NULL, status, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+static int sky_asyncexecute_on_stack(struct sky_async *async,
+				     struct sky_async_req *req)
+{
+	int rc;
+
+	rc = sky_asyncexecute(async, true);
+	if (rc < 0)
+		return rc;
+
+	return req->out.rc;
+}
+
+int sky_peerinfo(const struct sky_conf *conf,
+		 struct sky_peerinfo *peerinfo)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_peerinfo(async, peerinfo, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
 
 	return rc;
 }
 
 int sky_devslist(const struct sky_conf *conf,
-		 struct sky_dev_desc **out)
+		 struct sky_dev_desc **list)
 {
-	struct sky_dev_desc *head = NULL;
-	struct sky_dev_ops *ops;
-	int rc = -EINVAL;
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
 
-	foreach_devops(ops, devops) {
-		if (ops->contype != conf->contype)
-			continue;
-		rc = ops->devslist(ops, conf, &head);
-		if (rc)
-			goto err;
-	}
-	if (rc)
-		/* No ops found */
-		return rc;
-	if (head == NULL)
-		/* No devices found */
-		return -ENODEV;
+	rc = sky_asyncopen(conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_devslist(async, list, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
 
-	*out = head;
+	return rc;
+}
 
-	return 0;
+int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
 
-err:
-	sky_devsfree(head);
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_paramsget(async, dev, params, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_paramsset(struct sky_dev *dev, const struct sky_dev_params *params)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_paramsset(async, dev, params, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_chargingstate(async, dev, state, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_reset(struct sky_dev *dev)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_reset(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_chargestart(struct sky_dev *dev)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_chargestart(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_chargestop(struct sky_dev *dev)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_chargestop(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_coveropen(struct sky_dev *dev)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_coveropen(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_coverclose(struct sky_dev *dev)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_coverclose(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_gpsdata(async, dev, gpsdata, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_dronedetect(struct sky_dev *dev, enum sky_drone_status *status)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_dronedetect(async, dev, status, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
 
 	return rc;
 }
@@ -401,21 +734,6 @@ int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc)
 	*devdesc = dev->devdesc;
 
 	return 0;
-}
-
-int sky_paramsget(struct sky_dev *dev, struct sky_dev_params *params)
-{
-	return get_devops(dev)->paramsget(dev, params);
-}
-
-int sky_paramsset(struct sky_dev *dev, const struct sky_dev_params *params)
-{
-	return get_devops(dev)->paramsset(dev, params);
-}
-
-int sky_chargingstate(struct sky_dev *dev, struct sky_charging_state *state)
-{
-	return get_devops(dev)->chargingstate(dev, state);
 }
 
 static inline unsigned long long msecs_epoch(void)
@@ -491,39 +809,4 @@ int sky_unsubscribe(struct sky_dev *dev)
 	get_devops(dev)->unsubscribe(dev);
 
 	return 0;
-}
-
-int sky_reset(struct sky_dev *dev)
-{
-	return get_devops(dev)->reset(dev);
-}
-
-int sky_chargestart(struct sky_dev *dev)
-{
-	return get_devops(dev)->chargestart(dev);
-}
-
-int sky_chargestop(struct sky_dev *dev)
-{
-	return get_devops(dev)->chargestop(dev);
-}
-
-int sky_coveropen(struct sky_dev *dev)
-{
-	return get_devops(dev)->coveropen(dev);
-}
-
-int sky_coverclose(struct sky_dev *dev)
-{
-	return get_devops(dev)->coverclose(dev);
-}
-
-int sky_gpsdata(struct sky_dev *dev, struct sky_gpsdata *gpsdata)
-{
-	return get_devops(dev)->gpsdata(dev, gpsdata);
-}
-
-int sky_dronedetect(struct sky_dev *dev, enum sky_drone_status *status)
-{
-	return get_devops(dev)->dronedetect(dev, status);
 }

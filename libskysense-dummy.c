@@ -324,24 +324,135 @@ static int skydum_dronedetect(struct sky_dev *dev_,
 	return rc;
 }
 
+static bool skydum_asyncreq_cancel(struct sky_async *async,
+				   struct sky_async_req *req)
+{
+	bool res = false;
+
+	if (req->next != req) {
+		/* Request still in the submit queue */
+		assert(!req->tag);
+		sky_asyncreq_del(req);
+		res = true;
+	}
+
+	return res;
+}
+
+static int skydum_asyncopen(const struct sky_conf *conf,
+			    const struct sky_dev_ops *ops,
+			    struct sky_async **async_)
+{
+	struct sky_async *async;
+
+	async = calloc(1, sizeof(*async));
+	if (!async)
+		return -ENOMEM;
+
+	sky_async_init(conf, ops, async);
+
+	*async_ = async;
+
+	return 0;
+}
+
+static void skydum_asyncclose(struct sky_async *async)
+{
+	while (!sky_async_empty(async)) {
+		struct sky_async_req *req;
+
+		req = sky_asyncreq_pop(async);
+		sky_asyncreq_complete(async, req, -EIO);
+	}
+	free(async);
+}
+
+static int skydum_asyncfd(struct sky_async *async)
+{
+	/* Probably in future we support that */
+	return -EOPNOTSUPP;
+}
+
+static int skydum_asyncreq_execute(struct sky_async *async,
+				   struct sky_async_req *req)
+{
+	int rc;
+
+	switch (req->type) {
+	case SKY_GET_DEV_PARAMS_REQ:
+		rc = skydum_paramsget(req->dev, req->out.ptr);
+		break;
+	case SKY_SET_DEV_PARAMS_REQ:
+		rc = skydum_paramsset(req->dev, req->in.ptr);
+		break;
+	case SKY_START_CHARGE_REQ:
+		rc = skydum_chargestart(req->dev);
+		break;
+	case SKY_STOP_CHARGE_REQ:
+		rc = skydum_chargestop(req->dev);
+		break;
+	case SKY_OPEN_COVER_REQ:
+		rc = skydum_coveropen(req->dev);
+		break;
+	case SKY_CLOSE_COVER_REQ:
+		rc = skydum_coverclose(req->dev);
+		break;
+	case SKY_RESET_DEV_REQ:
+		rc = skydum_reset(req->dev);
+		break;
+	case SKY_CHARGING_STATE_REQ:
+		rc = skydum_chargingstate(req->dev, req->out.ptr);
+		break;
+	case SKY_DEVS_LIST_REQ:
+		rc = skydum_devslist(async->ops, async->conf, req->out.ptr);
+		break;
+	case SKY_PEERINFO_REQ:
+		rc = skydum_peerinfo(async->ops, async->conf, req->out.ptr);
+		break;
+	case SKY_GPSDATA_REQ:
+		rc = skydum_gpsdata(req->dev, req->out.ptr);
+		break;
+	case SKY_DRONEDETECT_REQ:
+		rc = skydum_dronedetect(req->dev, req->out.ptr);
+		break;
+	default:
+		/* Consider fatal */
+		sky_err("Unknown request: %d\n", req->type);
+		rc = -EINVAL;
+		break;
+	}
+
+	return rc;
+}
+
+static int skydum_asyncexecute(struct sky_async *async, bool wait)
+{
+	int completed = 0;
+
+	while (!sky_async_empty(async)) {
+		struct sky_async_req *req;
+		int rc;
+
+		req = sky_asyncreq_pop(async);
+		rc = skydum_asyncreq_execute(async, req);
+		sky_asyncreq_complete(async, req, rc);
+		completed++;
+	}
+
+	return completed;
+}
+
 static struct sky_dev_ops sky_dummy_devops = {
-	.contype = SKY_DUMMY,
-	.peerinfo = skydum_peerinfo,
-	.devslist = skydum_devslist,
-	.devopen = skydum_devopen,
-	.devclose = skydum_devclose,
-	.paramsget = skydum_paramsget,
-	.paramsset = skydum_paramsset,
-	.chargingstate = skydum_chargingstate,
-	.subscribe = skydum_subscribe,
-	.unsubscribe = skydum_unsubscribe,
+	.contype           = SKY_DUMMY,
+	.asyncopen         = skydum_asyncopen,
+	.asyncclose        = skydum_asyncclose,
+	.asyncexecute      = skydum_asyncexecute,
+	.asyncfd           = skydum_asyncfd,
+	.asyncreq_cancel   = skydum_asyncreq_cancel,
+	.devopen           = skydum_devopen,
+	.devclose          = skydum_devclose,
+	.subscribe         = skydum_subscribe,
+	.unsubscribe       = skydum_unsubscribe,
 	.subscription_work = skydum_subscription_work,
-	.reset = skydum_reset,
-	.chargestart = skydum_chargestart,
-	.chargestop = skydum_chargestop,
-	.coveropen = skydum_coveropen,
-	.coverclose = skydum_coverclose,
-	.gpsdata = skydum_gpsdata,
-	.dronedetect = skydum_dronedetect,
 };
 sky_register_devops(&sky_dummy_devops);
