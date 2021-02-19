@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <time.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <unistd.h>
@@ -15,6 +14,7 @@
 
 #include "skyhttpd-cmd.h"
 #include "libskysense.h"
+#include "libskysense-pri.h"
 #include "types.h"
 #include "rbtree.h"
 #include "hash.h"
@@ -527,18 +527,6 @@ struct httpd_handler {
 	{ "/cover-open",      sky_cover_open_handler   },
 	{ "/cover-close",     sky_cover_close_handler  },
 };
-
-static inline unsigned long long msecs_epoch(void)
-{
-	struct timespec ts;
-	unsigned long long msecs;
-
-	clock_gettime(CLOCK_REALTIME, &ts);
-	msecs  = ts.tv_sec * 1000ull;
-	msecs += ts.tv_nsec / 1000000ull;
-
-	return msecs;
-}
 
 static inline int cmp_timeouts(const struct rb_node *a_,
 			       const struct rb_node *b_)

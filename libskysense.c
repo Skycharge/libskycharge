@@ -736,18 +736,6 @@ int sky_devinfo(struct sky_dev *dev, struct sky_dev_desc *devdesc)
 	return 0;
 }
 
-static inline unsigned long long msecs_epoch(void)
-{
-	struct timespec ts;
-	unsigned long long msecs;
-
-	clock_gettime(CLOCK_REALTIME, &ts);
-	msecs  = ts.tv_sec * 1000ull;
-	msecs += ts.tv_nsec / 1000000ull;
-
-	return msecs;
-}
-
 static void *subscription_work(void *data)
 {
 	struct sky_charging_state state;

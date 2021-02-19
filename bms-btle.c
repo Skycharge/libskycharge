@@ -59,18 +59,6 @@ static inline uint8_t crc8(unsigned char *data, size_t n)
 	return cks;
 }
 
-static inline unsigned long long msecs_epoch(void)
-{
-	struct timespec ts;
-	unsigned long long msecs;
-
-	clock_gettime(CLOCK_REALTIME, &ts);
-	msecs  = ts.tv_sec * 1000ull;
-	msecs += ts.tv_nsec / 1000000ull;
-
-	return msecs;
-}
-
 static inline int sprc_to_errno(enum sp_return sprc)
 {
 	switch (sprc) {

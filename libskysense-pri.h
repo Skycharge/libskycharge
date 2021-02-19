@@ -3,6 +3,7 @@
 
 #include <search.h>
 #include <assert.h>
+#include <time.h>
 
 #include "libskysense.h"
 #include "skyproto.h"
@@ -47,6 +48,18 @@ struct sky_async {
 };
 
 extern void __sky_register_devops(struct sky_dev_ops *ops);
+
+static inline unsigned long long msecs_epoch(void)
+{
+	struct timespec ts;
+	unsigned long long msecs;
+
+	clock_gettime(CLOCK_REALTIME, &ts);
+	msecs  = ts.tv_sec * 1000ull;
+	msecs += ts.tv_nsec / 1000000ull;
+
+	return msecs;
+}
 
 #define sky_register_devops(ops)                                       \
        __attribute__((constructor)) static void register_devops(void)  \
