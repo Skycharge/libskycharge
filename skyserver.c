@@ -1378,6 +1378,10 @@ static int sky_avahi_publish_device(struct sky_server *serv,
 	char name[128];
 	int rc;
 
+	if (!serv->avahi)
+		/* Ignore */
+		return 0;
+
 	rc = snprintf(name, sizeof(name), "Skycharge Device ");
 	uuid_unparse(serv->conf.devuuid, name + rc);
 
@@ -1450,8 +1454,8 @@ int main(int argc, char *argv[])
 
 	rc = avahi_init(&serv.avahi);
 	if (rc) {
+		/* Not fatal */
 		sky_err("Can't create avahi: %s\n", strerror(-rc));
-		goto deinit_psu;
 	}
 	rc = sky_zocket_create(&serv, serv.cli.addr, atoi(serv.cli.port));
 	if (rc) {
