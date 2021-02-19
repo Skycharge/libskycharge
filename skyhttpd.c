@@ -542,11 +542,9 @@ static void devs_list_skycompletion(struct sky_async_req *skyreq)
 			ret = snprintf_buffer(&buffer, &off, &size,
 					      "\t\t{\n"
 					      "\t\t\t\"device-uuid\": \"%s\",\n"
-					      "\t\t\t\"device-name\": \"%s\",\n"
-					      "\t\t\t\"port-name\": \"%s\"\n"
+					      "\t\t\t\"device-name\": \"%s\"\n"
 					      "\t\t}%s\n",
 					      dev_uuid, devdesc->dev_name,
-					      devdesc->portname,
 					      devdesc->next ? "," : "");
 			if (ret)
 				goto err;
