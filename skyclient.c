@@ -354,29 +354,22 @@ int main(int argc, char *argv[])
 
 	if (cli.listdevs) {
 		size_t max_devname = strlen("DEV-NAME");
-		size_t max_portname = strlen("PORT-NAME");
 		struct sky_dev_desc *devdesc;
 
 		foreach_devdesc(devdesc, devdescs) {
-			max_portname = max(strnlen(devdesc->portname,
-						   sizeof(devdesc->portname)),
-					   max_portname);
 			max_devname = max(strnlen(devdesc->dev_name,
 						  sizeof(devdesc->dev_name)),
 					  max_devname);
 		}
 
 		printf("Found sky devices:\n");
-		printf("\t  DEV-ID  %*s  %*s\n",
-		       (int)max_devname, "DEV-NAME",
-		       (int)max_portname, "PORT-NAME");
+		printf("\t  DEV-ID  %*s\n",
+		       (int)max_devname, "DEV-NAME");
 		foreach_devdesc(devdesc, devdescs) {
-			printf("\t%08X  %*s  %*s\n",
+			printf("\t%08X  %*s\n",
 			       sky_dev_desc_crc32(devdesc),
 			       (int)max_devname,
-			       devdesc->dev_name,
-			       (int)max_portname,
-			       devdesc->portname);
+			       devdesc->dev_name);
 		}
 	} else if (cli.monitor) {
 		struct sky_subscription sub = {
@@ -500,7 +493,6 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		printf("Device portname:  %s\n", devdesc.portname);
 		printf("Firmware version: %d.%d.%d\n",
 		       version_major(devdesc.firmware_version),
 		       version_minor(devdesc.firmware_version),
