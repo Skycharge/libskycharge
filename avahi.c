@@ -86,6 +86,8 @@ int avahi_init(struct avahi **pavahi)
 	AvahiClient *client;
 	int err;
 
+	*pavahi = NULL;
+
 	avahi = calloc(1, sizeof(*avahi));
 	if (!avahi)
 		return -ENOMEM;
@@ -112,6 +114,9 @@ int avahi_init(struct avahi **pavahi)
 
 void avahi_deinit(struct avahi *avahi)
 {
+	if (!avahi)
+		return;
+
 	avahi_entry_group_reset(avahi->group);
 	avahi_client_free(avahi->client);
 	avahi_simple_poll_free(avahi->poll);
