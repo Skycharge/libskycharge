@@ -51,7 +51,7 @@ enum {
 	MAX_CONNECTIONS       = 512,
 	MAX_BAD_AUTH_ATTEMPTS = 3,
 	CHILL_OUT_BAD_AUTH_MS = 10000, /* 10 secs should be enough */
-	MAX_REQUESTS_RATE     = 1,     /* per 1000 ms */
+	MAX_REQUESTS_RATE     = 3,     /* per 1000 ms */
 	_1_SEC_IN_MS          = 1000,
 };
 
