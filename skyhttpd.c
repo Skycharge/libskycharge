@@ -388,8 +388,8 @@ sky_charging_state_handler(struct httpd *httpd,
 	if (!rc) {
 		ret = snprintf_buffer(&buffer, &off, &size,
 				      "\t\t\t\"state\": \"%s\",\n"
-				      "\t\t\t\"voltage_mV\": %d,\n"
-				      "\t\t\t\"current_mA\": %d,\n"
+				      "\t\t\t\"voltage_mv\": %d,\n"
+				      "\t\t\t\"current_ma\": %d,\n"
 				      "\t\t\t\"bms\": {\n"
 				      "\t\t\t\t\"charge-percentage\": %d,\n"
 				      "\t\t\t\t\"charge-time-sec\": %d\n"
