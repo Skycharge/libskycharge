@@ -42,7 +42,7 @@
 
 #define HELP								\
 	"<html><head><title>Skycharge API</title></head>\n"		\
-	"<body>Please contact <a href=\"mailto:info@skycharge.de\">info@skycharge.de</a> " \
+	"<body>Please contact <a href=\"mailto:support@skycharge.de\">support@skycharge.de</a> " \
 	"for detailed API description.</body>\n</html>\n"
 
 enum {
@@ -58,7 +58,9 @@ enum {
 #define SKY_FD_SET_T(name) \
 	unsigned long name[MAX_CONNECTIONS / (8 * sizeof(long))]
 #define SKY_FD_SET(fd, set) \
-	set[(fd) / (8 * sizeof(long)] |= 1<<((fd) % (8 * sizeof(long)))
+	set[(fd) / (8 * sizeof(long))] |= 1<<((fd) % (8 * sizeof(long)))
+#define SKY_FD_ISSET(fd, set) \
+	set[(fd) / (8 * sizeof(long))] & (1<<((fd) % (8 * sizeof(long))))
 #define SKY_FD_ZERO(set) \
 	memset(set, 0, sizeof(*set))
 
@@ -73,19 +75,33 @@ struct httpd_con_addr {
 };
 
 struct httpd {
-	struct cli         cli;
-	struct MHD_Daemon  *mhd;
-	struct hash_table  addrs_hash; /* addrs hashed by sin_addr */
-	struct rb_root     addrs_root; /* addrs to expire */
+	struct cli           cli;
+	struct sky_conf      conf;
+	struct MHD_Daemon    *mhd;
+	struct sky_async     *async;
+	struct hash_table    addrs_hash; /* addrs hashed by sin_addr */
+	struct rb_root       addrs_root; /* addrs to expire */
+	struct MHD_Response  *emergency_resp;
+	bool                 need_processing;
 };
 
-typedef struct MHD_Response *(httpd_handler_t)(struct httpd *,
-					       struct httpd_con_addr *,
-					       const char *method,
-					       const char *upload_data,
-					       const char *user_uuid,
-					       const char *device_uuid,
-					       unsigned int *http_status);
+struct httpd_request;
+typedef int (create_dev_request_t)(struct httpd_request *devslist_req);
+
+struct httpd_request {
+	struct httpd            *httpd;
+	struct MHD_Connection   *httpcon;
+	struct sky_async_req    skyreq;
+	union sky_async_storage skystruct;
+	uuid_t                  user_uuid;
+	uuid_t                  device_uuid;
+	create_dev_request_t    *create_dev_req;
+};
+
+typedef int (httpd_handler_t)(struct httpd *,
+			      struct MHD_Connection *con,
+			      const uuid_t user_uuid,
+			      const uuid_t device_uuid);
 
 static bool http_is_get(const char *method)
 {
@@ -153,44 +169,17 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 	}
 }
 
-static void sky_prepare_conf(struct cli *cli, const char *user_uuid,
-			     struct sky_conf *conf)
-{
-	int ret;
-
-	sky_confinit(conf);
-
-	conf->contype = SKY_REMOTE;
-	/* Expect valid uuid */
-	ret = uuid_parse(user_uuid, conf->usruuid);
-	assert(!ret);
-	conf->cliport = strtol(cli->skyport, NULL, 10);
-	conf->subport = conf->cliport + 1;
-	strncpy(conf->hostname, cli->skyaddr,
-		sizeof(conf->hostname)-1);
-}
-
-static int sky_find_and_open_dev(struct httpd *httpd,
-				 const char *user_uuid,
-				 const char *device_uuid,
+static int sky_find_and_open_dev(const struct sky_dev_desc *devdescs,
+				 const uuid_t device_uuid,
 				 struct sky_dev **pdev)
 {
-	struct sky_dev_desc *devdesc, *devdescs;
-	struct sky_conf conf;
-	char dev_uuid[36];
-	int rc;
+	const struct sky_dev_desc *devdesc;
 
 	if (!device_uuid)
 		return -ENODEV;
 
-	sky_prepare_conf(&httpd->cli, user_uuid, &conf);
-	rc = sky_devslist(&conf, &devdescs);
-	if (rc)
-		return rc;
-
 	foreach_devdesc(devdesc, devdescs) {
-		uuid_unparse(devdesc->dev_uuid, dev_uuid);
-		if (strcmp(dev_uuid, device_uuid))
+		if (memcmp(devdesc->dev_uuid, device_uuid, sizeof(uuid_t)))
 			continue;
 
 		return sky_devopen(devdesc, pdev);
@@ -233,40 +222,256 @@ static int snprintf_buffer(char **pbuffer, int *poff, int *psize,
 	return 0;
 }
 
-static struct MHD_Response *
-sky_devs_list_handler(struct httpd *httpd,
-		      struct httpd_con_addr *addr,
-		      const char *method,
-		      const char *upload_data,
-		      const char *user_uuid,
-		      const char *device_uuid,
-		      unsigned int *http_status)
+static int
+httpd_create_emergency_response(struct httpd *httpd)
 {
-	struct sky_dev_desc *devdesc, *devdescs;
-	struct sky_conf conf;
+	httpd->emergency_resp = MHD_create_response_from_buffer(0, NULL,
+					MHD_RESPMEM_PERSISTENT);
+	if (!httpd->emergency_resp)
+		return -ENOMEM;
+
+	return 0;
+}
+
+static void
+httpd_destroy_emergency_response(struct httpd *httpd)
+{
+	MHD_destroy_response(httpd->emergency_resp);
+}
+
+static bool httpd_get_and_clear_need_processing(struct httpd *httpd)
+{
+	bool need_processing;
+
+	need_processing = httpd->need_processing;
+	httpd->need_processing = false;
+	return need_processing;
+}
+
+static void httpd_set_need_processing(struct httpd *httpd)
+{
+	httpd->need_processing = true;
+}
+
+static int
+httpd_queue_response(struct httpd *httpd, struct MHD_Connection *con,
+		     int http_status, struct MHD_Response *resp)
+{
+	httpd_set_need_processing(httpd);
+	return MHD_queue_response(con, http_status, resp);
+}
+
+static void
+httpd_queue_emergency_response(struct httpd *httpd,
+			       struct MHD_Connection *con)
+{
+	(void)httpd_queue_response(httpd, con, MHD_HTTP_SERVICE_UNAVAILABLE,
+				   httpd->emergency_resp);
+}
+
+static void
+httpd_queue_response_and_free_buffer(struct httpd *httpd,
+				     struct MHD_Connection *con,
+				     char *buffer, size_t len)
+{
+	struct MHD_Response *resp;
+
+	resp = MHD_create_response_from_buffer(len, buffer, MHD_RESPMEM_MUST_FREE);
+	if (!resp) {
+		free(buffer);
+		httpd_queue_emergency_response(httpd, con);
+		return;
+	}
+	(void)httpd_queue_response(httpd, con, MHD_HTTP_OK, resp);
+	MHD_destroy_response(resp);
+}
+
+static void
+httpd_queue_json_response(struct httpd *httpd,
+			  struct MHD_Connection *con,
+			  int rc)
+{
+	char *buffer = NULL;
+	int off = 0, size = 0;
+	int ret;
+
+	ret = snprintf_buffer(&buffer, &off, &size, "{\n\t\"errno\": %d\n}\n",
+			      -rc);
+	if (ret) {
+		httpd_queue_emergency_response(httpd, con);
+		return;
+	}
+	httpd_queue_response_and_free_buffer(httpd, con, buffer, off);
+}
+
+static int
+devs_list_create_composite_request(struct httpd *httpd,
+				   struct MHD_Connection *con,
+				   const uuid_t user_uuid,
+				   const uuid_t device_uuid,
+				   create_dev_request_t *create_dev_req,
+				   sky_async_completion_t *skycompletion)
+{
+	struct httpd_request *req;
+	int rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req)
+		return -ENOMEM;
+
+	req->httpd   = httpd;
+	req->httpcon = con;
+	req->create_dev_req = create_dev_req;
+	memcpy(req->user_uuid, user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, device_uuid, sizeof(uuid_t));
+
+	rc = sky_asyncreq_devslist(httpd->async, &req->skystruct.devdescs,
+				   &req->skyreq);
+	if (rc) {
+		free(req);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, skycompletion);
+	httpd_set_need_processing(httpd);
+
+	return 0;
+}
+
+static void
+devs_list_composite_skycompletion(struct sky_async_req *skyreq)
+{
+	struct httpd_request *req;
+	int rc;
+
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+
+	if (!rc && req->create_dev_req) {
+		rc = req->create_dev_req(req);
+	}
+	if (rc) {
+		httpd_queue_json_response(req->httpd, req->httpcon, rc);
+		MHD_resume_connection(req->httpcon);
+	}
+	sky_devsfree(req->skystruct.devdescs);
+	free(req);
+}
+
+static void
+dev_cmd_skycompletion(struct sky_async_req *skyreq)
+{
+	struct httpd_request *req;
+	int rc;
+
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	sky_devclose(skyreq->dev);
+
+	httpd_queue_json_response(req->httpd, req->httpcon, rc);
+	MHD_resume_connection(req->httpcon);
+	free(req);
+}
+
+static int
+dev_cmd_create_request(int (*devcmd)(struct sky_async *async,
+				     struct sky_dev *dev,
+				     struct sky_async_req *req),
+		       struct httpd *httpd,
+		       struct MHD_Connection *con,
+		       const uuid_t user_uuid,
+		       const uuid_t device_uuid,
+		       struct sky_dev_desc *devdescs)
+{
+	struct httpd_request *req;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = httpd;
+	req->httpcon = con;
+	memcpy(req->user_uuid, user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, device_uuid, sizeof(uuid_t));
+
+	rc = devcmd(httpd->async, dev, &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, dev_cmd_skycompletion);
+	httpd_set_need_processing(httpd);
+
+	return 0;
+}
+
+static int
+charge_start_create_request(struct httpd_request *req)
+{
+	return dev_cmd_create_request(sky_asyncreq_chargestart,
+				      req->httpd, req->httpcon,
+				      req->user_uuid, req->device_uuid,
+				      req->skystruct.devdescs);
+}
+
+static int
+charge_stop_create_request(struct httpd_request *req)
+{
+	return dev_cmd_create_request(sky_asyncreq_chargestop,
+				      req->httpd, req->httpcon,
+				      req->user_uuid, req->device_uuid,
+				      req->skystruct.devdescs);
+}
+
+static int
+cover_open_create_request(struct httpd_request *req)
+{
+	return dev_cmd_create_request(sky_asyncreq_coveropen,
+				      req->httpd, req->httpcon,
+				      req->user_uuid, req->device_uuid,
+				      req->skystruct.devdescs);
+}
+
+static int
+cover_close_create_request(struct httpd_request *req)
+{
+	return dev_cmd_create_request(sky_asyncreq_coverclose,
+				      req->httpd, req->httpcon,
+				      req->user_uuid, req->device_uuid,
+				      req->skystruct.devdescs);
+}
+
+static void devs_list_skycompletion(struct sky_async_req *skyreq)
+{
+	struct httpd_request *req;
 
 	char *buffer = NULL;
 	int off = 0, size = 0;
-	int rc, ret;
+	int ret;
 
-	/* Not needed for devs-list request */
-	(void)device_uuid;
-
-	if (!http_is_get(method)) {
-		*http_status = MHD_HTTP_BAD_REQUEST;
-		return MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-	}
-
-	sky_prepare_conf(&httpd->cli, user_uuid, &conf);
-	rc = sky_devslist(&conf, &devdescs);
+	req = container_of(skyreq, typeof(*req), skyreq);
 	ret = snprintf_buffer(&buffer, &off, &size,
 			      "{\n\t\"errno\": %d,\n\t\"devices\": [\n",
-			      -rc);
+			      -skyreq->out.rc);
 	if (ret)
 		goto err;
 
-	if (!rc) {
-		foreach_devdesc(devdesc, devdescs) {
+	if (!skyreq->out.rc) {
+		struct sky_dev_desc *devdesc;
+
+		foreach_devdesc(devdesc, req->skystruct.devdescs) {
 			char dev_uuid[36];
 
 			uuid_unparse(devdesc->dev_uuid, dev_uuid);
@@ -287,41 +492,42 @@ sky_devs_list_handler(struct httpd *httpd,
 	if (ret)
 		goto err;
 
-	*http_status = MHD_HTTP_OK;
-	return MHD_create_response_from_buffer(off, buffer, MHD_RESPMEM_MUST_FREE);
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	sky_devsfree(req->skystruct.devdescs);
+	MHD_resume_connection(req->httpcon);
+	free(req);
+	return;
 
 err:
 	free(buffer);
-	return NULL;
+	goto out;
 }
 
-static struct MHD_Response *
-sky_charging_params_handler(struct httpd *httpd,
-			    struct httpd_con_addr *addr,
-			    const char *method,
-			    const char *upload_data,
-			    const char *user_uuid,
-			    const char *device_uuid,
-			    unsigned int *http_status)
+static int
+devs_list_http_handler(struct httpd *httpd,
+		       struct MHD_Connection *con,
+		       const uuid_t user_uuid,
+		       const uuid_t device_uuid)
 {
-	struct sky_dev *dev = NULL;
-	struct sky_dev_params params = {
-		/* Get all params */
-		.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1
-	};
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  NULL, devs_list_skycompletion);
+}
 
+static void charging_params_skycompletion(struct sky_async_req *skyreq)
+{
+	struct sky_dev_params *params;
+	struct httpd_request *req;
 	char *buffer = NULL;
 	int off = 0, size = 0;
-	int i, rc, ret;
+	int i, ret, rc;
 
-	if (!http_is_get(method)) {
-		*http_status = MHD_HTTP_BAD_REQUEST;
-		return MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-	}
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	sky_devclose(skyreq->dev);
 
-	rc = sky_find_and_open_dev(httpd, user_uuid, device_uuid, &dev);
-	if (!rc)
-		rc = sky_paramsget(dev, &params);
+	params = &req->skystruct.params;
 
 	ret = snprintf_buffer(&buffer, &off, &size,
 			      "{\n\t\"errno\": %d,\n\t\"params\": {\n",
@@ -334,7 +540,7 @@ sky_charging_params_handler(struct httpd *httpd,
 			ret = snprintf_buffer(&buffer, &off, &size,
 					      "\t\t\t\"%s\": %d%s\n",
 					      sky_devparam_to_str(i),
-					      params.dev_params[i],
+					      params->dev_params[i],
 					      i + 1 < SKY_NUM_DEVPARAM ? "," : "");
 			if (ret)
 				goto err;
@@ -344,40 +550,31 @@ sky_charging_params_handler(struct httpd *httpd,
 	if (ret)
 		goto err;
 
-	sky_devclose(dev);
-	*http_status = MHD_HTTP_OK;
-	return MHD_create_response_from_buffer(off, buffer, MHD_RESPMEM_MUST_FREE);
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	MHD_resume_connection(req->httpcon);
+	free(req);
+	return;
 
 err:
 	free(buffer);
-	sky_devclose(dev);
-	return NULL;
+	goto out;
 }
 
-static struct MHD_Response *
-sky_charging_state_handler(struct httpd *httpd,
-			   struct httpd_con_addr *addr,
-			   const char *method,
-			   const char *upload_data,
-			   const char *user_uuid,
-			   const char *device_uuid,
-			   unsigned int *http_status)
+static void charging_state_skycompletion(struct sky_async_req *skyreq)
 {
-	struct sky_dev *dev = NULL;
-	struct sky_charging_state state;
-
+	struct sky_charging_state *state;
+	struct httpd_request *req;
 	char *buffer = NULL;
 	int off = 0, size = 0;
-	int rc, ret;
+	int ret, rc;
 
-	if (!http_is_get(method)) {
-		*http_status = MHD_HTTP_BAD_REQUEST;
-		return MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-	}
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	sky_devclose(skyreq->dev);
 
-	rc = sky_find_and_open_dev(httpd, user_uuid, device_uuid, &dev);
-	if (!rc)
-		rc = sky_chargingstate(dev, &state);
+	state = &req->skystruct.state;
 
 	ret = snprintf_buffer(&buffer, &off, &size,
 			      "{\n\t\"errno\": %d,\n\t\"charging-state\": {\n",
@@ -394,11 +591,11 @@ sky_charging_state_handler(struct httpd *httpd,
 				      "\t\t\t\t\"charge-percentage\": %d,\n"
 				      "\t\t\t\t\"charge-time-sec\": %d\n"
 				      "\t\t\t}\n",
-				      sky_devstate_to_str(state.dev_hw_state),
-				      state.voltage,
-				      state.current,
-				      state.bms.charge_perc,
-				      state.bms.charge_time);
+				      sky_devstate_to_str(state->dev_hw_state),
+				      state->voltage,
+				      state->current,
+				      state->bms.charge_perc,
+				      state->bms.charge_time);
 		if (ret)
 			goto err;
 	}
@@ -406,110 +603,161 @@ sky_charging_state_handler(struct httpd *httpd,
 	if (ret)
 		goto err;
 
-	sky_devclose(dev);
-	*http_status = MHD_HTTP_OK;
-	return MHD_create_response_from_buffer(off, buffer, MHD_RESPMEM_MUST_FREE);
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	MHD_resume_connection(req->httpcon);
+	free(req);
+	return;
 
 err:
 	free(buffer);
-	sky_devclose(dev);
-	return NULL;
+	goto out;
 }
 
-static struct MHD_Response *
-sky_dev_cmd_handler(int (*devcmd)(struct sky_dev *dev),
-		    struct httpd *httpd,
-		    struct httpd_con_addr *addr,
-		    const char *method,
-		    const char *upload_data,
-		    const char *user_uuid,
-		    const char *device_uuid,
-		    unsigned int *http_status)
+static int
+charging_params_create_request(struct httpd_request *devslist_req)
 {
-	struct sky_dev *dev = NULL;
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct httpd_request *req;
+	struct sky_dev *dev;
+	int rc;
 
-	char *buffer = NULL;
-	int off = 0, size = 0;
-	int rc, ret;
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
 
-	if (!http_is_get(method)) {
-		*http_status = MHD_HTTP_BAD_REQUEST;
-		return MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
 	}
 
-	rc = sky_find_and_open_dev(httpd, user_uuid, device_uuid, &dev);
-	if (!rc)
-		rc = devcmd(dev);
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
 
-	ret = snprintf_buffer(&buffer, &off, &size, "{\n\t\"errno\": %d\n}\n",
-			      -rc);
-	if (ret)
-		goto err;
+	/* Get all params */
+	req->skystruct.params.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1;
 
-	sky_devclose(dev);
-	*http_status = MHD_HTTP_OK;
-	return MHD_create_response_from_buffer(off, buffer, MHD_RESPMEM_MUST_FREE);
+	rc = sky_asyncreq_paramsget(req->httpd->async, dev,
+				    &req->skystruct.params, &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
 
-err:
-	free(buffer);
-	sky_devclose(dev);
-	return NULL;
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, charging_params_skycompletion);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
 }
 
-static struct MHD_Response *
-sky_charge_start_handler(struct httpd *httpd,
-			 struct httpd_con_addr *addr,
-			 const char *method,
-			 const char *upload_data,
-			 const char *user_uuid,
-			 const char *device_uuid,
-			 unsigned int *http_status)
+static int
+charging_state_create_request(struct httpd_request *devslist_req)
 {
-	return sky_dev_cmd_handler(sky_chargestart,
-				   httpd, addr, method, upload_data, user_uuid,
-				   device_uuid, http_status);
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct httpd_request *req;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
+
+	rc = sky_asyncreq_chargingstate(devslist_req->httpd->async, dev,
+					&req->skystruct.state, &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, charging_state_skycompletion);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
 }
 
-static struct MHD_Response *
-sky_charge_stop_handler(struct httpd *httpd,
-			struct httpd_con_addr *addr,
-			const char *method,
-			const char *upload_data,
-			const char *user_uuid,
-			const char *device_uuid,
-			unsigned int *http_status)
+static int
+charging_params_http_handler(struct httpd *httpd,
+			     struct MHD_Connection *con,
+			     const uuid_t user_uuid,
+			     const uuid_t device_uuid)
 {
-	return sky_dev_cmd_handler(sky_chargestop,
-				   httpd, addr, method, upload_data, user_uuid,
-				   device_uuid, http_status);
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  charging_params_create_request,
+						  devs_list_composite_skycompletion);
 }
 
-static struct MHD_Response *
-sky_cover_open_handler(struct httpd *httpd,
-		       struct httpd_con_addr *addr,
-		       const char *method,
-		       const char *upload_data,
-		       const char *user_uuid,
-		       const char *device_uuid,
-		       unsigned int *http_status)
+static int
+charging_state_http_handler(struct httpd *httpd,
+			    struct MHD_Connection *con,
+			    const uuid_t user_uuid,
+			    const uuid_t device_uuid)
 {
-	return sky_dev_cmd_handler(sky_coveropen,
-				   httpd, addr, method, upload_data, user_uuid,
-				   device_uuid, http_status);
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  charging_state_create_request,
+						  devs_list_composite_skycompletion);
 }
 
-static struct MHD_Response *
-sky_cover_close_handler(struct httpd *httpd,
-			struct httpd_con_addr *addr,
-			const char *method,
-			const char *upload_data,
-			const char *user_uuid,
-			const char *device_uuid,
-			unsigned int *http_status)
+static int
+charge_start_http_handler(struct httpd *httpd,
+			  struct MHD_Connection *con,
+			  const uuid_t user_uuid,
+			  const uuid_t device_uuid)
 {
-	return sky_dev_cmd_handler(sky_coverclose,
-				   httpd, addr, method, upload_data, user_uuid,
-				   device_uuid, http_status);
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  charge_start_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
+charge_stop_http_handler(struct httpd *httpd,
+			 struct MHD_Connection *con,
+			 const uuid_t user_uuid,
+			 const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  charge_stop_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
+cover_open_http_handler(struct httpd *httpd,
+			struct MHD_Connection *con,
+			const uuid_t user_uuid,
+			const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  cover_open_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
+cover_close_http_handler(struct httpd *httpd,
+			 struct MHD_Connection *con,
+			 const uuid_t user_uuid,
+			 const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  cover_close_create_request,
+						  devs_list_composite_skycompletion);
 }
 
 struct httpd_handler {
@@ -517,15 +765,15 @@ struct httpd_handler {
 	httpd_handler_t *handler;
 } handlers[] = {
 	/* Status & state */
-	{ "/devs-list",       sky_devs_list_handler       },
-	{ "/charging-params", sky_charging_params_handler },
-	{ "/charging-state",  sky_charging_state_handler  },
+	{ "/devs-list",       devs_list_http_handler       },
+	{ "/charging-params", charging_params_http_handler },
+	{ "/charging-state",  charging_state_http_handler  },
 
 	/* Commands */
-	{ "/charge-start",    sky_charge_start_handler },
-	{ "/charge-stop",     sky_charge_stop_handler  },
-	{ "/cover-open",      sky_cover_open_handler   },
-	{ "/cover-close",     sky_cover_close_handler  },
+	{ "/charge-start",    charge_start_http_handler },
+	{ "/charge-stop",     charge_stop_http_handler  },
+	{ "/cover-open",      cover_open_http_handler   },
+	{ "/cover-close",     cover_close_http_handler  },
 };
 
 static inline int cmp_timeouts(const struct rb_node *a_,
@@ -678,10 +926,9 @@ static bool httpd_too_many_bad_auth_attempts(struct httpd_con_addr *addr)
 }
 
 static bool httpd_authenticate(struct httpd *httpd, struct httpd_con_addr *addr,
-			       const char *user_uuid)
+			       const char *user_uuid_str, uuid_t user_uuid)
 {
-	uuid_t uuid;
-	if (user_uuid && !uuid_parse(user_uuid, uuid))
+	if (user_uuid_str && !uuid_parse(user_uuid_str, user_uuid))
 		/* TODO: need to add real authentication */
 		return true;
 
@@ -757,9 +1004,10 @@ httpd_access_handler_call(void *arg,
 	struct httpd_con_addr *addr;
 	struct MHD_Response *resp;
 
-	const char *user_uuid;
-	const char *device_uuid;
+	const char *user_uuid_str;
+	const char *device_uuid_str;
 
+	uuid_t user_uuid = {}, device_uuid = {};
 	unsigned int http_status;
 	int i, ret;
 
@@ -767,49 +1015,62 @@ httpd_access_handler_call(void *arg,
 	if (!addr)
 		return MHD_NO;
 
-	*ctx = addr;
-	user_uuid = MHD_lookup_connection_value(con, MHD_GET_ARGUMENT_KIND,
-						"user-uuid");
-	device_uuid = MHD_lookup_connection_value(con, MHD_GET_ARGUMENT_KIND,
-						  "device-uuid");
-	if (httpd_limit_requests_rate(httpd, addr)) {
-		http_status = HTTP_TOO_MANY_REQUESTS_STATUS;
-		resp = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-		goto out;
-	}
-	if (!httpd_authenticate(httpd, addr, user_uuid)) {
-		http_status = MHD_HTTP_FORBIDDEN;
-		resp = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-		goto out;
+	if (!http_is_get(method)) {
+		http_status = MHD_HTTP_BAD_REQUEST;
+		goto err;
 	}
 
-	resp = NULL;
+	*ctx = addr;
+	user_uuid_str = MHD_lookup_connection_value(con, MHD_GET_ARGUMENT_KIND,
+						    "user-uuid");
+	device_uuid_str = MHD_lookup_connection_value(con, MHD_GET_ARGUMENT_KIND,
+						      "device-uuid");
+
+	if (httpd_limit_requests_rate(httpd, addr)) {
+		http_status = HTTP_TOO_MANY_REQUESTS_STATUS;
+		goto err;
+	}
+	if (!httpd_authenticate(httpd, addr, user_uuid_str, user_uuid)) {
+		http_status = MHD_HTTP_FORBIDDEN;
+		goto err;
+	}
+	if (device_uuid_str && uuid_parse(device_uuid_str, device_uuid)) {
+		http_status = MHD_HTTP_BAD_REQUEST;
+		goto err;
+	}
 	for (i = 0; i < ARRAY_SIZE(handlers); i++) {
 		struct httpd_handler *h = &handlers[i];
+		int rc;
 
 		if (strcmp(h->url, url))
 			continue;
 
-		resp = h->handler(httpd, addr, method, upload_data,
-				  user_uuid, device_uuid, &http_status);
-		break;
-	}
-	if (!resp) {
-		/* No url found, return HELP page */
-		resp = MHD_create_response_from_buffer(strlen(HELP), HELP,
-						       MHD_RESPMEM_PERSISTENT);
-		if (!resp)
-			return MHD_NO;
+		rc = h->handler(httpd, con, user_uuid, device_uuid);
+		if (rc)
+			httpd_queue_json_response(httpd, con, rc);
+		else
+			MHD_suspend_connection(con);
 
-		http_status = MHD_HTTP_OK;
-		MHD_add_response_header(resp, MHD_HTTP_HEADER_CONTENT_TYPE,
-					"text/html");
+		return MHD_YES;
 	}
+
+	/* No url found, return HELP page */
+	resp = MHD_create_response_from_buffer(strlen(HELP), HELP,
+					       MHD_RESPMEM_PERSISTENT);
+	if (!resp)
+		return MHD_NO;
+
+	http_status = MHD_HTTP_OK;
+	MHD_add_response_header(resp, MHD_HTTP_HEADER_CONTENT_TYPE,
+				"text/html");
 out:
-	ret = MHD_queue_response(con, http_status, resp);
+	ret = httpd_queue_response(httpd, con, http_status, resp);
 	MHD_destroy_response(resp);
 
 	return ret;
+err:
+	resp = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
+	goto out;
 }
 
 static void httpd_init(struct httpd *httpd)
@@ -856,6 +1117,20 @@ httpd_expire_suspicious_addrs(struct httpd *httpd, struct timeval *tv)
 	return msecs_to_tv(tv, timeout);
 }
 
+static void httpd_prepare_sky_conf(struct httpd *httpd)
+{
+	struct sky_conf *conf = &httpd->conf;
+	struct cli *cli = &httpd->cli;
+
+	sky_confinit(conf);
+
+	conf->contype = SKY_REMOTE;
+	conf->cliport = strtol(cli->skyport, NULL, 10);
+	conf->subport = conf->cliport + 1;
+	strncpy(conf->hostname, cli->skyaddr,
+		sizeof(conf->hostname)-1);
+}
+
 /**
  * Call with the port number as the only argument.
  * Never terminates (other than by signals, such as CTRL-C).
@@ -865,7 +1140,9 @@ int main (int argc, char **argv)
 	struct addrinfo hints, *addrinfo;
 	struct httpd httpd;
 
-	int rc;
+	int rc, asyncfd;
+
+	memset(&httpd, 0, sizeof(httpd));
 
 	SKY_FD_SET_T(rs);
 	SKY_FD_SET_T(ws);
@@ -879,6 +1156,8 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
+	httpd_prepare_sky_conf(&httpd);
+
 	/* initialize PRNG */
 	srand(time(NULL));
 
@@ -887,13 +1166,6 @@ int main (int argc, char **argv)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	rc = getaddrinfo(httpd.cli.httpaddr, httpd.cli.httpport,
-			 &hints, &addrinfo);
-	if (rc) {
-		sky_err("getaddrinfo: %s\n", gai_strerror(rc));
-		return 1;
-	}
-
 	/*
 	 * Daemonize before creating zmq socket, ZMQ is written by
 	 * people who are not able to deal with fork() gracefully.
@@ -901,7 +1173,32 @@ int main (int argc, char **argv)
 	if (httpd.cli.daemon)
 		sky_daemonize(httpd.cli.pidf);
 
-	httpd.mhd = MHD_start_daemon(MHD_USE_DEBUG, 0,
+	rc = getaddrinfo(httpd.cli.httpaddr, httpd.cli.httpport,
+			 &hints, &addrinfo);
+	if (rc) {
+		sky_err("getaddrinfo: %s\n", gai_strerror(rc));
+		return 1;
+	}
+
+	rc = sky_asyncopen(&httpd.conf, &httpd.async);
+	if (rc) {
+		sky_err("sky_asyncopen(): %d\n", -rc);
+		return 1;
+	}
+
+	asyncfd = sky_asyncfd(httpd.async);
+	if (asyncfd < 0) {
+		sky_err("sky_asyncfd(): %d\n", -asyncfd);
+		return 1;
+	}
+
+	rc = httpd_create_emergency_response(&httpd);
+	if (rc) {
+		sky_err("Can't create emergency response\n");
+		return 1;
+	}
+
+	httpd.mhd = MHD_start_daemon(MHD_USE_DEBUG | MHD_USE_SUSPEND_RESUME, 0,
 			&httpd_accept_policy_call, &httpd,
 			&httpd_access_handler_call, &httpd,
 			MHD_OPTION_CONNECTION_TIMEOUT, 10,
@@ -920,11 +1217,14 @@ int main (int argc, char **argv)
 		SKY_FD_ZERO(&rs);
 		SKY_FD_ZERO(&ws);
 		SKY_FD_ZERO(&es);
+
 		if (!MHD_get_fdset2(httpd.mhd, (fd_set*)&rs, (fd_set*)&ws,
 				    (fd_set*)&es, &max,  MAX_CONNECTIONS)) {
 			sky_err("MHD_get_fdset: returns err\n");
-			break; /* fatal internal error */
+			break;
 		}
+		SKY_FD_SET(asyncfd, rs);
+		max = max(max, asyncfd);
 		tvp = httpd_expire_suspicious_addrs(&httpd, &tv);
 		if (-1 == select(max + 1, (fd_set*)&rs, (fd_set*)&ws, (fd_set*)&es, tvp)) {
 			if (errno != EINTR) {
@@ -932,9 +1232,20 @@ int main (int argc, char **argv)
 				break;
 			}
 		}
-		MHD_run(httpd.mhd);
+
+		do {
+			MHD_run(httpd.mhd);
+			rc = sky_asyncexecute(httpd.async, 0);
+			if (rc < 0) {
+				sky_err("sky_asyncexecute() failed: %d\n", -rc);
+				goto out;
+			}
+		} while (httpd_get_and_clear_need_processing(&httpd));
 	}
+out:
 	MHD_stop_daemon(httpd.mhd);
+	httpd_destroy_emergency_response(&httpd);
+	sky_asyncclose(httpd.async);
 
 	return 0;
 }
