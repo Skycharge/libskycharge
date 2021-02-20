@@ -52,6 +52,7 @@ enum {
 	MAX_BAD_AUTH_ATTEMPTS = 3,
 	CHILL_OUT_BAD_AUTH_MS = 10000, /* 10 secs should be enough */
 	MAX_REQUESTS_RATE     = 3,     /* per 1000 ms */
+	REQUEST_TIMEOUT_MS    = 10000,
 	_1_SEC_IN_MS          = 1000,
 };
 
@@ -81,6 +82,7 @@ struct httpd {
 	struct sky_async     *async;
 	struct hash_table    addrs_hash; /* addrs hashed by sin_addr */
 	struct rb_root       addrs_root; /* addrs to expire */
+	struct rb_root       reqs_root;  /* requests to expire */
 	struct MHD_Response  *emergency_resp;
 	bool                 need_processing;
 };
@@ -96,6 +98,8 @@ struct httpd_request {
 	uuid_t                  user_uuid;
 	uuid_t                  device_uuid;
 	create_dev_request_t    *create_dev_req;
+	struct rb_node          tentry;    /* httpd->reqs_root */
+	unsigned long long      expire_ms; /* when this request times out */
 };
 
 typedef int (httpd_handler_t)(struct httpd *,
@@ -222,6 +226,47 @@ static int snprintf_buffer(char **pbuffer, int *poff, int *psize,
 	return 0;
 }
 
+#define rbnode_compare(type, member, cmpmember, a_, b_) ({ \
+	type *a;					\
+	type *b;					\
+							\
+	a = container_of(a_, typeof(*a), tentry);	\
+	b = container_of(b_, typeof(*b), tentry);	\
+							\
+	(a->cmpmember < b->cmpmember ? -1 :		\
+	 a->cmpmember > b->cmpmember ? 1 : 0);		\
+})
+
+static void httpd_request_insert(struct httpd *httpd,
+				 struct httpd_request *req)
+{
+	struct rb_node **this = &httpd->reqs_root.rb_node;
+	struct rb_node *parent = NULL;
+	struct rb_node *new;
+	int cmp;
+
+	req->expire_ms = msecs_epoch() + REQUEST_TIMEOUT_MS;
+
+	new = &req->tentry;
+	while (*this) {
+		parent = *this;
+		cmp = rbnode_compare(typeof(*req), tentry,
+				     expire_ms, new, *this);
+
+		/*
+		 * Equal elements go to the right, i.e. FIFO order, thus '<',
+		 * if LIFO is needed then use '<='
+		 */
+		if (cmp < 0)
+			this = &(*this)->rb_left;
+		else
+			this = &(*this)->rb_right;
+	}
+	/* Add new node to the tree and rebalance it */
+	rb_link_node(new, parent, this);
+	rb_insert_color(new, &httpd->reqs_root);
+}
+
 static int
 httpd_create_emergency_response(struct httpd *httpd)
 {
@@ -334,6 +379,7 @@ devs_list_create_composite_request(struct httpd *httpd,
 
 	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
 	sky_asyncreq_completionset(&req->skyreq, skycompletion);
+	httpd_request_insert(httpd, req);
 	httpd_set_need_processing(httpd);
 
 	return 0;
@@ -356,6 +402,7 @@ devs_list_composite_skycompletion(struct sky_async_req *skyreq)
 		MHD_resume_connection(req->httpcon);
 	}
 	sky_devsfree(req->skystruct.devdescs);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
 	free(req);
 }
 
@@ -371,6 +418,7 @@ dev_cmd_skycompletion(struct sky_async_req *skyreq)
 
 	httpd_queue_json_response(req->httpd, req->httpcon, rc);
 	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
 	free(req);
 }
 
@@ -412,6 +460,7 @@ dev_cmd_create_request(int (*devcmd)(struct sky_async *async,
 
 	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
 	sky_asyncreq_completionset(&req->skyreq, dev_cmd_skycompletion);
+	httpd_request_insert(httpd, req);
 	httpd_set_need_processing(httpd);
 
 	return 0;
@@ -497,6 +546,7 @@ static void devs_list_skycompletion(struct sky_async_req *skyreq)
 out:
 	sky_devsfree(req->skystruct.devdescs);
 	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
 	free(req);
 	return;
 
@@ -554,6 +604,7 @@ static void charging_params_skycompletion(struct sky_async_req *skyreq)
 						   buffer, off);
 out:
 	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
 	free(req);
 	return;
 
@@ -607,6 +658,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 						   buffer, off);
 out:
 	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
 	free(req);
 	return;
 
@@ -651,6 +703,7 @@ charging_params_create_request(struct httpd_request *devslist_req)
 
 	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
 	sky_asyncreq_completionset(&req->skyreq, charging_params_skycompletion);
+	httpd_request_insert(req->httpd, req);
 	httpd_set_need_processing(req->httpd);
 
 	return 0;
@@ -689,6 +742,7 @@ charging_state_create_request(struct httpd_request *devslist_req)
 
 	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
 	sky_asyncreq_completionset(&req->skyreq, charging_state_skycompletion);
+	httpd_request_insert(req->httpd, req);
 	httpd_set_need_processing(req->httpd);
 
 	return 0;
@@ -776,21 +830,8 @@ struct httpd_handler {
 	{ "/cover-close",     cover_close_http_handler  },
 };
 
-static inline int cmp_timeouts(const struct rb_node *a_,
-			       const struct rb_node *b_)
-{
-	struct httpd_con_addr *a;
-	struct httpd_con_addr *b;
-
-	a = container_of(a_, typeof(*a), tentry);
-	b = container_of(b_, typeof(*b), tentry);
-
-	return (a->expire_ms < b->expire_ms ? -1 :
-		a->expire_ms > b->expire_ms ? 1 : 0);
-}
-
-static void httpd_addr_rbtree_insert(struct httpd *httpd,
-				     struct httpd_con_addr *addr)
+static void httpd_insert_addr(struct httpd *httpd,
+			      struct httpd_con_addr *addr)
 {
 	struct rb_node **this = &httpd->addrs_root.rb_node;
 	struct rb_node *parent = NULL;
@@ -800,7 +841,8 @@ static void httpd_addr_rbtree_insert(struct httpd *httpd,
 	new = &addr->tentry;
 	while (*this) {
 		parent = *this;
-		cmp = cmp_timeouts(new, *this);
+		cmp = rbnode_compare(typeof(*addr), tentry,
+				     expire_ms, new, *this);
 
 		/*
 		 * Equal elements go to the right, i.e. FIFO order, thus '<',
@@ -912,7 +954,7 @@ static void httpd_mark_addr_as_suspicious(struct httpd *httpd,
 	}
 	if (RB_EMPTY_NODE(&addr->tentry)) {
 		addr->expire_ms = msecs_epoch() + CHILL_OUT_BAD_AUTH_MS;
-		httpd_addr_rbtree_insert(httpd, addr);
+		httpd_insert_addr(httpd, addr);
 		if (account_refs)
 			httpd_get_con_addr(addr);
 	}
@@ -949,7 +991,7 @@ static bool httpd_limit_requests_rate(struct httpd *httpd,
 
 	if (RB_EMPTY_NODE(&addr->tentry)) {
 		addr->expire_ms = now + _1_SEC_IN_MS;
-		httpd_addr_rbtree_insert(httpd, addr);
+		httpd_insert_addr(httpd, addr);
 		httpd_get_con_addr(addr);
 	}
 
@@ -1077,6 +1119,7 @@ static void httpd_init(struct httpd *httpd)
 {
 	hash_table_init(&httpd->addrs_hash);
 	httpd->addrs_root = RB_ROOT;
+	httpd->reqs_root  = RB_ROOT;
 }
 
 static struct timeval *
@@ -1090,9 +1133,8 @@ msecs_to_tv(struct timeval *tv, unsigned long long msecs)
 }
 
 static struct timeval *
-httpd_expire_suspicious_addrs(struct httpd *httpd, struct timeval *tv)
+httpd_expire_addrs_and_requests(struct httpd *httpd, struct timeval *tv)
 {
-	struct httpd_con_addr *addr;
 	struct rb_node *node;
 
 	unsigned long long now, timeout;
@@ -1100,11 +1142,12 @@ httpd_expire_suspicious_addrs(struct httpd *httpd, struct timeval *tv)
 	if (!MHD_get_timeout(httpd->mhd, &timeout))
 		timeout = ULONG_MAX;
 
-	if (RB_EMPTY_ROOT(&httpd->addrs_root))
-		return msecs_to_tv(tv, timeout);
-
 	now = msecs_epoch();
+
+	/* Expire suspicious addresses */
 	while ((node = rb_first(&httpd->addrs_root))) {
+		struct httpd_con_addr *addr;
+
 		addr = container_of(node, typeof(*addr), tentry);
 		if (now < addr->expire_ms) {
 			timeout = min(timeout, addr->expire_ms - now);
@@ -1112,6 +1155,23 @@ httpd_expire_suspicious_addrs(struct httpd *httpd, struct timeval *tv)
 		}
 		rb_erase_init(&addr->tentry, &httpd->addrs_root);
 		httpd_put_con_addr(httpd, addr);
+	}
+
+	/* Expire timeouted requests */
+	while ((node = rb_first(&httpd->reqs_root))) {
+		struct httpd_request *req;
+
+		req = container_of(node, typeof(*req), tentry);
+		if (now < req->expire_ms) {
+			timeout = min(timeout, req->expire_ms - now);
+			break;
+		}
+		sky_asyncreq_cancel(req->httpd->async, &req->skyreq);
+		sky_devclose(req->skyreq.dev);
+		rb_erase_init(&req->tentry, &httpd->reqs_root);
+		httpd_queue_json_response(req->httpd, req->httpcon, -ETIMEDOUT);
+		MHD_resume_connection(req->httpcon);
+		free(req);
 	}
 
 	return msecs_to_tv(tv, timeout);
@@ -1201,7 +1261,7 @@ int main (int argc, char **argv)
 	httpd.mhd = MHD_start_daemon(MHD_USE_DEBUG | MHD_USE_SUSPEND_RESUME, 0,
 			&httpd_accept_policy_call, &httpd,
 			&httpd_access_handler_call, &httpd,
-			MHD_OPTION_CONNECTION_TIMEOUT, 10,
+			MHD_OPTION_CONNECTION_TIMEOUT, REQUEST_TIMEOUT_MS/1000,
 			MHD_OPTION_SOCK_ADDR, addrinfo->ai_addr,
 			MHD_OPTION_NOTIFY_COMPLETED, &httpd_request_completed_call, &httpd,
 			MHD_OPTION_END);
@@ -1225,14 +1285,18 @@ int main (int argc, char **argv)
 		}
 		SKY_FD_SET(asyncfd, rs);
 		max = max(max, asyncfd);
-		tvp = httpd_expire_suspicious_addrs(&httpd, &tv);
-		if (-1 == select(max + 1, (fd_set*)&rs, (fd_set*)&ws, (fd_set*)&es, tvp)) {
-			if (errno != EINTR) {
+		tvp = httpd_expire_addrs_and_requests(&httpd, &tv);
+		/*
+		 * HTTP response can be queued while expiration, so processing
+		 * can be required. Don't sleep in that case.
+		 */
+		if (!httpd.need_processing) {
+			rc = select(max + 1, (fd_set*)&rs, (fd_set*)&ws, (fd_set*)&es, tvp);
+			if (rc < 0 && errno != EINTR) {
 				sky_err("select failed: %s\n", strerror(errno));
 				break;
 			}
 		}
-
 		do {
 			MHD_run(httpd.mhd);
 			rc = sky_asyncexecute(httpd.async, 0);
