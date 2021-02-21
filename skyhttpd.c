@@ -21,6 +21,7 @@
 #include "version.h"
 #include "daemon.h"
 #include "skyproto.h"
+#include "errnoname.h"
 
 /*
  * JSON API:
@@ -340,8 +341,8 @@ httpd_queue_json_response(struct httpd *httpd,
 	int off = 0, size = 0;
 	int ret;
 
-	ret = snprintf_buffer(&buffer, &off, &size, "{\n\t\"errno\": %d\n}\n",
-			      -rc);
+	ret = snprintf_buffer(&buffer, &off, &size, "{\n\t\"errno\": \"%s\"\n}\n",
+			      errnoname_unsafe(-rc));
 	if (ret) {
 		httpd_queue_emergency_response(httpd, con);
 		return;
@@ -512,8 +513,8 @@ static void devs_list_skycompletion(struct sky_async_req *skyreq)
 
 	req = container_of(skyreq, typeof(*req), skyreq);
 	ret = snprintf_buffer(&buffer, &off, &size,
-			      "{\n\t\"errno\": %d,\n\t\"devices\": [\n",
-			      -skyreq->out.rc);
+			      "{\n\t\"errno\": \"%s\",\n\t\"devices\": [\n",
+			      errnoname_unsafe(-skyreq->out.rc));
 	if (ret)
 		goto err;
 
@@ -578,8 +579,8 @@ static void charging_params_skycompletion(struct sky_async_req *skyreq)
 	params = &req->skystruct.params;
 
 	ret = snprintf_buffer(&buffer, &off, &size,
-			      "{\n\t\"errno\": %d,\n\t\"params\": {\n",
-			      -rc);
+			      "{\n\t\"errno\": \"%s\",\n\t\"params\": {\n",
+			      errnoname_unsafe(-rc));
 	if (ret)
 		goto err;
 
@@ -626,8 +627,8 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 	state = &req->skystruct.state;
 
 	ret = snprintf_buffer(&buffer, &off, &size,
-			      "{\n\t\"errno\": %d,\n\t\"charging-state\": {\n",
-			      -rc);
+			      "{\n\t\"errno\": \"%s\",\n\t\"charging-state\": {\n",
+			      errnoname_unsafe(-rc));
 	if (ret)
 		goto err;
 
