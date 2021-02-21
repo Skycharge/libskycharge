@@ -1100,7 +1100,7 @@ httpd_access_handler_call(void *arg,
 	if (!resp)
 		return MHD_NO;
 
-	http_status = MHD_HTTP_OK;
+	http_status = MHD_HTTP_NOT_FOUND;
 	MHD_add_response_header(resp, MHD_HTTP_HEADER_CONTENT_TYPE,
 				"text/html");
 out:
