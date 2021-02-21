@@ -1135,10 +1135,7 @@ httpd_expire_addrs_and_requests(struct httpd *httpd, struct timeval *tv)
 {
 	struct rb_node *node;
 
-	unsigned long long now, timeout;
-
-	if (!MHD_get_timeout(httpd->mhd, &timeout))
-		timeout = ULONG_MAX;
+	unsigned long long now, timeout = ULONG_MAX;
 
 	now = msecs_epoch();
 
@@ -1259,7 +1256,6 @@ int main (int argc, char **argv)
 	httpd.mhd = MHD_start_daemon(MHD_USE_DEBUG | MHD_USE_SUSPEND_RESUME, 0,
 			&httpd_accept_policy_call, &httpd,
 			&httpd_access_handler_call, &httpd,
-			MHD_OPTION_CONNECTION_TIMEOUT, REQUEST_TIMEOUT_MS/1000,
 			MHD_OPTION_SOCK_ADDR, addrinfo->ai_addr,
 			MHD_OPTION_NOTIFY_COMPLETED, &httpd_request_completed_call, &httpd,
 			MHD_OPTION_END);
