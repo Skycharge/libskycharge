@@ -634,7 +634,7 @@ static int devopen(const struct sky_dev_desc *devdesc,
 			dev->gps_nodev = true;
 
 		rc = dp_configure(devdesc);
-		if (rc && rc != -ENODEV)
+		if (rc && rc != -EOPNOTSUPP)
 			goto free_conf;
 	} else {
 		dev->gps_nodev = true;
@@ -906,7 +906,7 @@ static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
 	if (dev->gps_nodev)
-		return -ENODEV;
+		return -EOPNOTSUPP;
 
 #if GPSD_API_MAJOR_VERSION <= 6
 	rc = gps_read(&dev->gpsdata);
@@ -914,7 +914,7 @@ static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 	rc = gps_read(&dev->gpsdata, NULL, 0);
 #endif
 	if (rc < 0)
-		return -ENODEV;
+		return -EOPNOTSUPP;
 
 	memset(gpsdata, 0, sizeof(*gpsdata));
 #if GPSD_API_MAJOR_VERSION < 10

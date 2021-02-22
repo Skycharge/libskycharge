@@ -37,7 +37,7 @@ int dp_configure(const struct sky_dev_desc *desc)
 	int lockfd, rc;
 
 	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
-		return -ENODEV;
+		return -EOPNOTSUPP;
 	if (conf->dp.hw_interface != SKY_DP_GPIO)
 		return -EOPNOTSUPP;
 
@@ -117,7 +117,7 @@ int dp_open(struct sky_dev *dev)
 	int lockfd, rc;
 
 	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
-		return -ENODEV;
+		return -EOPNOTSUPP;
 	if (conf->dp.hw_interface != SKY_DP_GPIO)
 		return -EOPNOTSUPP;
 
@@ -175,7 +175,7 @@ int dp_close(struct sky_dev *dev)
 	int lockfd, rc;
 
 	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
-		return -ENODEV;
+		return -EOPNOTSUPP;
 	if (conf->dp.hw_interface != SKY_DP_GPIO)
 		return -EOPNOTSUPP;
 
@@ -231,7 +231,7 @@ int dp_drone_detect(struct sky_dev *dev)
 	struct sky_conf *conf = &dev->devdesc.conf;
 
 	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
-		return -ENODEV;
+		return -EOPNOTSUPP;
 	if (conf->dp.hw_interface != SKY_DP_GPIO)
 		return -EOPNOTSUPP;
 

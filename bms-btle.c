@@ -440,7 +440,7 @@ int bms_btle_open(struct bms_btle **_bms_btle)
 	if (!name) {
 		free(bms_btle);
 		sp_free_port_list(ports);
-		return -ENODEV;
+		return -EOPNOTSUPP;
 	}
 	rc = bms_btle_portopen(name, bms_btle);
 	if (rc) {

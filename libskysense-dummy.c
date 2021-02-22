@@ -78,7 +78,7 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 		dev->gps_nodev = true;
 
 	rc = dp_configure(devdesc);
-	if (rc && rc != -ENODEV) {
+	if (rc && rc != -EOPNOTSUPP) {
 		if (!dev->gps_nodev)
 			gps_close(&dev->gpsdata);
 		free(dev);
@@ -241,7 +241,7 @@ static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 		rc = gps_read(&dev->gpsdata, NULL, 0);
 #endif
 		if (rc < 0)
-			return -ENODEV;
+			return -EOPNOTSUPP;
 
 		memset(gpsdata, 0, sizeof(*gpsdata));
 #if GPSD_API_MAJOR_VERSION < 10
