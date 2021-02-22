@@ -575,8 +575,8 @@ const char *errnoname(int errno_, char *buf, size_t len)
 #ifdef ENOTSOCK
         case ENOTSOCK: return "ENOTSOCK";
 #endif
-#ifdef ENOTSUP
-        case ENOTSUP: return "ENOTSUP";
+#ifdef EOPNOTSUPP
+        case EOPNOTSUPP: return "EOPNOTSUPP";
 #endif
 #ifdef ENOTTY
         case ENOTTY: return "ENOTTY";
@@ -605,9 +605,9 @@ const char *errnoname(int errno_, char *buf, size_t len)
 #ifdef EOPCOMPLETE
         case EOPCOMPLETE: return "EOPCOMPLETE";
 #endif
-#ifdef EOPNOTSUPP
-#if !defined(ENOTSUP) || EOPNOTSUPP != ENOTSUP
-        case EOPNOTSUPP: return "EOPNOTSUPP";
+#ifdef ENOTSUP
+#if EOPNOTSUPP != ENOTSUP
+        case ENOTSUP: return "ENOTSUP";
 #endif
 #endif
 #ifdef EOVERFLOW
