@@ -417,6 +417,17 @@ dev_cmd_skycompletion(struct sky_async_req *skyreq)
 	rc = skyreq->out.rc;
 	sky_devclose(skyreq->dev);
 
+	/*
+	 * Prior 1.3.0 version BMS, GPS or DP code returns -ENODEV
+	 * if operation is not supported. This is a bad practice,
+	 * because client can't destinguish real -ENODEV error
+	 * "device was not found" from "device was found, but op
+	 * is not supported". Change the return code here, which
+	 * is safe.
+	 */
+	if (rc == -ENODEV)
+		rc = -EOPNOTSUPP;
+
 	httpd_queue_json_response(req->httpd, req->httpcon, rc);
 	MHD_resume_connection(req->httpcon);
 	rb_erase(&req->tentry, &req->httpd->reqs_root);
