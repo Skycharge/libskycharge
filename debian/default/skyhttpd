@@ -1,6 +1,6 @@
 # skyhttpd configuration options
 
-HTTP_ADDR=127.0.0.1
+HTTP_ADDR=0.0.0.0
 HTTP_PORT=8080
 
 SKY_ADDR=127.0.0.1
