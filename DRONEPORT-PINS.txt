@@ -1,0 +1,50 @@
+
+#
+# STATUS
+#
+
+# IS CLOSED, PIN 9
+cat /sys/class/gpio/gpio66/value
+
+# IS OPENED. PIN 8
+cat /sys/class/gpio/gpio68/value
+
+# IS IN PROGRESS, PIN 10
+cat /sys/class/gpio/gpio67/value
+
+# IS DRONE DETECTED, PIN 13
+cat /sys/class/gpio/gpio69/value
+
+# IS LANDING ERR, PIN 11
+cat /sys/class/gpio/gpio23/value
+
+# IS READY, PIN 12
+cat /sys/class/gpio/gpio26/value
+
+
+#
+# COMMANDS
+#
+
+# OPEN, PIN 3
+echo 1 > /sys/class/gpio/gpio45/value
+
+# CLOSE, PIN 4
+echo 1 > /sys/class/gpio/gpio44/value
+
+
+
+
+dp-is-closed-pin         = P8.07  # gpio66
+dp-in-progress-pin       = P8.08  # gpio67
+dp-is-drone-detected-pin = P8.09  # gpio69
+dp-is-opened-pin         = P8.10  # gpio68
+dp-open-pin              = P8.11  # gpio45
+dp-close-pin             = P8.12  # gpio44
+dp-is-landing-err-pin    = P8.13  # gpio23
+dp-is-ready-pin          = P8.14  # gpio26
+
+
+
+config-pin P8.07 in
+cat /sys/class/gpio/gpio66/value
