@@ -61,6 +61,13 @@ static inline unsigned long long msecs_epoch(void)
 	return msecs;
 }
 
+int hex_dump_to_buffer_oneline(const void *buf, size_t len, int rowsize,
+			       int groupsize, char *linebuf,
+			       size_t linebuflen, bool ascii);
+int hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
+		       int groupsize, char *linebuf,
+		       size_t linebuflen, bool ascii);
+
 #define sky_register_devops(ops)                                       \
        __attribute__((constructor)) static void register_devops(void)  \
        {                                                               \

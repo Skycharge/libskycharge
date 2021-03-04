@@ -28,6 +28,8 @@ enum hw1_sky_serial_cmd {
 	HW1_SKY_COUPLE_ACTIVATE_CMD    = 0x0b,
 	HW1_SKY_COUPLE_DEACTIVATE_CMD  = 0x0c,
 	HW1_SKY_FIRMWARE_VERSION_CMD   = 0x0d,
+
+	HW1_SKY_ERROR                  = 0xfd,
 };
 
 enum hw2_sky_serial_cmd {
@@ -45,7 +47,7 @@ enum {
 	TO_BUF   = 0,
 	FROM_BUF = 1,
 
-	TIMEOUT_MS = 1000,
+	TIMEOUT_MS = 5000,
 };
 
 struct skyloc_dev {
@@ -169,10 +171,10 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			     int rsp_num,
 			     ...)
 {
+	uint8_t len, cmd_len, rsp_len;
 	char cmd_buf[8], rsp_buf[16];
 	enum sp_return sprc;
 	int rc, args, off;
-	uint8_t len;
 	va_list ap;
 
 	va_start(ap, rsp_num);
@@ -190,31 +192,39 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 	rc = flock(dev->lockfd, LOCK_EX);
 	if (rc < 0) {
 		rc = -errno;
+		sky_err("flock(): %s\n", strerror(-rc));
 		goto out;
 	}
 	pthread_mutex_lock(&dev->mutex);
 	sprc = sp_flush(dev->port, SP_BUF_BOTH);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
+		sky_err("sp_flush(): %s\n", strerror(-rc));
 		goto out_unlock;
 	}
-	sprc = sp_blocking_write(dev->port, cmd_buf, len + proto->hdr_len,
-				 TIMEOUT_MS);
+	cmd_len = len + proto->hdr_len;
+	sprc = sp_blocking_write(dev->port, cmd_buf, cmd_len, TIMEOUT_MS);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
+		sky_err("sp_blocking_write(): %s\n", strerror(-rc));
 		goto out_unlock;
-	} else if (sprc != len + proto->hdr_len) {
+	} else if (sprc != cmd_len) {
+		sky_err("sp_blocking_write(): failed to write within %d ms timeout, only %d is written, but expected %d\n",
+			TIMEOUT_MS, sprc, cmd_len);
 		rc = -ETIMEDOUT;
 		goto out_unlock;
 	}
 	if (rsp_num >= 0) {
 		rc = skycmd_args_inbytes(ap, rsp_num);
-		if (rc < 0)
+		if (rc < 0) {
+			sky_err("skycmd_args_inbytes(): %s\n", strerror(-rc));
 			goto out_unlock;
+		}
 
 		len = rc;
 		if (len > sizeof(rsp_buf) - proto->hdr_len) {
 			rc = -EINVAL;
+			sky_err("skycmd_args_inbytes(): %s\n", strerror(-rc));
 			goto out_unlock;
 		}
 		/* Firstly read header */
@@ -222,34 +232,71 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 					TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
+			sky_err("sp_blocking_read(): %s\n", strerror(-rc));
 			goto out_unlock;
 		} else if (sprc != proto->data_off) {
+			sky_err("sp_blocking_read(): failed to read within %d ms timeout, only %d is read, but expected %d\n",
+				TIMEOUT_MS, sprc, proto->data_off);
 			rc = -ETIMEDOUT;
 			goto out_unlock;
 		} else if (!proto->is_valid_rsp_hdr(rsp_buf,
 					len + proto->hdr_len, cmd)) {
+			char strdump_req[128];
+			char strdump_rsp[128];
+
+			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
+					   strdump_req, sizeof(strdump_req),
+					   false);
+			hex_dump_to_buffer(rsp_buf, proto->data_off, 16, 1,
+					   strdump_rsp, sizeof(strdump_rsp),
+					   false);
+
+			sky_err("Invalid response header\n\n"
+				"Request hexdump:\n%s\n"
+				"Response header hexdump:\n%s\n",
+				strdump_req, strdump_rsp);
+
 			rc = -EPROTO;
 			goto out_unlock;
 		}
 		/* Read the rest */
+		rsp_len = len + proto->hdr_len;
 		sprc = sp_blocking_read(dev->port, rsp_buf + proto->data_off,
-				len + (proto->hdr_len - proto->data_off),
+				rsp_len - proto->data_off,
 				TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
+			sky_err("sp_blocking_read(): %s\n", strerror(-rc));
 			goto out_unlock;
-		} else if (sprc != len + (proto->hdr_len - proto->data_off)) {
+		} else if (sprc != rsp_len - proto->data_off) {
+			sky_err("sp_blocking_read(): failed to read within %d ms timeout, only %d is read, but expected %d\n",
+				TIMEOUT_MS, sprc, rsp_len - proto->data_off);
 			rc = -ETIMEDOUT;
 			goto out_unlock;
 		} else if (!proto->check_crc(rsp_buf)) {
+			char strdump_req[128];
+			char strdump_rsp[128];
+
+			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
+					   strdump_req, sizeof(strdump_req), false);
+			hex_dump_to_buffer(rsp_buf, rsp_len, 16, 1,
+					   strdump_rsp, sizeof(strdump_rsp), false);
+
+			sky_err("Invalid response CRC\n\n"
+				"Request hexdump:\n%s\n"
+				"Response header hexdump:\n%s\n",
+				strdump_req, strdump_rsp);
+
 			rc = -EPROTO;
 			goto out_unlock;
 		}
 		for (off = proto->data_off, args = 0; args < rsp_num; args++) {
 			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
 					     len + proto->data_off);
-			if (rc < 0)
+			if (rc < 0) {
+				sky_err("skycmd_arg_copy(): %s\n", strerror(-rc));
 				goto out_unlock;
+			}
 
 			off += rc;
 		}
