@@ -1,3 +1,9 @@
+skysense (1.3.1~rc1) stretch; urgency=low
+  * Add droneport pins for easy access and debug
+  * skysense-local: do hexdump of all protocol issues with mux board
+
+ -- Roman Pen <r.peniaev@gmail.com>  Thu, 4 Mar 2021 13:00:00 +0200
+
 skysense (1.3.0) stretch; urgency=low
   * scripts: build-for-arm.sh and chroot-arm-image.sh
   * libskysense: fix sky_devslist(), sky_peerinfo()
