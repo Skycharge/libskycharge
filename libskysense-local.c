@@ -786,10 +786,9 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 			tail = devdesc;
 	}
 	rc = 0;
-	if (head) {
+	if (head)
 		tail->next = *out;
-		*out = head;
-	}
+	*out = head;
 out:
 	sp_free_port_list(ports);
 

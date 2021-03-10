@@ -508,6 +508,7 @@ int sky_asyncreq_peerinfo(struct sky_async *async,
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
  *
+ * -ENODEV if no devices found, see sky_asyncreq_devslist() for API differences.
  * -EPERM  if operation is not permitted.
  * -ENOMEM if memory allocation failed.
  */
@@ -518,7 +519,10 @@ int sky_devslist(const struct sky_conf *conf,
  * sky_asyncreq_devslist() - Inits and submits an asynchronous request to
  *                           fetch a list of devices.
  *
- * See synchronous sky_devslist() variant for details.
+ * See synchronous sky_devslist() variant for details
+ *
+ * BEWARE: @list is set to NULL if no devices are found, but synchronous
+ *         sky_devslist() variant returns -ENODEV.
  */
 int sky_asyncreq_devslist(struct sky_async *async,
 			   struct sky_dev_desc **list,
@@ -792,7 +796,7 @@ int sky_asyncreq_coverclose(struct sky_async *async,
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
  *
- * -ENODEV GPS module is not connected
+ * -EOPNOTSUPP GPS module is not connected
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */

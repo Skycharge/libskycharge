@@ -175,7 +175,10 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 
 	rc = sky_devslist(&conf, devdescs);
 	if (rc) {
-		sky_err("sky_devslist(): %s\n", strerror(-rc));
+		if (rc == -ENODEV)
+			fprintf(stderr, "No devices found.\n");
+		else
+			sky_err("sky_devslist(): %s\n", strerror(-rc));
 		exit(-1);
 	}
 	if (!cli->listdevs) {

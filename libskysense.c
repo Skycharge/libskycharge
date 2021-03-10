@@ -699,6 +699,16 @@ int sky_devslist(const struct sky_conf *conf,
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);
 
+	if (!rc && !*list) {
+		/*
+		 * Server relies on that error for the synchronous call,
+		 * but sky_asynreq_devslist() returns 0 and list will be set
+		 * to NULL if no devices found. Please consider also clients
+		 * and remote protocol before changing this behaviour.
+		 */
+		rc = -ENODEV;
+	}
+
 	return rc;
 }
 

@@ -567,10 +567,9 @@ static int skyrem_devslist_parse(struct skyrem_async *async,
 				tail = devdesc;
 		}
 	}
-	if (head) {
+	if (head)
 		tail->next = *list;
-		*list = head;
-	}
+	*list = head;
 complete:
 	skyrem_asyncreq_complete(async, req, rc);
 	return 0;
