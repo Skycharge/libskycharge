@@ -10,6 +10,7 @@
 #include <sys/time.h>
 #include <zlib.h>
 #include <math.h>
+#include <regex.h>
 
 #include "libskysense.h"
 #include "skyclient-cmd.h"
@@ -296,6 +297,23 @@ int main(int argc, char *argv[])
 	if (rc) {
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
+	}
+	if (cli.port) {
+		const char *regexp = "[^[:digit:]]+";
+		regmatch_t match;
+		regex_t rgx;
+
+		rc = regcomp(&rgx, regexp, REG_EXTENDED | REG_NEWLINE);
+		assert(!rc);
+
+		rc = regexec(&rgx, cli.port, 1, &match, 0);
+		regfree(&rgx);
+		if (rc != REG_NOMATCH) {
+			fprintf(stderr, "Error: You've called a remote command invocation and specified the remote address '%s' and port '%s', but port is an invalid number.\n"
+				"       If you attempted to call the 'monitor' command with the '1000 --raw' parameters, be aware that these parameters don't exist any more.\n"
+				"       See help for details.\n", cli.addr, cli.port);
+			return -1;
+		}
 	}
 
 	if (cli.discoverbroker) {
