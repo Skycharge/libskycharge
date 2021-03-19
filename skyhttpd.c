@@ -35,6 +35,7 @@
  * "device-uuid" is mandatory
  *     /charging-params - sky_paramsget()
  *     /charging-state  - sky_chargingstate()
+ *     /gps-data        - sky_gpsdata()
  *     /charge-start    - sky_chargestart()
  *     /charge-stop     - sky_chargestop()
  *     /cover-open      - sky_coveropen()
@@ -174,6 +175,31 @@ static inline const char *sky_devparam_to_str(enum sky_dev_param param)
 	}
 }
 
+static inline const char *sky_gpsstatus_to_str(enum sky_gps_status status)
+{
+	switch(status) {
+	X(SKY_GPS_STATUS_NO_FIX);
+	X(SKY_GPS_STATUS_FIX);
+	X(SKY_GPS_STATUS_DGPS_FIX);
+	default:
+		sky_err("unknown status: %d\n", status);
+		return "UNKNOWN_STATUS";
+	}
+}
+
+static inline const char *sky_gpsmode_to_str(enum sky_gps_mode mode)
+{
+	switch(mode) {
+	X(SKY_GPS_MODE_NOT_SEEN);
+	X(SKY_GPS_MODE_NO_FIX);
+	X(SKY_GPS_MODE_2D);
+	X(SKY_GPS_MODE_3D);
+	default:
+		sky_err("unknown mode: %d\n", mode);
+		return "UNKNOWN_MODE";
+	}
+}
+
 static int sky_find_and_open_dev(const struct sky_dev_desc *devdescs,
 				 const uuid_t device_uuid,
 				 struct sky_dev **pdev)
@@ -193,6 +219,7 @@ static int sky_find_and_open_dev(const struct sky_dev_desc *devdescs,
 	return -ENODEV;
 }
 
+__attribute__((format(printf, 4, 5)))
 static int snprintf_buffer(char **pbuffer, int *poff, int *psize,
 			   const char *fmt, ...)
 {
@@ -677,6 +704,80 @@ err:
 	goto out;
 }
 
+static void gps_data_skycompletion(struct sky_async_req *skyreq)
+{
+	struct sky_gpsdata *gpsdata;
+	struct httpd_request *req;
+	char *buffer = NULL;
+	int off = 0, size = 0;
+	int ret, rc;
+
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	sky_devclose(skyreq->dev);
+
+	gpsdata = &req->skystruct.gpsdata;
+
+	ret = snprintf_buffer(&buffer, &off, &size,
+			      "{\n\t\"errno\": \"%s\",\n\t\"gps-data\": {\n",
+			      errnoname_unsafe(-rc));
+	if (ret)
+		goto err;
+
+	if (!rc) {
+		ret = snprintf_buffer(&buffer, &off, &size,
+				      "\t\t\t\"status\": \"%s\",\n"
+				      "\t\t\t\"satellites-used\": %d,\n"
+				      "\t\t\t\"dop\": {\n"
+				      "\t\t\t\t\"xdop\": \"%f\",\n"
+				      "\t\t\t\t\"ydop\": \"%f\",\n"
+				      "\t\t\t\t\"pdop\": \"%f\",\n"
+				      "\t\t\t\t\"hdop\": \"%f\",\n"
+				      "\t\t\t\t\"vdop\": \"%f\",\n"
+				      "\t\t\t\t\"tdop\": \"%f\",\n"
+				      "\t\t\t\t\"gdop\": \"%f\"\n"
+				      "\t\t\t},\n"
+				      "\t\t\t\"fix\": {\n"
+				      "\t\t\t\t\"mode\": \"%s\",\n"
+				      "\t\t\t\t\"time\": \"%f\",\n"
+				      "\t\t\t\t\"latitude\": \"%f\",\n"
+				      "\t\t\t\t\"longitude\": \"%f\",\n"
+				      "\t\t\t\t\"altitude\": \"%f\"\n"
+				      "\t\t\t}\n",
+				      sky_gpsstatus_to_str(gpsdata->status),
+				      gpsdata->satellites_used,
+				      gpsdata->dop.xdop,
+				      gpsdata->dop.ydop,
+				      gpsdata->dop.pdop,
+				      gpsdata->dop.hdop,
+				      gpsdata->dop.vdop,
+				      gpsdata->dop.tdop,
+				      gpsdata->dop.gdop,
+				      sky_gpsmode_to_str(gpsdata->fix.mode),
+				      gpsdata->fix.time,
+				      gpsdata->fix.latitude,
+				      gpsdata->fix.longitude,
+				      gpsdata->fix.altitude);
+		if (ret)
+			goto err;
+	}
+	ret = snprintf_buffer(&buffer, &off, &size, "\t}\n}\n");
+	if (ret)
+		goto err;
+
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
+	free(req);
+	return;
+
+err:
+	free(buffer);
+	goto out;
+}
+
 static int
 charging_params_create_request(struct httpd_request *devslist_req)
 {
@@ -759,6 +860,45 @@ charging_state_create_request(struct httpd_request *devslist_req)
 }
 
 static int
+gps_data_create_request(struct httpd_request *devslist_req)
+{
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct httpd_request *req;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
+
+	rc = sky_asyncreq_gpsdata(devslist_req->httpd->async, dev,
+				  &req->skystruct.gpsdata, &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, gps_data_skycompletion);
+	httpd_request_insert(req->httpd, req);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
+}
+
+static int
 charging_params_http_handler(struct httpd *httpd,
 			     struct MHD_Connection *con,
 			     const uuid_t user_uuid,
@@ -777,6 +917,17 @@ charging_state_http_handler(struct httpd *httpd,
 {
 	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
 						  charging_state_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
+gps_data_http_handler(struct httpd *httpd,
+		      struct MHD_Connection *con,
+		      const uuid_t user_uuid,
+		      const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  gps_data_create_request,
 						  devs_list_composite_skycompletion);
 }
 
@@ -832,6 +983,7 @@ struct httpd_handler {
 	{ "/devs-list",       devs_list_http_handler       },
 	{ "/charging-params", charging_params_http_handler },
 	{ "/charging-state",  charging_state_http_handler  },
+	{ "/gps-data",        gps_data_http_handler        },
 
 	/* Commands */
 	{ "/charge-start",    charge_start_http_handler },
