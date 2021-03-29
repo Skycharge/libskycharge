@@ -234,16 +234,16 @@ struct sky_brokerinfo {
 };
 
 enum sky_gps_status {
-    SKY_GPS_STATUS_NO_FIX   = 0,  /* no */
-    SKY_GPS_STATUS_FIX      = 1,  /* yes, without DGPS */
-    SKY_GPS_STATUS_DGPS_FIX = 2,  /* yes, with DGPS */
+	SKY_GPS_STATUS_NO_FIX   = 0,  /* no */
+	SKY_GPS_STATUS_FIX      = 1,  /* yes, without DGPS */
+	SKY_GPS_STATUS_DGPS_FIX = 2,  /* yes, with DGPS */
 };
 
 enum sky_gps_mode {
-    SKY_GPS_MODE_NOT_SEEN = 0,  /* mode update not seen yet */
-    SKY_GPS_MODE_NO_FIX   = 1,  /* none */
-    SKY_GPS_MODE_2D       = 2,  /* good for latitude/longitude */
-    SKY_GPS_MODE_3D       = 3   /* good for altitude/climb too */
+	SKY_GPS_MODE_NOT_SEEN = 0,  /* mode update not seen yet */
+	SKY_GPS_MODE_NO_FIX   = 1,  /* none */
+	SKY_GPS_MODE_2D       = 2,  /* good for latitude/longitude */
+	SKY_GPS_MODE_3D       = 3   /* good for altitude/climb too */
 };
 
 /**
