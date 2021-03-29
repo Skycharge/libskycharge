@@ -40,6 +40,7 @@
  *     /charge-stop     - sky_chargestop()
  *     /droneport-open  - sky_droneport_open()
  *     /droneport-close - sky_droneport_close()
+ *     /droneport-state - sky_droneport_state()
  */
 
 #define HELP								\
@@ -704,6 +705,58 @@ err:
 	goto out;
 }
 
+static void droneport_state_skycompletion(struct sky_async_req *skyreq)
+{
+	struct sky_droneport_state *state;
+	struct httpd_request *req;
+	char *buffer = NULL;
+	int off = 0, size = 0;
+	int ret, rc;
+
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	sky_devclose(skyreq->dev);
+
+	state = &req->skystruct.dp_state;
+
+	ret = snprintf_buffer(&buffer, &off, &size,
+			      "{\n\t\"errno\": \"%s\",\n\t\"droneport-state\": {\n",
+			      errnoname_unsafe(-rc));
+	if (ret)
+		goto err;
+
+	if (!rc) {
+		ret = snprintf_buffer(&buffer, &off, &size,
+				      "\t\t\t\"is-ready\": %s,\n"
+				      "\t\t\t\"is-opened\": %s,\n"
+				      "\t\t\t\"is-closed\": %s,\n"
+				      "\t\t\t\"in-progress\": %s,\n"
+				      "\t\t\t\"landing-err\": %s\n",
+				      state->status & SKY_DP_IS_READY ? "true" : "false",
+				      state->status & SKY_DP_IS_OPENED ? "true" : "false",
+				      state->status & SKY_DP_IS_CLOSED ? "true" : "false",
+				      state->status & SKY_DP_IN_PROGRESS ? "true" : "false",
+				      state->status & SKY_DP_LANDING_ERROR ? "true" : "false");
+		if (ret)
+			goto err;
+	}
+	ret = snprintf_buffer(&buffer, &off, &size, "\t}\n}\n");
+	if (ret)
+		goto err;
+
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
+	free(req);
+	return;
+
+err:
+	free(buffer);
+	goto out;
+}
+
 static void gps_data_skycompletion(struct sky_async_req *skyreq)
 {
 	struct sky_gpsdata *gpsdata;
@@ -861,6 +914,46 @@ charging_state_create_request(struct httpd_request *devslist_req)
 }
 
 static int
+droneport_state_create_request(struct httpd_request *devslist_req)
+{
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct httpd_request *req;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
+
+	rc = sky_asyncreq_droneport_state(devslist_req->httpd->async, dev,
+					  &req->skystruct.dp_state,
+					  &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, droneport_state_skycompletion);
+	httpd_request_insert(req->httpd, req);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
+}
+
+static int
 gps_data_create_request(struct httpd_request *devslist_req)
 {
 	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
@@ -918,6 +1011,17 @@ charging_state_http_handler(struct httpd *httpd,
 {
 	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
 						  charging_state_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
+droneport_state_http_handler(struct httpd *httpd,
+			     struct MHD_Connection *con,
+			     const uuid_t user_uuid,
+			     const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  droneport_state_create_request,
 						  devs_list_composite_skycompletion);
 }
 
@@ -984,6 +1088,7 @@ struct httpd_handler {
 	{ "/devs-list",       devs_list_http_handler       },
 	{ "/charging-params", charging_params_http_handler },
 	{ "/charging-state",  charging_state_http_handler  },
+	{ "/droneport-state", droneport_state_http_handler },
 	{ "/gps-data",        gps_data_http_handler        },
 
 	/* Commands */
