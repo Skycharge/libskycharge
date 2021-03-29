@@ -935,12 +935,12 @@ static int skyloc_chargestop(struct sky_dev *dev_)
 	return skyloc_autoscan(dev_, 0);
 }
 
-static int skyloc_coveropen(struct sky_dev *dev)
+static int skyloc_droneport_open(struct sky_dev *dev)
 {
 	return dp_open(dev);
 }
 
-static int skyloc_coverclose(struct sky_dev *dev)
+static int skyloc_droneport_close(struct sky_dev *dev)
 {
 	return dp_close(dev);
 }
@@ -1086,11 +1086,11 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 	case SKY_STOP_CHARGE_REQ:
 		rc = skyloc_chargestop(req->dev);
 		break;
-	case SKY_OPEN_COVER_REQ:
-		rc = skyloc_coveropen(req->dev);
+	case SKY_OPEN_DRONEPORT_REQ:
+		rc = skyloc_droneport_open(req->dev);
 		break;
-	case SKY_CLOSE_COVER_REQ:
-		rc = skyloc_coverclose(req->dev);
+	case SKY_CLOSE_DRONEPORT_REQ:
+		rc = skyloc_droneport_close(req->dev);
 		break;
 	case SKY_RESET_DEV_REQ:
 		rc = skyloc_reset(req->dev);

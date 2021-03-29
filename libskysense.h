@@ -570,7 +570,7 @@ void sky_devclose(struct sky_dev *dev);
  * established (local or remote).
  *
  * E.g. that is needed to get a valid device type to be sure that functions
- * sky_coveropen() and sky_coverclose() will function.
+ * sky_droneport_open() and sky_droneport_close() will function.
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
@@ -737,35 +737,10 @@ int sky_asyncreq_chargestop(struct sky_async *async,
 			    struct sky_async_req *req);
 
 /**
- * sky_coveropen() - Opens a charging pad cover.
- * @dev:	Device context.
+ * sky_droneport_open() - Opens a cover of a drone port.
+ * @dev:		  Device context.
  *
- * Opens a charging pad cover.	Device must be @SKY_OUTDOOR.
- *
- * RETURNS:
- * Returns 0 on success and <0 otherwise:
- *
- * -EOPNOTSUPP if device is not a @SKY_OUTDOOR.
- * -EPERM  if operation is not permitted.
- * -ECONNRESET connection reset by peer (in case of remote connection)
- */
-int sky_coveropen(struct sky_dev *dev);
-
-/**
- * sky_asyncreq_coveropen() - Inits and submits an asynchronous request to
- *                            open a cover.
- *
- * See synchronous sky_coveropen() variant for details.
- */
-int sky_asyncreq_coveropen(struct sky_async *async,
-			   struct sky_dev *dev,
-			   struct sky_async_req *req);
-
-/**
- * sky_coverclose() - Closes a charging pad cover.
- * @dev:	Device context.
- *
- * Closes a charging pad cover.	 Device must be @SKY_OUTDOOR.
+ * Opens a drone port cover. Device must be @SKY_OUTDOOR.
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
@@ -774,17 +749,42 @@ int sky_asyncreq_coveropen(struct sky_async *async,
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_coverclose(struct sky_dev *dev);
+int sky_droneport_open(struct sky_dev *dev);
 
 /**
- * sky_asyncreq_coverclose() - Inits and submits an asynchronous request to
- *                             close a cover.
+ * sky_asyncreq_droneport_open() - Inits and submits an asynchronous request to
+ *                                 open a cover of a drone port.
  *
- * See synchronous sky_coverclose() variant for details.
+ * See synchronous sky_droneport_open() variant for details.
  */
-int sky_asyncreq_coverclose(struct sky_async *async,
-			    struct sky_dev *dev,
-			    struct sky_async_req *req);
+int sky_asyncreq_droneport_open(struct sky_async *async,
+				struct sky_dev *dev,
+				struct sky_async_req *req);
+
+/**
+ * sky_droneport_close() - Closes a cover of a drone port.
+ * @dev:		   Device context.
+ *
+ * Closes a drone port cover. Device must be @SKY_OUTDOOR.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EOPNOTSUPP if device is not a @SKY_OUTDOOR.
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_droneport_close(struct sky_dev *dev);
+
+/**
+ * sky_asyncreq_droneport_close() - Inits and submits an asynchronous request to
+ *                                  close a cover of a drone port.
+ *
+ * See synchronous sky_droneport_close() variant for details.
+ */
+int sky_asyncreq_droneport_close(struct sky_async *async,
+				 struct sky_dev *dev,
+				 struct sky_async_req *req);
 
 /**
  * sky_gpsdata() - Gets the data collected by the GPS module.

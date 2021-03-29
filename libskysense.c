@@ -618,20 +618,20 @@ int sky_asyncreq_chargestop(struct sky_async *async,
 	return 0;
 }
 
-int sky_asyncreq_coveropen(struct sky_async *async,
-			   struct sky_dev *dev,
-			   struct sky_async_req *req)
+int sky_asyncreq_droneport_open(struct sky_async *async,
+				struct sky_dev *dev,
+				struct sky_async_req *req)
 {
-	sky_asyncreq_init(SKY_OPEN_COVER_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_init(SKY_OPEN_DRONEPORT_REQ, dev, NULL, NULL, req);
 	sky_asyncreq_add(async, req);
 	return 0;
 }
 
-int sky_asyncreq_coverclose(struct sky_async *async,
-			    struct sky_dev *dev,
-			    struct sky_async_req *req)
+int sky_asyncreq_droneport_close(struct sky_async *async,
+				 struct sky_dev *dev,
+				 struct sky_async_req *req)
 {
-	sky_asyncreq_init(SKY_CLOSE_COVER_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_init(SKY_CLOSE_DRONEPORT_REQ, dev, NULL, NULL, req);
 	sky_asyncreq_add(async, req);
 	return 0;
 }
@@ -808,7 +808,7 @@ int sky_chargestop(struct sky_dev *dev)
 	return rc;
 }
 
-int sky_coveropen(struct sky_dev *dev)
+int sky_droneport_open(struct sky_dev *dev)
 {
 	struct sky_async *async = NULL;
 	struct sky_async_req req;
@@ -816,7 +816,7 @@ int sky_coveropen(struct sky_dev *dev)
 
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
-		rc = sky_asyncreq_coveropen(async, dev, &req);
+		rc = sky_asyncreq_droneport_open(async, dev, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);
@@ -824,7 +824,7 @@ int sky_coveropen(struct sky_dev *dev)
 	return rc;
 }
 
-int sky_coverclose(struct sky_dev *dev)
+int sky_droneport_close(struct sky_dev *dev)
 {
 	struct sky_async *async = NULL;
 	struct sky_async_req req;
@@ -832,7 +832,7 @@ int sky_coverclose(struct sky_dev *dev)
 
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
-		rc = sky_asyncreq_coverclose(async, dev, &req);
+		rc = sky_asyncreq_droneport_close(async, dev, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);

@@ -216,12 +216,12 @@ static int skydum_chargestop(struct sky_dev *dev_)
 	return 0;
 }
 
-static int skydum_coveropen(struct sky_dev *dev)
+static int skydum_droneport_open(struct sky_dev *dev)
 {
 	return dp_open(dev);
 }
 
-static int skydum_coverclose(struct sky_dev *dev)
+static int skydum_droneport_close(struct sky_dev *dev)
 {
 	return dp_close(dev);
 }
@@ -391,11 +391,11 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 	case SKY_STOP_CHARGE_REQ:
 		rc = skydum_chargestop(req->dev);
 		break;
-	case SKY_OPEN_COVER_REQ:
-		rc = skydum_coveropen(req->dev);
+	case SKY_OPEN_DRONEPORT_REQ:
+		rc = skydum_droneport_open(req->dev);
 		break;
-	case SKY_CLOSE_COVER_REQ:
-		rc = skydum_coverclose(req->dev);
+	case SKY_CLOSE_DRONEPORT_REQ:
+		rc = skydum_droneport_close(req->dev);
 		break;
 	case SKY_RESET_DEV_REQ:
 		rc = skydum_reset(req->dev);

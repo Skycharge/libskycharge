@@ -459,16 +459,16 @@ int main(int argc, char *argv[])
 			sky_err("sky_stopcharge(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-	} else if (cli.opencover) {
-		rc = sky_coveropen(dev);
+	} else if (cli.opendroneport) {
+		rc = sky_droneport_open(dev);
 		if (rc) {
-			sky_err("sky_coveropen(): %s\n", strerror(-rc));
+			sky_err("sky_droneport_open(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-	} else if (cli.closecover) {
-		rc = sky_coverclose(dev);
+	} else if (cli.closedroneport) {
+		rc = sky_droneport_close(dev);
 		if (rc) {
-			sky_err("sky_closecover(): %s\n", strerror(-rc));
+			sky_err("sky_droneport_close(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 	} else if (cli.dronedetect) {

@@ -454,7 +454,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
-	case SKY_OPEN_COVER_REQ: {
+	case SKY_OPEN_DRONEPORT_REQ: {
 		struct sky_rsp_hdr *rsp;
 
 		dev = sky_find_dev(serv, devport_frame);
@@ -469,14 +469,14 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		rc = sky_coveropen(dev);
+		rc = sky_droneport_open(dev);
 
-		rsp->type  = htole16(SKY_OPEN_COVER_RSP);
+		rsp->type  = htole16(SKY_OPEN_DRONEPORT_RSP);
 		rsp->error = htole16(-rc);
 
 		break;
 	}
-	case SKY_CLOSE_COVER_REQ: {
+	case SKY_CLOSE_DRONEPORT_REQ: {
 		struct sky_rsp_hdr *rsp;
 
 		dev = sky_find_dev(serv, devport_frame);
@@ -491,9 +491,9 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		rc = sky_coverclose(dev);
+		rc = sky_droneport_close(dev);
 
-		rsp->type  = htole16(SKY_CLOSE_COVER_RSP);
+		rsp->type  = htole16(SKY_CLOSE_DRONEPORT_RSP);
 		rsp->error = htole16(-rc);
 
 		break;
