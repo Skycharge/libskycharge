@@ -489,7 +489,7 @@ static int skyrem_chargingstate_parse(struct skyrem_async *async,
 	struct sky_charging_state_rsp *rsp = rsp_data;
 	int rc;
 
-	if (rsp_len != sizeof(*rsp))
+	if (rsp_len < sizeof(*rsp))
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
@@ -533,7 +533,7 @@ static int skyrem_devslist_parse(struct skyrem_async *async,
 	num_devs = le16toh(rsp->num_devs);
 
 	/* Sanity checks */
-	if (rsp_len != sizeof(*rsp) + sizeof(rsp->info[0]) * num_devs)
+	if (rsp_len < sizeof(*rsp) + sizeof(rsp->info[0]) * num_devs)
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
@@ -587,7 +587,7 @@ static int skyrem_peerinfo_parse(struct skyrem_async *async,
 	struct sky_peerinfo_rsp *rsp = rsp_data;
 	int rc;
 
-	if (rsp_len != sizeof(*rsp))
+	if (rsp_len < sizeof(*rsp))
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
@@ -642,7 +642,7 @@ static int skyrem_gpsdata_parse(struct skyrem_async *async,
 	struct sky_gpsdata_rsp *rsp = rsp_data;
 	int rc;
 
-	if (rsp_len != sizeof(*rsp))
+	if (rsp_len < sizeof(*rsp))
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
@@ -693,7 +693,7 @@ static int skyrem_dronedetect_parse(struct skyrem_async *async,
 	struct sky_dronedetect_rsp *rsp = rsp_data;
 	int rc;
 
-	if (rsp_len != sizeof(*rsp))
+	if (rsp_len < sizeof(*rsp))
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
