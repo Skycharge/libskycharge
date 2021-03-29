@@ -74,6 +74,9 @@ enum sky_proto_type {
 	SKY_DRONEDETECT_REQ    = 23,
 	SKY_DRONEDETECT_RSP    = 24,
 
+	SKY_DRONEPORT_STATE_REQ = 25,
+	SKY_DRONEPORT_STATE_RSP = 26,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -171,6 +174,11 @@ struct sky_peerinfo_rsp {
 	le16 padding;
 	le32 server_version;
 	char reserved[52];
+};
+
+struct sky_droneport_state_rsp {
+	struct sky_rsp_hdr hdr;
+	le32 status;
 };
 
 struct sky_gpsdata_rsp {

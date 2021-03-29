@@ -662,7 +662,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 	rc = skyreq->out.rc;
 	sky_devclose(skyreq->dev);
 
-	state = &req->skystruct.state;
+	state = &req->skystruct.charging_state;
 
 	ret = snprintf_buffer(&buffer, &off, &size,
 			      "{\n\t\"errno\": \"%s\",\n\t\"charging-state\": {\n",
@@ -844,7 +844,8 @@ charging_state_create_request(struct httpd_request *devslist_req)
 	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
 
 	rc = sky_asyncreq_chargingstate(devslist_req->httpd->async, dev,
-					&req->skystruct.state, &req->skyreq);
+					&req->skystruct.charging_state,
+					&req->skyreq);
 	if (rc) {
 		free(req);
 		sky_devclose(dev);

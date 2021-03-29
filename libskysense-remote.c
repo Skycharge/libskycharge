@@ -607,6 +607,33 @@ complete_with_EPROTO:
 	goto complete;
 }
 
+static int skyrem_droneport_state_parse(struct skyrem_async *async,
+					struct sky_async_req *req,
+					void *rsp_data, size_t rsp_len)
+{
+	struct sky_droneport_state *state = req->out.ptr;
+	struct sky_droneport_state_rsp *rsp = rsp_data;
+	int rc;
+
+	if (rsp_len < sizeof(*rsp))
+		/* Malformed response */
+		goto complete_with_EPROTO;
+
+	rc = -le16toh(rsp->hdr.error);
+	if (rc)
+		goto complete;
+
+	state->status = le32toh(rsp->status);
+
+complete:
+	skyrem_asyncreq_complete(async, req, rc);
+	return 0;
+
+complete_with_EPROTO:
+	rc = -EPROTO;
+	goto complete;
+}
+
 static int skyrem_gpsdata_parse(struct skyrem_async *async,
 				struct sky_async_req *req,
 				void *rsp_data, size_t rsp_len)
@@ -703,6 +730,7 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_STOP_CHARGE_REQ:
 	case SKY_OPEN_DRONEPORT_REQ:
 	case SKY_CLOSE_DRONEPORT_REQ:
+	case SKY_DRONEPORT_STATE_REQ:
 	case SKY_CHARGING_STATE_REQ:
 	case SKY_RESET_DEV_REQ:
 	case SKY_DEVS_LIST_REQ:
@@ -760,6 +788,9 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 		break;
 	case SKY_PEERINFO_REQ:
 		rc = skyrem_peerinfo_parse(async, req, rsp, rsp_len);
+		break;
+	case SKY_DRONEPORT_STATE_REQ:
+		rc = skyrem_droneport_state_parse(async, req, rsp, rsp_len);
 		break;
 	case SKY_GPSDATA_REQ:
 		rc = skyrem_gpsdata_parse(async, req, rsp, rsp_len);

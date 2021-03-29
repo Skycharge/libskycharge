@@ -226,6 +226,56 @@ unlock:
 	return rc;
 }
 
+int dp_state(struct sky_dev *dev, struct sky_droneport_state *state)
+{
+	struct sky_conf *conf = &dev->devdesc.conf;
+	uint32_t status = 0;
+	int lockfd, rc;
+
+	if (conf->dp.hw_interface == SKY_DP_UNKNOWN)
+		return -EOPNOTSUPP;
+	if (conf->dp.hw_interface != SKY_DP_GPIO)
+		return -EOPNOTSUPP;
+
+	/* GPIO Interface */
+
+	lockfd = gpio_lock();
+	if (lockfd < 0)
+		return lockfd;
+
+	rc = dp_is_ready(conf);
+	if (rc < 0)
+		goto unlock;
+	if (rc)
+		status |= SKY_DP_IS_READY;
+
+	rc = dp_is_opened(conf);
+	if (rc < 0)
+		goto unlock;
+	if (rc)
+		status |= SKY_DP_IS_OPENED;
+
+	rc = dp_is_closed(conf);
+	if (rc < 0)
+		goto unlock;
+	if (rc)
+		status |= SKY_DP_IS_CLOSED;
+
+	rc = dp_in_progress(conf);
+	if (rc < 0)
+		goto unlock;
+	if (rc)
+		status |= SKY_DP_IN_PROGRESS;
+
+	rc = 0;
+	state->status = status;
+
+unlock:
+	gpio_unlock(lockfd);
+
+	return rc;
+}
+
 int dp_drone_detect(struct sky_dev *dev)
 {
 	struct sky_conf *conf = &dev->devdesc.conf;

@@ -945,6 +945,12 @@ static int skyloc_droneport_close(struct sky_dev *dev)
 	return dp_close(dev);
 }
 
+static int
+skyloc_droneport_state(struct sky_dev *dev, struct sky_droneport_state *state)
+{
+	return dp_state(dev, state);
+}
+
 static int skyloc_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 {
 	struct skyloc_dev *dev;
@@ -1091,6 +1097,9 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_CLOSE_DRONEPORT_REQ:
 		rc = skyloc_droneport_close(req->dev);
+		break;
+	case SKY_DRONEPORT_STATE_REQ:
+		rc = skyloc_droneport_state(req->dev, req->out.ptr);
 		break;
 	case SKY_RESET_DEV_REQ:
 		rc = skyloc_reset(req->dev);

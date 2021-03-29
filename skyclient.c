@@ -471,6 +471,27 @@ int main(int argc, char *argv[])
 			sky_err("sky_droneport_close(): %s\n", strerror(-rc));
 			exit(-1);
 		}
+	} else if (cli.showdroneportstate) {
+		struct sky_droneport_state state;
+
+		rc = sky_droneport_state(dev, &state);
+		if (rc) {
+			sky_err("sky_droneport_state(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+
+		printf("Skycharge Drone Port:\n"
+		       "   IS READY      %s\n"
+		       "   IS OPENED     %s\n"
+		       "   IS CLOSED     %s\n"
+		       "   IN PROGRESS   %s\n"
+		       "   LANDING ERROR %s\n",
+		       state.status & SKY_DP_IS_READY ? "yes": " no",
+		       state.status & SKY_DP_IS_OPENED ? "yes": " no",
+		       state.status & SKY_DP_IS_CLOSED ? "yes": " no",
+		       state.status & SKY_DP_IN_PROGRESS ? "yes": " no",
+		       state.status & SKY_DP_LANDING_ERROR ? "yes": " no");
+
 	} else if (cli.dronedetect) {
 		enum sky_drone_status status;
 

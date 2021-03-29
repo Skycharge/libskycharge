@@ -9,7 +9,6 @@
 
 #include "libskysense-pri.h"
 #include "libskybms.h"
-#include "libskydp.h"
 #include "types.h"
 
 struct skydum_dev {
@@ -20,6 +19,8 @@ struct skydum_dev {
 	struct gps_data_t gpsdata;
 	struct bms_lib bms;
 	bool gps_nodev;
+
+	struct sky_droneport_state dp_state;
 
 	unsigned cur, vol;
 };
@@ -77,13 +78,7 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 		/* Do not make much noise if GPS does not exist */
 		dev->gps_nodev = true;
 
-	rc = dp_configure(devdesc);
-	if (rc && rc != -EOPNOTSUPP) {
-		if (!dev->gps_nodev)
-			gps_close(&dev->gpsdata);
-		free(dev);
-		return rc;
-	}
+	dev->dp_state.status |= (SKY_DP_IS_READY | SKY_DP_IS_CLOSED);
 
 	bms_init(&dev->bms);
 
@@ -216,14 +211,43 @@ static int skydum_chargestop(struct sky_dev *dev_)
 	return 0;
 }
 
-static int skydum_droneport_open(struct sky_dev *dev)
+static int skydum_droneport_open(struct sky_dev *dev_)
 {
-	return dp_open(dev);
+	struct skydum_dev *dev;
+
+	dev = container_of(dev_, struct skydum_dev, dev);
+	if (dev->dp_state.status & SKY_DP_IS_OPENED)
+		return -EALREADY;
+
+	dev->dp_state.status |= SKY_DP_IS_OPENED;
+	dev->dp_state.status &= ~SKY_DP_IS_CLOSED;
+
+	return 0;
 }
 
-static int skydum_droneport_close(struct sky_dev *dev)
+static int skydum_droneport_close(struct sky_dev *dev_)
 {
-	return dp_close(dev);
+	struct skydum_dev *dev;
+
+	dev = container_of(dev_, struct skydum_dev, dev);
+	if (dev->dp_state.status & SKY_DP_IS_CLOSED)
+		return -EALREADY;
+
+	dev->dp_state.status |= SKY_DP_IS_CLOSED;
+	dev->dp_state.status &= ~SKY_DP_IS_OPENED;
+
+	return 0;
+}
+
+static int
+skydum_droneport_state(struct sky_dev *dev_, struct sky_droneport_state *state)
+{
+	struct skydum_dev *dev;
+
+	dev = container_of(dev_, struct skydum_dev, dev);
+	state->status = dev->dp_state.status;
+
+	return 0;
 }
 
 static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
@@ -313,15 +337,8 @@ static int skydum_gpsdata(struct sky_dev *dev_, struct sky_gpsdata *gpsdata)
 static int skydum_dronedetect(struct sky_dev *dev_,
 			      enum sky_drone_status *status)
 {
-	int rc;
-
-	rc = dp_drone_detect(dev_);
-	if (rc >= 0) {
-		*status = rc ? SKY_DRONE_DETECTED : SKY_DRONE_NOT_DETECTED;
-		return 0;
-	}
-
-	return rc;
+	*status = SKY_DRONE_NOT_DETECTED;
+	return 0;
 }
 
 static bool skydum_asyncreq_cancel(struct sky_async *async,
@@ -396,6 +413,9 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_CLOSE_DRONEPORT_REQ:
 		rc = skydum_droneport_close(req->dev);
+		break;
+	case SKY_DRONEPORT_STATE_REQ:
+		rc = skydum_droneport_state(req->dev, req->out.ptr);
 		break;
 	case SKY_RESET_DEV_REQ:
 		rc = skydum_reset(req->dev);

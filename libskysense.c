@@ -636,6 +636,16 @@ int sky_asyncreq_droneport_close(struct sky_async *async,
 	return 0;
 }
 
+int sky_asyncreq_droneport_state(struct sky_async *async,
+				 struct sky_dev *dev,
+				 struct sky_droneport_state *state,
+				 struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_DRONEPORT_STATE_REQ, dev, NULL, state, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
 int sky_asyncreq_gpsdata(struct sky_async *async,
 			 struct sky_dev *dev,
 			 struct sky_gpsdata *gpsdata,
@@ -833,6 +843,22 @@ int sky_droneport_close(struct sky_dev *dev)
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
 		rc = sky_asyncreq_droneport_close(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_droneport_state(struct sky_dev *dev, struct sky_droneport_state *state)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_droneport_state(async, dev, state, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);

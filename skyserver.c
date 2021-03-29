@@ -498,6 +498,32 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
+	case SKY_DRONEPORT_STATE_REQ: {
+		struct sky_droneport_state_rsp *rsp;
+		struct sky_droneport_state state;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rc = sky_droneport_state(dev, &state);
+
+		rsp->hdr.type  = htole16(SKY_DRONEPORT_STATE_RSP);
+		rsp->hdr.error = htole16(-rc);
+		if (!rc) {
+			rsp->status = htole32(state.status);
+		}
+
+		break;
+	}
 	case SKY_CHARGING_STATE_REQ: {
 		struct sky_charging_state_rsp *rsp;
 		struct sky_charging_state state;

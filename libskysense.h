@@ -203,6 +203,21 @@ struct sky_charging_state {
 	} bms;
 };
 
+enum sky_droneport_status {
+	SKY_DP_IS_READY      = 1<<0,
+	SKY_DP_IS_OPENED     = 1<<1,
+	SKY_DP_IS_CLOSED     = 1<<2,
+	SKY_DP_IN_PROGRESS   = 1<<3,
+	SKY_DP_LANDING_ERROR = 1<<4,
+};
+
+/**
+ * struct sky_droneport_state - Droneport state.
+ */
+struct sky_droneport_state {
+	unsigned int status;
+};
+
 /**
  * struct sky_subscription - Event subscription configuration.
  */
@@ -273,12 +288,13 @@ struct sky_gpsdata {
  *                           of asynchronous commands.
  */
 union sky_async_storage {
-	struct sky_peerinfo       peerinfo;
-	struct sky_dev_desc       *devdescs;
-	struct sky_dev_params     params;
-	struct sky_charging_state state;
-	struct sky_gpsdata        gpsdata;
-	enum sky_drone_status     status;
+	struct sky_peerinfo        peerinfo;
+	struct sky_dev_desc        *devdescs;
+	struct sky_dev_params      params;
+	struct sky_charging_state  charging_state;
+	struct sky_droneport_state dp_state;
+	struct sky_gpsdata         gpsdata;
+	enum sky_drone_status      drone_status;
 };
 
 struct sky_async_req;
@@ -784,6 +800,31 @@ int sky_droneport_close(struct sky_dev *dev);
  */
 int sky_asyncreq_droneport_close(struct sky_async *async,
 				 struct sky_dev *dev,
+				 struct sky_async_req *req);
+
+/**
+ * sky_droneport_state() - Retrieves droneport state.
+ * @dev:		   Device context.
+ *
+ * Returns the current state of a droneport. Device must be @SKY_OUTDOOR.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EOPNOTSUPP if device is not a @SKY_OUTDOOR.
+ * -EPERM  if operation is not permitted.
+ * -ECONNRESET connection reset by peer (in case of a remote connection)
+ */
+int sky_droneport_state(struct sky_dev *dev, struct sky_droneport_state *state);
+
+/**
+ * sky_asyncreq_droneport_state() - Retrieves droneport state.
+ *
+ * See synchronous sky_droneport_state() variant for details.
+ */
+int sky_asyncreq_droneport_state(struct sky_async *async,
+				 struct sky_dev *dev,
+				 struct sky_droneport_state *state,
 				 struct sky_async_req *req);
 
 /**
