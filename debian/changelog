@@ -1,3 +1,13 @@
+skysense (1.4.0) stretch; urgency=low
+  * libskysense-local: move crc8 to a separate file
+  * skyproto: split 64-bit struct member on 2x 32-bit
+  * skyuartd: implement a daemon for UART requests handling
+  * skyclient: introduce --no-pretty for show-charging-state command
+  * libskysense-local: fix error path if dp_configure() fails
+  * gpio: open gpio/export file for O_WRONLY
+
+ -- Roman Pen <r.peniaev@gmail.com>  Fri, 14 May 2021 23:00:00 +0200
+
 skysense (1.3.2) stretch; urgency=low
   * libskysense: indentation tweaks
   * api and proto: replace 'cover' with 'droneport'
