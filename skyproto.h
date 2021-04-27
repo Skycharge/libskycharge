@@ -139,6 +139,15 @@ struct sky_set_dev_params_req {
 	le32 dev_params[];
 };
 
+/*
+ * Union of all possible requests for allocating the structure on a stack
+ */
+union sky_req {
+	struct sky_req_hdr            hdr;
+	struct sky_get_dev_params_req get_dev_params;
+	struct sky_set_dev_params_req set_dev_params;
+};
+
 struct sky_dev_info {
 	le16 dev_type;
 	le16 padding;

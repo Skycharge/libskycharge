@@ -1,0 +1,7 @@
+Skycharge UART server.
+
+Usage:
+    skyhttpd <sky_addr> <sky_port> --uart-dev <dev> --uart-baudrate <baudrate> --conffile <conff> [(--daemon (--pidfile <pidf>))]
+
+Options:
+    Skycharge UART server for serving UART requests.

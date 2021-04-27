@@ -82,6 +82,18 @@ Description: Light and fast Skycharge httpd server for serving JSON
  requests. This package contains Skycharge httpd server, which can be
  run both on skycharge device and broker sides.
 
+Package: skyuartd
+Architecture: any
+Depends: ${misc:Depends},
+         ${shlibs:Depends},
+		 skysensed (>= ${binary:Version}),
+		 libuuid1,
+		 libzmq5,
+		 libczmq4,
+		 libserialport0,
+		 libgps22,
+Description: Skycharge UART server for serving UART requests.
+
 Package: skysense-dbg
 Architecture: any
 Section: debug

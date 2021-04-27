@@ -1,0 +1,9 @@
+# skyuartd configuration options
+
+UART_RX_PIN=P9.26
+UART_TX_PIN=P9.24
+UART_DEV=/dev/ttyS1
+UART_BAUDRATE=9600
+
+SKY_ADDR=127.0.0.1
+SKY_PORT=5555

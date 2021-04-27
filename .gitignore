@@ -11,6 +11,7 @@ skypsu
 skybmsd
 skybroker
 skyhttpd
+skyuartd
 docopt-gen
 version.h
 cscope.*
