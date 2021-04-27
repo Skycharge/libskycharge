@@ -165,7 +165,8 @@ struct sky_charging_state_rsp {
 		le16 charge_time; /* seconds */
 	} bms;
 	le16 unused1;
-	le64 unused2;
+	le32 unused2;
+	le32 unused3;
 };
 
 struct sky_peerinfo_rsp {
