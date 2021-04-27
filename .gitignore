@@ -1,5 +1,10 @@
 *~
 *.o
+debian/files
+debian/*.debhelper.log
+debian/*.debhelper
+debian/*.substvars
+
 skysense-cli
 skysensed
 skypsu
