@@ -13,6 +13,7 @@
 #include "libskybms.h"
 #include "libskydp.h"
 #include "types.h"
+#include "crc8.h"
 
 enum hw1_sky_serial_cmd {
 	HW1_SKY_RESET_CMD              = 0x01,
@@ -483,21 +484,6 @@ static struct sky_hw_ops hw1_sky_ops = {
 /*
  * HW2 specific operations
  */
-
-static inline uint8_t crc8(uint8_t *data, uint16_t len)
-{
-    uint8_t crc = 0xff;
-    uint8_t i;
-
-    while (len--) {
-        crc ^= *data++;
-
-        for (i = 0; i < 8; i++)
-		crc = crc & 0x80 ? (crc << 1) ^ 0x31 : crc << 1;
-    }
-
-    return crc;
-}
 
 static int hw2_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
 				    uint8_t cmd)
