@@ -13,7 +13,7 @@ Usage:
     skysense-cli close-droneport               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli show-droneport-state          [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli drone-detect                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-charging-state           [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-charging-state [--no-pretty] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]

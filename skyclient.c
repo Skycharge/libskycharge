@@ -518,7 +518,7 @@ int main(int argc, char *argv[])
 			sky_err("sky_chargingstate(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		cli.pretty = 1;
+		cli.pretty = !cli.nopretty;
 		sky_print_charging_state(&cli, &state);
 	} else if (cli.reset) {
 		rc = sky_reset(dev);
