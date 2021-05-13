@@ -615,36 +615,52 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		return -ENOMEM;
 
 	sprc = sp_get_port_by_name(devdesc->portname, &dev->port);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_dev;
+	}
 
 	sprc = sp_open(dev->port, SP_MODE_READ_WRITE);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_port;
+	}
 
 	sprc = sp_new_config(&spconf);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto close_port;
+	}
 
 	sprc = sp_get_config(dev->port, spconf);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_conf;
+	}
 
 	sprc = sp_set_config_flowcontrol(spconf, SP_FLOWCONTROL_NONE);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_conf;
+	}
 
 	sprc = sp_set_config_parity(spconf, SP_PARITY_NONE);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_conf;
+	}
 
 	sprc = sp_set_config_bits(spconf, 8);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_conf;
+	}
 
 	sprc = sp_set_config(dev->port, spconf);
-	if (sprc)
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
 		goto free_conf;
+	}
 
 	/*
 	 * TODO: this is very ugly, but shitty devserialport does not
@@ -653,7 +669,7 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	 */
 	dev->lockfd = open(devdesc->portname, O_RDWR);
 	if (dev->lockfd < 0) {
-		sprc = SP_ERR_FAIL;
+		rc = dev->lockfd;
 		goto free_conf;
 	}
 
@@ -668,7 +684,7 @@ static int devopen(const struct sky_dev_desc *devdesc,
 
 		rc = dp_configure(devdesc);
 		if (rc && rc != -EOPNOTSUPP)
-			goto free_conf;
+			goto close_lockfd;
 	} else {
 		dev->gps_nodev = true;
 	}
@@ -679,6 +695,8 @@ static int devopen(const struct sky_dev_desc *devdesc,
 
 	return 0;
 
+close_lockfd:
+	close(dev->lockfd);
 free_conf:
 	sp_free_config(spconf);
 close_port:
@@ -688,7 +706,7 @@ free_port:
 free_dev:
 	free(dev);
 
-	return sprc_to_errno(sprc);
+	return rc;
 }
 
 static void devclose(struct skyloc_dev *dev)
