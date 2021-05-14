@@ -14,7 +14,7 @@ int gpio_lock(void)
 {
 	int rc, lockfd;
 
-	lockfd = open("/sys/class/gpio/export", O_RDWR);
+	lockfd = open("/sys/class/gpio/export", O_WRONLY);
 	if (lockfd < 0)
 		return -errno;
 
