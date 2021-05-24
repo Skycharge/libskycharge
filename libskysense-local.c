@@ -656,6 +656,12 @@ static int devopen(const struct sky_dev_desc *devdesc,
 		goto free_conf;
 	}
 
+	sprc = sp_set_config_baudrate(spconf, 9600);
+	if (sprc) {
+		rc = sprc_to_errno(sprc);
+		goto free_conf;
+	}
+
 	sprc = sp_set_config(dev->port, spconf);
 	if (sprc) {
 		rc = sprc_to_errno(sprc);
