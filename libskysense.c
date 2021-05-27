@@ -1094,6 +1094,20 @@ static void *subscription_work(void *data)
 		ms = msecs_epoch();
 		rc = get_devops(dev)->subscription_work(dev, &state);
 		ms = msecs_epoch() - ms;
+
+		if (rc < 0 && dev->devdesc.conf.contype == SKY_LOCAL) {
+			/*
+			 * We exit the loop only in case of a fatal error for the
+			 * local connection, i.e. when MUX returns an error ("bad file
+			 * descriptor" when HW1 MUX was unplugged). We don't do the same
+			 * for the remote connection because we want the connection to
+			 * be reestablished.
+			 */
+			sky_err("Got fatal error inside the subscription loop, exit\n");
+			exit(-1);
+			break;
+		}
+
 		if (rc >= 0)
 			/* Notify subscribers only in case of success */
 			dev->subsc.on_state(dev->subsc.data, &state);
