@@ -481,6 +481,25 @@ static int skyrem_paramsset_send(struct skyrem_async *async,
 	return skyrem_sendreq(async, req, &req_uni.req.hdr, sz);
 }
 
+static int skyrem_psureq_send(struct skyrem_async *async,
+			      struct sky_async_req *req)
+{
+	uint16_t *pdata, data;
+
+	pdata = (typeof(pdata))req->in.storage;
+	data = *pdata;
+
+	struct {
+		struct sky_psu_req req;
+	} req_uni = {
+		.req.hdr.type = htole16(req->type),
+		.req.data     = htole16(data),
+	};
+	BUILD_BUG_ON(sizeof(req_uni.req.data) > sizeof(req->in.storage));
+
+	return skyrem_sendreq(async, req, &req_uni.req.hdr, sizeof(req_uni));
+}
+
 static int skyrem_chargingstate_parse(struct skyrem_async *async,
 				      struct sky_async_req *req,
 				      void *rsp_data, size_t rsp_len)
@@ -726,6 +745,11 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_SET_DEV_PARAMS_REQ:
 		rc = skyrem_paramsset_send(async, req);
 		break;
+	case SKY_PSU_SET_TYPE_REQ:
+	case SKY_PSU_SET_VOLTAGE_REQ:
+	case SKY_PSU_SET_CURRENT_REQ:
+		rc = skyrem_psureq_send(async, req);
+		break;
 	case SKY_START_CHARGE_REQ:
 	case SKY_STOP_CHARGE_REQ:
 	case SKY_OPEN_DRONEPORT_REQ:
@@ -775,6 +799,9 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 	case SKY_SET_DEV_PARAMS_REQ:
 	case SKY_START_CHARGE_REQ:
 	case SKY_STOP_CHARGE_REQ:
+	case SKY_PSU_SET_TYPE_REQ:
+	case SKY_PSU_SET_VOLTAGE_REQ:
+	case SKY_PSU_SET_CURRENT_REQ:
 	case SKY_OPEN_DRONEPORT_REQ:
 	case SKY_CLOSE_DRONEPORT_REQ:
 	case SKY_RESET_DEV_REQ:
