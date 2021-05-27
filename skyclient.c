@@ -459,6 +459,50 @@ int main(int argc, char *argv[])
 			sky_err("sky_stopcharge(): %s\n", strerror(-rc));
 			exit(-1);
 		}
+	} else if (cli.psusettype) {
+		enum sky_psu_type psu_type = SKY_PSU_UNKNOWN;
+
+		if (0 == strcasecmp(cli.type, "rsp-750-48") ||
+			0 == strcasecmp(cli.type, "rsp750-48")) {
+			psu_type = SKY_PSU_RSP_750_48;
+		} else if (0 == strcasecmp(cli.type, "rsp-1600-48") ||
+				   0 == strcasecmp(cli.type, "rsp1600-48")) {
+			psu_type = SKY_PSU_RSP_1600_48;
+		} else {
+			sky_err("Incorrect PSU type. Supported values are: RSP-750-48 or RSP-1600-48\n");
+			exit(-1);
+		}
+		rc = sky_psu_typeset(dev, psu_type);
+		if (rc) {
+			sky_err("sky_psu_typeset(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	} else if (cli.psusetvoltage) {
+		float v;
+
+		rc = sscanf(cli.volts, "%f", &v);
+		if (rc != 1) {
+			sky_err("Voltage should be a float number\n");
+			exit(-1);
+		}
+		rc = sky_psu_voltageset(dev, v * 1000);
+		if (rc) {
+			sky_err("sky_psu_voltageset(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	} else if (cli.psusetcurrent) {
+		float a;
+
+		rc = sscanf(cli.amps, "%f", &a);
+		if (rc != 1) {
+			sky_err("Amperage should be a float number\n");
+			exit(-1);
+		}
+		rc = sky_psu_currentset(dev, a * 1000);
+		if (rc) {
+			sky_err("sky_psu_currentset(): %s\n", strerror(-rc));
+			exit(-1);
+		}
 	} else if (cli.opendroneport) {
 		rc = sky_droneport_open(dev);
 		if (rc) {

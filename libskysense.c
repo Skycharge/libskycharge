@@ -618,6 +618,51 @@ int sky_asyncreq_chargestop(struct sky_async *async,
 	return 0;
 }
 
+int sky_asyncreq_psu_typeset(struct sky_async *async,
+			     struct sky_dev *dev,
+			     enum sky_psu_type psu_type,
+			     struct sky_async_req *req)
+{
+	uint16_t *ptype, type = psu_type;
+
+	sky_asyncreq_init(SKY_PSU_SET_TYPE_REQ, dev, req->in.storage, NULL, req);
+	sky_asyncreq_add(async, req);
+	BUILD_BUG_ON(sizeof(type) > sizeof(req->in.storage));
+	ptype = (typeof(&type))req->in.storage;
+	*ptype = type;
+	return 0;
+}
+
+int sky_asyncreq_psu_voltageset(struct sky_async *async,
+				struct sky_dev *dev,
+				uint16_t mv,
+				struct sky_async_req *req)
+{
+	uint16_t *pmv;
+
+	sky_asyncreq_init(SKY_PSU_SET_VOLTAGE_REQ, dev, req->in.storage, NULL, req);
+	sky_asyncreq_add(async, req);
+	BUILD_BUG_ON(sizeof(mv) > sizeof(req->in.storage));
+	pmv = (typeof(&mv))req->in.storage;
+	*pmv = mv;
+	return 0;
+}
+
+int sky_asyncreq_psu_currentset(struct sky_async *async,
+				struct sky_dev *dev,
+				uint16_t ma,
+				struct sky_async_req *req)
+{
+	uint16_t *pma;
+
+	sky_asyncreq_init(SKY_PSU_SET_CURRENT_REQ, dev, req->in.storage, NULL, req);
+	sky_asyncreq_add(async, req);
+	BUILD_BUG_ON(sizeof(ma) > sizeof(req->in.storage));
+	pma = (typeof(&ma))req->in.storage;
+	*pma = ma;
+	return 0;
+}
+
 int sky_asyncreq_droneport_open(struct sky_async *async,
 				struct sky_dev *dev,
 				struct sky_async_req *req)
@@ -811,6 +856,54 @@ int sky_chargestop(struct sky_dev *dev)
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
 		rc = sky_asyncreq_chargestop(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_psu_typeset(struct sky_dev *dev, enum sky_psu_type psu_type)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_psu_typeset(async, dev, psu_type, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_psu_voltageset(struct sky_dev *dev, uint16_t mv)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_psu_voltageset(async, dev, mv, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_psu_currentset(struct sky_dev *dev, uint16_t ma)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_psu_currentset(async, dev, ma, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);

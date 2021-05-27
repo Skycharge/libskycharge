@@ -454,6 +454,44 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
+	case SKY_PSU_SET_TYPE_REQ:
+	case SKY_PSU_SET_VOLTAGE_REQ:
+	case SKY_PSU_SET_CURRENT_REQ: {
+		struct sky_psu_req *req = (void *)req_hdr;
+		struct sky_rsp_hdr *rsp;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		if (zframe_size_const(data_frame) < sizeof(*req)) {
+			sky_err("malformed request\n");
+			rc = -EINVAL;
+			goto emergency;
+		}
+
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		if (req_type == SKY_PSU_SET_TYPE_REQ)
+			rc = sky_psu_typeset(dev, req->data);
+		else if (req_type == SKY_PSU_SET_VOLTAGE_REQ)
+			rc = sky_psu_voltageset(dev, req->data);
+		else if (req_type == SKY_PSU_SET_CURRENT_REQ)
+			rc = sky_psu_currentset(dev, req->data);
+		else
+			assert(0);
+
+		rsp->type  = htole16(req_type + 1);
+		rsp->error = htole16(-rc);
+
+		break;
+	}
 	case SKY_OPEN_DRONEPORT_REQ: {
 		struct sky_rsp_hdr *rsp;
 

@@ -317,6 +317,7 @@ struct sky_async_req {
 	unsigned int           tag;  /* response tag */
 	struct {
 		const void *ptr;
+		uint8_t     storage[2];
 	}                    in;
 	struct {
 		void   *ptr;
@@ -751,6 +752,81 @@ int sky_chargestop(struct sky_dev *dev);
 int sky_asyncreq_chargestop(struct sky_async *async,
 			    struct sky_dev *dev,
 			    struct sky_async_req *req);
+
+/**
+ * sky_psu_typeset() - Sets PSU type.
+ * @dev:	Device context.
+ * @psu_type:	PSU type.
+ *
+ * Sets PSU type. HW2 only supports this operation.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EOPNOTSUPP If operation is not supported, e.g. HW1 does not support.
+ */
+int sky_psu_typeset(struct sky_dev *dev, enum sky_psu_type psu_type);
+
+/**
+ * sky_asyncreq_psu_typeset() - Inits and submits an asynchronous request to
+ *                              set a PSU type.
+ *
+ * See synchronous sky_psu_typeset() variant for details.
+ */
+int sky_asyncreq_psu_typeset(struct sky_async *async,
+			     struct sky_dev *dev,
+			     enum sky_psu_type psu_type,
+			     struct sky_async_req *req);
+
+/**
+ * sky_psu_voltageset() - Sets PSU voltage.
+ * @dev:	Device context.
+ * @mv:		Millivolts.
+ *
+ * Sets PSU voltage. HW2 only supports this operation.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EOPNOTSUPP If operation is not supported, e.g. HW1 does not support.
+ */
+int sky_psu_voltageset(struct sky_dev *dev, uint16_t mv);
+
+/**
+ * sky_asyncreq_psu_voltageset() - Inits and submits an asynchronous request to
+ *                                 set a voltage.
+ *
+ * See synchronous sky_psu_voltageset() variant for details.
+ */
+int sky_asyncreq_psu_voltageset(struct sky_async *async,
+				struct sky_dev *dev,
+				uint16_t mv,
+				struct sky_async_req *req);
+
+/**
+ * sky_psu_currentset() - Sets PSU max current.
+ * @dev:	Device context.
+ * @ma:		Milliamps.
+ *
+ * Sets PSU max current. HW2 only supports this operation.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EOPNOTSUPP If operation is not supported, e.g. HW1 does not support.
+ */
+int sky_psu_currentset(struct sky_dev *dev, uint16_t ma);
+
+/**
+ * sky_asyncreq_psu_currentset() - Inits and submits an asynchronous request to
+ *                                 set a current.
+ *
+ * See synchronous sky_psu_currentset() variant for details.
+ */
+int sky_asyncreq_psu_currentset(struct sky_async *async,
+				struct sky_dev *dev,
+				uint16_t ma,
+				struct sky_async_req *req);
 
 /**
  * sky_droneport_open() - Opens a cover of a drone port.
