@@ -217,6 +217,10 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	trim(line);
 	*(strchrnul(line, '#')) = '\0';
 
+	/*
+	 * Generic config
+	 */
+
 	if ((str = strstr(line, "user-uuid="))) {
 		rc = uuid_parse(str + 10, cfg->usruuid);
 		if (rc)
@@ -247,6 +251,18 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 		cfg->subport = cfg->srvport + 1;
 		cfg->pubport = cfg->cliport + 1;
+	}
+
+	/*
+	 * MUX config
+	 */
+
+	else if ((str = strstr(line, "mux-hw="))) {
+		rc = sscanf(str + 7, "%u", &cfg->mux_hw);
+		if (rc != 1)
+			return -ENODATA;
+	} else if ((str = strstr(line, "mux-dev="))) {
+		strncpy(cfg->mux_dev, str + 8, sizeof(cfg->mux_dev) - 1);
 
 	} else if ((str = strstr(line, "mux-hw1-eeprom-inited="))) {
 		unsigned p = SKY_EEPROM_INITED;
@@ -339,7 +355,13 @@ static int parse_line(char *line, struct sky_conf *cfg)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
-	} else if ((str = strstr(line, "psu-type="))) {
+	}
+
+	/*
+	 * PSU config
+	 */
+
+	else if ((str = strstr(line, "psu-type="))) {
 		if (0 == strcasecmp(str + 9, "rsp-750-48") ||
 		    0 == strcasecmp(str + 9, "rsp750-48"))
 			cfg->psu.type = SKY_PSU_RSP_750_48;
@@ -375,7 +397,13 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		if (rc != 1)
 			return -ENODATA;
 
-	} else if ((str = strstr(line, "dp-hw-interface="))) {
+	}
+
+	/*
+	 * Drone port config
+	 */
+
+	else if ((str = strstr(line, "dp-hw-interface="))) {
 		char buf[16];
 
 		strncpy(buf, str + 16, sizeof(buf) - 1);
@@ -437,6 +465,28 @@ void sky_confinit(struct sky_conf *cfg)
 	memset(cfg, 0, sizeof(*cfg));
 }
 
+static int validate_conf(struct sky_conf *cfg)
+{
+	if (cfg->mux_hw == SKY_MUX_UNKNOWN && !strlen(cfg->mux_dev)) {
+		/* A bit of compatibility */
+		sky_err("Config warning: 'mux_hw' is not specified, assume HW1\n");
+		cfg->mux_hw = SKY_MUX_HW1;
+		strcpy(cfg->mux_dev, "/dev/skysenseUSB");
+	} else {
+		if (cfg->mux_hw != SKY_MUX_HW1 &&
+		    cfg->mux_hw != SKY_MUX_HW2) {
+			sky_err("Config error: 'mux_hw' has incorrect value\n");
+			return -ENODATA;
+		}
+		if (!strlen(cfg->mux_dev)) {
+			sky_err("Config error: 'mux_dev' is not specified\n");
+			return -ENODATA;
+		}
+	}
+
+	return 0;
+}
+
 int sky_confparse(const char *path, struct sky_conf *cfg)
 {
 	FILE *fp;
@@ -465,7 +515,7 @@ int sky_confparse(const char *path, struct sky_conf *cfg)
 	free(line);
 	fclose(fp);
 
-	return rc;
+	return validate_conf(cfg);
 }
 
 int sky_discoverbroker(struct sky_brokerinfo *brokerinfo,

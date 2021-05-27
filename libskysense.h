@@ -38,6 +38,15 @@ enum sky_dev_type {
 };
 
 /**
+ * enum sky_mux_type - MUX type.
+ */
+enum sky_mux_type {
+	SKY_MUX_UNKNOWN = 0,
+	SKY_MUX_HW1 = 1,
+	SKY_MUX_HW2 = 2
+};
+
+/**
  * enum sky_dev_hw_state - Hardware state of the device.
  */
 enum sky_dev_hw_state {
@@ -138,6 +147,9 @@ struct sky_conf {
 	unsigned pubport;      /**< Clients publish port */
 
 	enum sky_con_type     contype;
+
+	enum sky_mux_type     mux_hw;
+	char                  mux_dev[32];
 	struct sky_dev_params mux_hw1_params;
 
 	struct {
