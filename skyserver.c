@@ -1454,6 +1454,27 @@ static int sky_avahi_publish_device(struct sky_server *serv,
 	return 0;
 }
 
+static void sky_wait_for_mux_hw1_dev(struct sky_server *serv)
+{
+	bool printed = false;
+	int rc;
+
+	if (serv->conf.mux_hw != SKY_MUX_HW1)
+		/* Only HW1 MUX should be awaited */
+		return;
+
+again:
+	rc = access(serv->conf.mux_dev, F_OK);
+	if (rc) {
+		if (!printed) {
+			sky_err("Device for HW1 does not exist, will wait\n");
+			printed = true;
+		}
+		usleep(300000);
+		goto again;
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_server serv = {
@@ -1505,8 +1526,12 @@ int main(int argc, char *argv[])
 	 * Daemonize before creating zmq socket, ZMQ is written by
 	 * people who are not able to deal with fork() gracefully.
 	 */
-	if (serv.cli.daemon)
+	if (serv.cli.daemon) {
 		sky_daemonize(serv.cli.pidf);
+
+		/* Only daemon waits for HW1 MUX, because HW1 is a USB device */
+		sky_wait_for_mux_hw1_dev(&serv);
+	}
 
 	/*
 	 * Setup ZMQ in order to catch SIGINT (Ctrl-C) or SIGTERM signals.
