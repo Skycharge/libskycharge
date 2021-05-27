@@ -1239,7 +1239,8 @@ static int discover_broker(struct sky_server *serv, struct sky_conf *conf)
 	/* Find any broker on the network */
 	rc = sky_discoverbroker(&brokerinfo, SKY_DISCOVERY_MS);
 	if (rc)
-		return rc;
+		/* Not a fatal error, so return > 0 */
+		return 1;
 
 	memset(conf, 0, sizeof(*conf));
 	strncpy(conf->hostname, brokerinfo.addr,
@@ -1298,27 +1299,22 @@ static int resolve_hostname(struct sky_conf *conf)
 
 static int parse_conf(struct sky_server *serv, struct sky_conf *conf)
 {
-	int rc;
-
-	rc = sky_confparse(serv->cli.conff, conf);
-	if (rc)
-		return rc;
-
-	if (conf->hostname[0] == '\0') {
+	if (serv->conf.hostname[0] == '\0') {
 		/*
 		 * Silently skip connection to the external broker if
 		 * broker-url is explicitly disabled.
 		 */
 		return -ENODATA;
 	}
-	if (conf->devname[0] == '\0') {
-		sky_err("parse_conf: invalid device-name\n");
+	if (serv->conf.devname[0] == '\0') {
+		sky_err("Invalid device-name\n");
 		return -ENODATA;
 	}
-	if (uuid_is_null(conf->devuuid)) {
-		sky_err("parse_conf: invalid device-uuid\n");
+	if (uuid_is_null(serv->conf.devuuid)) {
+		sky_err("Invalid device-uuid\n");
 		return -ENODATA;
 	}
+	memcpy(conf, &serv->conf, sizeof(*conf));
 
 	/*
 	 * That is utterly important to do dns lookup from here,
@@ -1342,12 +1338,14 @@ static void *sky_connect_to_broker(void *arg_)
 	 */
 	while (!p->serv->exit) {
 		rc = p->fillin_conf(p->serv, &conf);
+		if (rc < 0)
+			break;
 		if (rc)
-			goto loop_end;
+			goto sleep_and_continue;
 
 		rc = sky_setup_and_proxy_pub(p->serv, &conf, &pub_proxy);
 		if (rc)
-			goto loop_end;
+			goto sleep_and_continue;
 
 		rc = sky_send_first_req(p->serv, &conf, &req_proxy);
 		if (rc)
@@ -1359,7 +1357,7 @@ static void *sky_connect_to_broker(void *arg_)
 		sky_destroy_req(&req_proxy);
 destroy_pub:
 		sky_destroy_pub(&pub_proxy);
-loop_end:
+sleep_and_continue:
 		sleep(1);
 	}
 
