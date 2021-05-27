@@ -1,7 +1,5 @@
 [Unit]
 Description=Skysense server
-BindsTo=dev-skysenseUSB.device
-After=dev-skysenseUSB.device
 
 [Service]
 Type=forking
