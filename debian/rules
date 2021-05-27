@@ -15,7 +15,7 @@ override_dh_systemd_enable:
 	dh_systemd_enable -pskyhttpd  --name=skyhttpd  skyhttpd.service
 	dh_systemd_enable -pskyuartd  --name=skyuartd  skyuartd.service
 override_dh_systemd_start:
-	dh_systemd_start -pskysensed --restart-after-upgrade --no-start skysensed.service
+	dh_systemd_start -pskysensed --restart-after-upgrade skysensed.service
 	dh_systemd_start -pskysensed --restart-after-upgrade --no-start skybmsd.service
 	dh_systemd_start -pskybroker --restart-after-upgrade skybroker.service
 	dh_systemd_start -pskyhttpd  --restart-after-upgrade skyhttpd.service
