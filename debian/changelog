@@ -1,3 +1,18 @@
+skysense (0~1.5.0~rc1) stretch; urgency=low
+  * skyuartd: daemonize before creating zmq socket
+  * libskysense-local: set baud rate to 9600
+  * skyclient,skyserver,skyproto: add PSU calls for type,voltage,current set
+  * libskysense: add mux-hw and mux-dev to the config
+  * libskysense-local: use mux-hw and mux-dev config options
+  * skyserver: don't parse config twice
+  * skyserver: explicitly wait for the HW1 MUX if daemon started before USB
+  * debian/skysensed.skysense.udev: remove udev->systemd dependency
+  * debian,skysense-conf: make UART configuration on early boot by skyuart-config
+  * libskysense-local: lock UART port before probing
+  * libskysense-local: explicit UART response check
+
+ -- Roman Pen <r.peniaev@gmail.com>  Fri, 28 May 2021 09:00:00 +0200
+
 skysense (1.4.0) stretch; urgency=low
   * libskysense-local: move crc8 to a separate file
   * skyproto: split 64-bit struct member on 2x 32-bit
