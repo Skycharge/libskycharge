@@ -52,6 +52,9 @@ enum {
 	FROM_BUF = 1,
 
 	TIMEOUT_MS = 5000,
+
+	CHECK_ALL   = 0,
+	CHECK_MAGIC = 1,
 };
 
 struct skyloc_dev {
@@ -68,8 +71,9 @@ struct skyserial_desc {
 	uint8_t hdr_len;
 	uint8_t data_off;
 	void (*fill_cmd_hdr)(char *cmd_buf, uint8_t len, uint8_t cmd);
-	int (*is_valid_rsp_hdr)(const char *rsp_buf, uint8_t len, uint8_t cmd);
-	int (*check_crc)(const char *rsp_buf);
+	bool (*is_valid_rsp_hdr)(const char *rsp_buf, uint8_t len, uint8_t cmd,
+				 bool only_magic);
+	bool (*check_crc)(const char *rsp_buf);
 };
 
 struct sky_hw_ops {
@@ -204,6 +208,10 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 	int rc, args, off;
 	va_list ap;
 
+	char strdump_req[128];
+	char strdump_rsp[128];
+	bool valid_crc;
+
 	va_start(ap, rsp_num);
 	for (len = 0, off = proto->data_off, args = 0; args < req_num; args++) {
 		rc = skycmd_arg_copy(&ap, TO_BUF, cmd_buf, off,
@@ -264,10 +272,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			rc = -ETIMEDOUT;
 			goto out_unlock;
 		} else if (!proto->is_valid_rsp_hdr(rsp_buf,
-					len + proto->hdr_len, cmd)) {
-			char strdump_req[128];
-			char strdump_rsp[128];
-
+				len + proto->hdr_len, cmd, CHECK_MAGIC)) {
 			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
 					   strdump_req, sizeof(strdump_req),
 					   false);
@@ -297,18 +302,21 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 				TIMEOUT_MS, sprc, rsp_len - proto->data_off);
 			rc = -ETIMEDOUT;
 			goto out_unlock;
-		} else if (!proto->check_crc(rsp_buf)) {
-			char strdump_req[128];
-			char strdump_rsp[128];
-
+		} else if (!(valid_crc = proto->check_crc(rsp_buf)) ||
+			   !proto->is_valid_rsp_hdr(rsp_buf, rsp_len, cmd,
+						    CHECK_ALL)) {
 			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
 					   strdump_req, sizeof(strdump_req), false);
 			hex_dump_to_buffer(rsp_buf, rsp_len, 16, 1,
 					   strdump_rsp, sizeof(strdump_rsp), false);
 
-			sky_err("Invalid response CRC\n\n"
-				"Request hexdump:\n%s\n"
-				"Response header hexdump:\n%s\n",
+			if (!valid_crc)
+				sky_err("Invalid response CRC\n\n");
+			else
+				sky_err("Invalid response\n\n");
+
+			sky_err("Request hexdump:\n%s\n"
+				"Response hexdump:\n%s\n",
 				strdump_req, strdump_rsp);
 
 			rc = -EPROTO;
@@ -339,9 +347,12 @@ out:
  * HW1 specific operations
  */
 
-static int hw1_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
-				    uint8_t cmd)
+static bool hw1_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
+				     uint8_t cmd, bool only_magic)
 {
+	if (only_magic)
+		return (rsp_buf[0] == 0x55);
+
 	return (rsp_buf[0] == 0x55 && rsp_buf[1] == len && rsp_buf[2] == cmd);
 }
 
@@ -353,9 +364,9 @@ static void hw1_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
 	cmd_buf[len + 3] = 0x00;
 }
 
-static int hw1_sky_check_crc(const char *rsp_buf)
+static bool hw1_sky_check_crc(const char *rsp_buf)
 {
-	return 1;
+	return true;
 }
 
 struct skyserial_desc hw1_sky_serial = {
@@ -525,13 +536,13 @@ static struct sky_hw_ops hw1_sky_ops = {
  * HW2 specific operations
  */
 
-static int hw2_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
-				    uint8_t cmd)
+static bool hw2_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
+				     uint8_t cmd, bool only_magic)
 {
-	if (!(rsp_buf[0] == 0x42 && rsp_buf[2] == len && rsp_buf[3] == cmd))
-		return 0;
+	if (only_magic)
+		return (rsp_buf[0] == 0x42);
 
-	return 1;
+	return (rsp_buf[0] == 0x42 && rsp_buf[2] == len && rsp_buf[3] == cmd);
 }
 
 static void hw2_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
@@ -542,7 +553,7 @@ static void hw2_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
 	cmd_buf[1] = crc8((uint8_t *)cmd_buf + 2, len + 4 - 2);
 }
 
-static int hw2_sky_check_crc(const char *rsp_buf)
+static bool hw2_sky_check_crc(const char *rsp_buf)
 {
 	uint8_t crc = crc8((uint8_t *)rsp_buf + 2, rsp_buf[2] - 2);
 
