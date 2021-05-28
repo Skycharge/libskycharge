@@ -8,7 +8,6 @@ User=root
 Restart=always
 EnvironmentFile=-/etc/default/skyuartd
 PIDFile=/var/run/skyuartd.pid
-ExecStartPre=/usr/bin/skyuartd-config $UART_RX_PIN $UART_TX_PIN
 ExecStart=/usr/bin/skyuartd $SKY_ADDR $SKY_PORT --uart-dev $UART_DEV --uart-baudrate $UART_BAUDRATE --conffile /etc/skysense.conf --daemon --pidfile /var/run/skyuartd.pid
 
 [Install]

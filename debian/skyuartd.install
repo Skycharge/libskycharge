@@ -1,3 +1,2 @@
 skyuartd    usr/bin
-skyuartd-config    usr/bin
 debian/default/skyuartd	etc/default

@@ -1,0 +1,25 @@
+#!/bin/bash
+
+set -o errexit
+
+. /etc/default/skyuart-config
+
+echo "Skycharge UART configuration"
+
+for UART in $(echo $UARTS | tr "," "\n"); do
+	RX="UART${UART}_RX_PIN"
+	TX="UART${UART}_TX_PIN"
+	RX=${!RX}
+	TX=${!TX}
+
+	echo "  - configure UART$UART: $RX, $TX"
+
+	if ! config-pin -q $RX | grep -q uart; then
+		echo "      config-pin $RX uart"
+		config-pin $RX uart
+	fi
+	if ! config-pin -q $TX | grep -q uart; then
+		echo "      config-pin $TX uart"
+		config-pin $TX uart
+	fi
+done
