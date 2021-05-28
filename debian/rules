@@ -9,6 +9,7 @@ override_dh_installudev:
 override_dh_installinit:
 	dh_installinit -pskysensed --name=skysensed --noscripts
 override_dh_systemd_enable:
+	dh_systemd_enable -pskysense-conf --name=skyuart-config skyuart-config.service
 	dh_systemd_enable -pskysensed --name=skysensed skysensed.service
 	dh_systemd_enable -pskysensed --name=skybmsd   skybmsd.service
 	dh_systemd_enable -pskybroker --name=skybroker skybroker.service
@@ -20,6 +21,7 @@ override_dh_systemd_start:
 	dh_systemd_start -pskybroker --restart-after-upgrade skybroker.service
 	dh_systemd_start -pskyhttpd  --restart-after-upgrade skyhttpd.service
 	dh_systemd_start -pskyuartd  --restart-after-upgrade skyuartd.service
+	dh_systemd_start -pskysense-conf --restart-after-upgrade skyuart-config.service
 
 override_dh_strip:
 	dh_strip --dbg-package=skysense-dbg

@@ -1,0 +1,9 @@
+# skyuart configuration options
+
+UARTS=1,4
+
+UART1_RX_PIN=P9.26
+UART1_TX_PIN=P9.24
+
+UART4_RX_PIN=P9.11
+UART4_TX_PIN=P9.13

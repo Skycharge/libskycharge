@@ -1,0 +1,10 @@
+[Unit]
+Description=Skycharge UART configurator
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/skyuart-config
+
+[Install]
+WantedBy=multi-user.target

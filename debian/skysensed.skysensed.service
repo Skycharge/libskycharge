@@ -1,5 +1,6 @@
 [Unit]
 Description=Skysense server
+After=skyuart-config.service
 
 [Service]
 Type=forking

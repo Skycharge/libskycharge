@@ -1,1 +1,3 @@
-skysense.conf etc
+skysense.conf					etc
+skyuart-config					usr/bin
+debian/default/skyuart-config	etc/default
