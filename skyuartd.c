@@ -534,6 +534,13 @@ int main (int argc, char **argv)
 		return 1;
 	}
 
+	/*
+	 * Daemonize before creating zmq socket, ZMQ is written by
+	 * people who are not able to deal with fork() gracefully.
+	 */
+	if (uartd.cli.daemon)
+		sky_daemonize(uartd.cli.pidf);
+
 	rc = uartd_prepare_sky_conf_and_dev(&uartd);
 	if (rc)
 		return 1;
@@ -541,13 +548,6 @@ int main (int argc, char **argv)
 	rc = uartd_devopen(&uartd);
 	if (rc)
 		return 1;
-
-	/*
-	 * Daemonize before creating zmq socket, ZMQ is written by
-	 * people who are not able to deal with fork() gracefully.
-	 */
-	if (uartd.cli.daemon)
-		sky_daemonize(uartd.cli.pidf);
 
 	while (1) {
 		struct uart_req req;
