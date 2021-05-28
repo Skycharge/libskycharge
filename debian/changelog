@@ -1,3 +1,74 @@
+skysense (1.5.0) stretch; urgency=low
+  * skyhttpd: compilation fix for MHD version >= 0x0009701
+  * skyuartd: daemonize before creating zmq socket
+  * libskysense-local: set baud rate to 9600
+  * skyclient,skyserver,skyproto: add PSU calls for type,voltage,current set
+  * libskysense: add mux-hw and mux-dev to the config
+  * libskysense-local: use mux-hw and mux-dev config options
+  * skyserver: don't parse config twice
+  * skyserver: explicitly wait for the HW1 MUX if daemon started before USB
+  * debian/skysensed.skysense.udev: remove udev->systemd dependency
+  * debian,skysense-conf: make UART configuration on early boot by skyuart-config
+  * libskysense-local: lock UART port before probing
+  * libskysense-local: explicit UART response check
+  * Fix IS_READY DRONEPORT pin
+  * skyclient: change printf format for monitor command
+  * libskypsu: move pointer check to the caller
+  * skyserver: keep code of global PSU (HW1 only) check simpler
+  * skyserver: check config mux_hw instead of firwmare version
+  * libskysense,skyserver,config: get rid of SKY_INDOOR/OUTDOOR, replace with HW1,HW2 types
+  * Revert "skyclient: remove INDOOR/OUTDOOR type from output"
+  * libskysense-local: extend HW2 firmware version cmd, which returns hw version as well
+  * skyproto,skyserver,skyclient: support hardware and protocol version fields for sky_dev_info
+  * skyclient: show fw and hw versions for each device in dev-list command output
+  * skysense-local: rename HW*_SKY to SKY_HW*
+  * libskysense: split device HW parameters on HW1 and HW2
+  * libskysense: split device HW state on HW1 and HW2
+  * libskysense,skyclient,skyhttpd: move common functions to the library
+  * libskysense: make all *_to_str() conversions return names without 'SKY_' prefix
+  * skyclient: don't call sky_devinfo() at all
+  * libskysense-local: calculate response inbytes more accurate checking real maxlen
+  * libskysense-local: extend response buffer and parse 32b integers
+  * libskysense-local: make HW2 responses forward and backward compatible
+  * libskysense-remote: make charging state subscription forward and backward compatibile
+  * libskysense,skyproto: add fields to sky_charging_state structure
+  * libskysense: reflect latest HW2 device state
+  * local,remote,proto,sever,client: reflect latest HW2 info fields and UART protocol
+  * skyserver: don't init PSU for HW2, this is only HW1 task
+  * libskysense-local: move hw1 and hw2 definitions to separate headers
+  * libskysense,local,config,server: represent HW2 mux settings as HW2 devparams
+  * Revert "skyclient,skyserver,skyproto: add PSU calls for type,voltage,current set"
+  * server,client,proto,local,remote: add sink related calls: charging settings (params) and sink info
+  * hw2-pri: introduce skyerrno from HW2 and string representation
+  * hw2-pri: reflact latest UART cmd changes
+  * local: make return type of get_rsp_len() be the uint8_t
+  * bms-btle: cast to the same type for comparison
+  * types: update header with few helper clamp functions and mark it as GPL-2.0
+  * libskysense,skyclient: introduce lib function for parsing dev/sink params
+  * libskysense: exit if we really get the EBADF
+  * libskysense: parse MUX HW2 params from the config file
+  * libskysense,config: reflect latest HW2 changes
+  * skyclient: increase precision of floating-point values
+  * libskysense: rename REVERSE_CURRENT to VOLTAGE_ON_OUTPUT
+  * libskysense: parse devparam in a separate helper function
+  * libskysense,local: introduce MIN_SENSE_CURRENT_MA and REPEAT_CHARGE_AFTER_MINS params for HW2
+  * libskysense: sort HW2 MUX dev params for better usage
+  * local: fix HW2 scan start/stop command
+  * libskysense: introduce SINK_START/STOP_CHARGE command
+  * libskysense,skyclient: show all dev and sink params in low case and ignore case and dashes on input
+  * libskysense: remove passthru HW2 state
+  * libskysense: reflect HW2 detect-mode mux setting
+  * libskysense,skyserver: parse skyconf for updating sink params
+  * skyconf: remove incorrect HW2 mux configuration line
+  * libskysense: swap text with numeric representation for mux and sink for cli output
+  * skyclient: rename 'state of charge' to 'soc' and reshuffle energy and charge output
+  * libskysense,skyclient: introduce output format of the param value
+  * skyclient: introduce JSON output for show-charging-state and dev/sink params
+  * libskysense: fix params value parsing
+  * skyclient: introduce set-dev-params and set-sink-params
+
+ -- Roman Pen <r.peniaev@gmail.com>  Fri, 29 Oct 2021 11:00:00 +0200
+
 skysense (1.4.0) stretch; urgency=low
   * libskysense-local: move crc8 to a separate file
   * skyproto: split 64-bit struct member on 2x 32-bit
