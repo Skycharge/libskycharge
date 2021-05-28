@@ -845,34 +845,29 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 	struct sky_dev_desc *devdesc, *head = NULL, *tail = NULL;
 	struct sp_port **ports = NULL;
 	struct sky_hw_ops *hw_ops;
-	enum sp_return sprc;
-	int i, rc;
 
-	sprc = sp_list_ports(&ports);
-	if (sprc < 0)
-		return sprc_to_errno(sprc);
+	char mux_dev_path[PATH_MAX];
+	int rc;
 
-	for (i = 0; ports[i]; i++) {
-		const char *desc, *name;
-
-		desc = sp_get_port_description(ports[i]);
-		name = sp_get_port_name(ports[i]);
-		if (!desc || !name)
-			continue;
-
-		if (!strncasecmp(desc, "skysense", 8))
+	/*
+	 * Devprobe requires real TTY device path, not the udev reference,
+	 * so resolve all references and make sure we have a real path.
+	 */
+	if (realpath(conf->mux_dev, mux_dev_path)) {
+		if (conf->mux_hw == SKY_MUX_HW1)
 			hw_ops = &hw1_sky_ops;
-		else if (!strncasecmp(desc, "sky-hw2", 7))
+		else if (conf->mux_hw == SKY_MUX_HW2)
 			hw_ops = &hw2_sky_ops;
 		else
-			continue;
+			assert(0);
 
 		devdesc = calloc(1, sizeof(*devdesc));
 		if (devdesc == NULL) {
 			rc = -ENOMEM;
 			goto err;
 		}
-		strncpy(devdesc->portname, name, sizeof(devdesc->portname) - 1);
+		memcpy(devdesc->portname, mux_dev_path,
+		       min(strlen(mux_dev_path), sizeof(devdesc->portname) - 1));
 		devdesc->dev_type = SKY_INDOOR;
 		devdesc->conf = *conf;
 		devdesc->dev_ops = dev_ops;
