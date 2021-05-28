@@ -112,6 +112,26 @@ static inline int sprc_to_errno(enum sp_return sprc)
 	}
 }
 
+static int devlock(struct skyloc_dev *dev)
+{
+	int rc;
+
+	rc = flock(dev->lockfd, LOCK_EX);
+	if (rc < 0) {
+		rc = -errno;
+		sky_err("flock(): %s\n", strerror(-rc));
+	}
+	pthread_mutex_lock(&dev->mutex);
+
+	return rc;
+}
+
+static void devunlock(struct skyloc_dev *dev)
+{
+	(void)flock(dev->lockfd, LOCK_UN);
+	pthread_mutex_unlock(&dev->mutex);
+}
+
 static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 			   size_t off, size_t maxlen)
 {
@@ -196,13 +216,10 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 	}
 	proto->fill_cmd_hdr(cmd_buf, len, cmd);
 
-	rc = flock(dev->lockfd, LOCK_EX);
-	if (rc < 0) {
-		rc = -errno;
-		sky_err("flock(): %s\n", strerror(-rc));
+	rc = devlock(dev);
+	if (rc)
 		goto out;
-	}
-	pthread_mutex_lock(&dev->mutex);
+
 	sprc = sp_flush(dev->port, SP_BUF_BOTH);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
@@ -311,8 +328,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 	rc = 0;
 
 out_unlock:
-	(void)flock(dev->lockfd, LOCK_UN);
-	pthread_mutex_unlock(&dev->mutex);
+	devunlock(dev);
 out:
 	va_end(ap);
 
@@ -706,10 +722,27 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	if (!dev)
 		return -ENOMEM;
 
+	pthread_mutex_init(&dev->mutex, NULL);
+
+	/*
+	 * TODO: this is very ugly, but shitty devserialport does not
+	 * provide any way to get fd or any lock mechanism.  So we have
+	 * to do locking ourselves.
+	 */
+	dev->lockfd = open(devdesc->portname, O_WRONLY);
+	if (dev->lockfd < 0) {
+		rc = dev->lockfd;
+		goto free_dev;
+	}
+
+	rc = devlock(dev);
+	if (rc)
+		goto close_lockfd;
+
 	sprc = sp_get_port_by_name(devdesc->portname, &dev->port);
 	if (sprc) {
 		rc = sprc_to_errno(sprc);
-		goto free_dev;
+		goto unlock;
 	}
 
 	sprc = sp_open(dev->port, SP_MODE_READ_WRITE);
@@ -761,17 +794,6 @@ static int devopen(const struct sky_dev_desc *devdesc,
 	}
 
 	/*
-	 * TODO: this is very ugly, but shitty devserialport does not
-	 * provide any way to get fd or any lock mechanism.  So we have
-	 * to do locking ourselves.
-	 */
-	dev->lockfd = open(devdesc->portname, O_RDWR);
-	if (dev->lockfd < 0) {
-		rc = dev->lockfd;
-		goto free_conf;
-	}
-
-	/*
 	 * Init GPS and DP only on real open
 	 */
 	if (!probbing) {
@@ -782,25 +804,28 @@ static int devopen(const struct sky_dev_desc *devdesc,
 
 		rc = dp_configure(devdesc);
 		if (rc && rc != -EOPNOTSUPP)
-			goto close_lockfd;
+			goto free_conf;
 	} else {
 		dev->gps_nodev = true;
 	}
 	bms_init(&dev->bms);
 	sp_free_config(spconf);
-	pthread_mutex_init(&dev->mutex, NULL);
 	*dev_ = dev;
+
+	devunlock(dev);
 
 	return 0;
 
-close_lockfd:
-	close(dev->lockfd);
 free_conf:
 	sp_free_config(spconf);
 close_port:
 	sp_close(dev->port);
 free_port:
 	sp_free_port(dev->port);
+unlock:
+	devunlock(dev);
+close_lockfd:
+	close(dev->lockfd);
 free_dev:
 	free(dev);
 
