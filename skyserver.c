@@ -112,7 +112,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	BUILD_BUG_ON(sizeof(conf->devuuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
 
-	if (sky_psu_is_precharge_set(servdev->psu)) {
+	if (servdev->psu && sky_psu_is_precharge_set(servdev->psu)) {
 		bool was_charging, is_charging;
 
 		was_charging =
