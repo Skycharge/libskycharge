@@ -227,27 +227,30 @@ static void sky_print_charging_state(struct cli *cli,
 		 ".%03ld", tv.tv_usec/1000);
 
 	if (!cli->pretty) {
-		printf("%s\t%d\t%d\t%s\t%u\t%u\n",
-		       timestr, state->voltage, state->current,
-		       sky_devstate_to_str(state->dev_hw_state),
-		       state->bms.charge_perc, state->bms.charge_time);
+		printf("%s\t%.2fV\t%.2fA\t%s",
+		       timestr,
+		       state->voltage / 1000.0f,
+		       state->current / 1000.0f,
+		       sky_devstate_to_str(state->dev_hw_state));
+		if (state->bms.charge_time)
+			printf("\t%u\t%u\n", state->bms.charge_perc,
+			       state->bms.charge_time);
+		else
+			printf("\n");
 	} else {
 		printf("Timestamp:   %s\n", timestr);
 		printf("Dev state:   %s\n",
 		       sky_devstate_to_str(state->dev_hw_state));
-		printf("  Voltage:   %d mV\n", state->voltage);
-		printf("  Current:   %d mA\n", state->current);
-		printf("BMS:\n");
+		printf("  Voltage:   %.2fV\n", state->voltage / 1000.0f);
+		printf("  Current:   %.2fA\n", state->current / 1000.0f);
 
-		if (state->bms.charge_perc)
+		if (state->bms.charge_time) {
+			printf("BMS:\n");
 			printf("  Charged:   %u %%\n", state->bms.charge_perc);
-		else
-			printf("  Charged:   N/A\n");
-
-		if (state->bms.charge_time)
 			printf("  Till full: %u sec\n", state->bms.charge_time);
-		else
-			printf("  Till full: N/A\n");
+		}
+
+		printf("\n");
 	}
 }
 
