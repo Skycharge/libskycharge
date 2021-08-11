@@ -18,7 +18,7 @@ cat /sys/class/gpio/gpio69/value
 # IS LANDING ERR, PIN 11
 cat /sys/class/gpio/gpio23/value
 
-# IS READY, PIN 12
+# IS READY, PIN 14
 cat /sys/class/gpio/gpio26/value
 
 
