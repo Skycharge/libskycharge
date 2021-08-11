@@ -36,7 +36,6 @@ struct sky_server_dev {
 	struct sky_server *serv;
 	struct sky_dev_desc *devdesc;
 	struct sky_dev *dev;
-	struct sky_psu *psu;
 	struct sky_charging_state prev_state;
 	unsigned precharge_iter;
 };
@@ -112,7 +111,8 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	BUILD_BUG_ON(sizeof(conf->devuuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
 
-	if (servdev->psu && sky_psu_is_precharge_set(servdev->psu)) {
+	if (serv->global_psu.type != SKY_PSU_UNKNOWN &&
+	    sky_psu_is_precharge_set(&serv->global_psu)) {
 		bool was_charging, is_charging;
 
 		was_charging =
@@ -127,14 +127,14 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 			float current;
 
 			current = get_precharge_current(servdev);
-			sky_psu_set_current(servdev->psu, current);
+			sky_psu_set_current(&serv->global_psu, current);
 
 		} else if (was_charging ^ is_charging) {
 			/*
 			 * Set to precharge current if charging has been
 			 * started or has been stopped.
 			 */
-			sky_psu_set_current(servdev->psu,
+			sky_psu_set_current(&serv->global_psu,
 					    conf->psu.precharge_current);
 			servdev->precharge_iter = 0;
 		}
@@ -1554,9 +1554,21 @@ int main(int argc, char *argv[])
 		sky_err("sky_devslist(): %s\n", strerror(-rc));
 		goto destroy_zocket;
 	}
+	/* Count devs */
 	num = 0;
 	foreach_devdesc(devdesc, serv.devhead)
 		num++;
+
+	/*
+	 * Many local devices? Meh, impossible! Keep the old code with lists
+	 * for the sake of compatibility.
+	 */
+	if (num > 1) {
+		sky_err("We actually never supported many local devices!");
+		rc = -EINVAL;
+		goto free_devs;
+	}
+
 	serv.devs = calloc(num, sizeof(*serv.devs));
 	if (serv.devs == NULL) {
 		rc = -ENOMEM;
@@ -1577,10 +1589,6 @@ int main(int argc, char *argv[])
 		servdev = &serv.devs[num];
 		servdev->serv = &serv;
 		servdev->devdesc = devdesc;
-
-		/* We init global PSU for the first device only! */
-		if (num == 0 && sky_psu_is_precharge_set(&serv.global_psu))
-			servdev->psu = &serv.global_psu;
 
 		rc = sky_devopen(devdesc, &servdev->dev);
 		if (rc) {

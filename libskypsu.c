@@ -210,7 +210,7 @@ void sky_psu_deinit(struct sky_psu *psu)
 
 bool sky_psu_is_precharge_set(struct sky_psu *psu)
 {
-	return psu->type != SKY_PSU_UNKNOWN && psu->precharge_set;
+	return psu->precharge_set;
 }
 
 static float map_voltage_to_external_voltage(struct sky_psu *psu,
