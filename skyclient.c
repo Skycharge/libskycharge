@@ -22,6 +22,11 @@
 #define X(state) \
 	case state: return #state
 
+static inline const char *sky_devtype_to_str(enum sky_dev_type type)
+{
+	return type == SKY_MUX_HW1 ? "MUX-HW1": "MUX-HW2";
+}
+
 static inline const char *sky_devstate_to_str(enum sky_dev_hw_state state)
 {
 	switch(state) {
@@ -387,11 +392,12 @@ int main(int argc, char *argv[])
 		}
 
 		printf("Found sky devices:\n");
-		printf("\t  DEV-ID  %*s\n",
+		printf("\t  DEV-ID     TYPE  %*s\n",
 		       (int)max_devname, "DEV-NAME");
 		foreach_devdesc(devdesc, devdescs) {
-			printf("\t%08X  %*s\n",
+			printf("\t%08X  %s  %*s\n",
 			       sky_dev_desc_crc32(devdesc),
+			       sky_devtype_to_str(devdesc->dev_type),
 			       (int)max_devname,
 			       devdesc->dev_name);
 		}
@@ -582,7 +588,8 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		printf("Firmware version: %d.%d.%d\n",
+		printf("%s firmware version: %d.%d.%d\n",
+		       sky_devtype_to_str(devdesc.dev_type),
 		       version_major(devdesc.firmware_version),
 		       version_minor(devdesc.firmware_version),
 		       version_revis(devdesc.firmware_version));
