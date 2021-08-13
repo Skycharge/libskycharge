@@ -15,36 +15,36 @@
 #include "types.h"
 #include "crc8.h"
 
-enum hw1_sky_serial_cmd {
-	HW1_SKY_RESET_CMD              = 0x01,
-	HW1_SKY_SAVE_DATA_TO_EEP_CMD   = 0x02,
-	HW1_SKY_READ_DATA_FROM_EEP_CMD = 0x03,
-	HW1_SKY_AUTOMATIC_SCAN_CMD     = 0x04,
-	HW1_SKY_SET_PARAMETER_CMD      = 0x05,
-	HW1_SKY_GET_PARAMETER_CMD      = 0x06,
-	HW1_SKY_GET_STATUS_CMD         = 0x07,
-	HW1_SKY_GET_CURRENT_CMD        = 0x08,
-	HW1_SKY_GET_VOLTAGE_CMD        = 0x09,
-	HW1_SKY_COUPLE_SCAN_CMD        = 0x0a,
-	HW1_SKY_COUPLE_ACTIVATE_CMD    = 0x0b,
-	HW1_SKY_COUPLE_DEACTIVATE_CMD  = 0x0c,
-	HW1_SKY_FIRMWARE_VERSION_CMD   = 0x0d,
+enum sky_hw1_serial_cmd {
+	SKY_HW1_RESET_CMD              = 0x01,
+	SKY_HW1_SAVE_DATA_TO_EEP_CMD   = 0x02,
+	SKY_HW1_READ_DATA_FROM_EEP_CMD = 0x03,
+	SKY_HW1_AUTOMATIC_SCAN_CMD     = 0x04,
+	SKY_HW1_SET_PARAMETER_CMD      = 0x05,
+	SKY_HW1_GET_PARAMETER_CMD      = 0x06,
+	SKY_HW1_GET_STATUS_CMD         = 0x07,
+	SKY_HW1_GET_CURRENT_CMD        = 0x08,
+	SKY_HW1_GET_VOLTAGE_CMD        = 0x09,
+	SKY_HW1_COUPLE_SCAN_CMD        = 0x0a,
+	SKY_HW1_COUPLE_ACTIVATE_CMD    = 0x0b,
+	SKY_HW1_COUPLE_DEACTIVATE_CMD  = 0x0c,
+	SKY_HW1_FIRMWARE_VERSION_CMD   = 0x0d,
 
-	HW1_SKY_ERROR                  = 0xfd,
+	SKY_HW1_ERROR                  = 0xfd,
 };
 
-enum hw2_sky_serial_cmd {
-	HW2_SKY_UNKNOWN_CMD            = 0x00,
-	HW2_SKY_FW_HW_VERSION_CMD      = 0x01,
-	HW2_SKY_RESET_CMD              = 0x02,
-	HW2_SKY_STATE_CMD              = 0x03,
-	HW2_SKY_SCAN_CMD               = 0x04,
-	HW2_SKY_PSU_SET_TYPE_CMD       = 0x05,
-	HW2_SKY_PSU_SET_VOLTAGE_CMD    = 0x06,
-	HW2_SKY_PSU_SET_CURRENT_CMD    = 0x07,
+enum sky_hw2_serial_cmd {
+	SKY_HW2_UNKNOWN_CMD            = 0x00,
+	SKY_HW2_FW_HW_VERSION_CMD      = 0x01,
+	SKY_HW2_RESET_CMD              = 0x02,
+	SKY_HW2_STATE_CMD              = 0x03,
+	SKY_HW2_SCAN_CMD               = 0x04,
+	SKY_HW2_PSU_SET_TYPE_CMD       = 0x05,
+	SKY_HW2_PSU_SET_VOLTAGE_CMD    = 0x06,
+	SKY_HW2_PSU_SET_CURRENT_CMD    = 0x07,
 
 	/* The last one */
-	HW2_SKY_ERROR                  = 0xff,
+	SKY_HW2_ERROR                  = 0xff,
 };
 
 enum {
@@ -388,7 +388,7 @@ static int hw1_sky_fw_hw_version(struct skyloc_dev *dev,
 	int rc;
 
 	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
-			       HW1_SKY_FIRMWARE_VERSION_CMD,
+			       SKY_HW1_FIRMWARE_VERSION_CMD,
 			       0, 3,
 			       sizeof(major), &major,
 			       sizeof(minor), &minor,
@@ -406,7 +406,7 @@ static int hw1_sky_get_param(struct skyloc_dev *dev,
 			     uint8_t param, uint16_t *val)
 {
 	return skycmd_serial_cmd(dev, &hw1_sky_serial,
-				 HW1_SKY_GET_PARAMETER_CMD,
+				 SKY_HW1_GET_PARAMETER_CMD,
 				 1, 2,
 				 sizeof(param), &param,
 				 sizeof(param), &param, sizeof(*val), val);
@@ -420,7 +420,7 @@ static int hw1_sky_get_params(struct skyloc_dev *dev,
 
 	/* Fetch params from EEPROM */
 	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
-			       HW1_SKY_READ_DATA_FROM_EEP_CMD,
+			       SKY_HW1_READ_DATA_FROM_EEP_CMD,
 			       0, 0);
 	if (rc)
 		return rc;
@@ -441,7 +441,7 @@ static int hw1_sky_set_param(struct skyloc_dev *dev,
 			     uint8_t param, uint16_t val)
 {
 	return skycmd_serial_cmd(dev, &hw1_sky_serial,
-				 HW1_SKY_SET_PARAMETER_CMD,
+				 SKY_HW1_SET_PARAMETER_CMD,
 				 2, 2,
 				 sizeof(param), &param, sizeof(val), &val,
 				 sizeof(param), &param, sizeof(val), &val);
@@ -463,7 +463,7 @@ static int hw1_sky_set_params(struct skyloc_dev *dev,
 	}
 	/* Commit params to EEPROM */
 	return skycmd_serial_cmd(dev, &hw1_sky_serial,
-				 HW1_SKY_SAVE_DATA_TO_EEP_CMD,
+				 SKY_HW1_SAVE_DATA_TO_EEP_CMD,
 				 0, 0);
 }
 
@@ -475,19 +475,19 @@ static int hw1_sky_get_state(struct skyloc_dev *dev,
 	int rc;
 
 	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
-			       HW1_SKY_GET_VOLTAGE_CMD,
+			       SKY_HW1_GET_VOLTAGE_CMD,
 			       0, 1,
 			       sizeof(vol), &vol);
 	if (rc)
 		return rc;
 	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
-			       HW1_SKY_GET_CURRENT_CMD,
+			       SKY_HW1_GET_CURRENT_CMD,
 			       0, 1,
 			       sizeof(cur), &cur);
 	if (rc)
 		return rc;
 	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
-			       HW1_SKY_GET_STATUS_CMD,
+			       SKY_HW1_GET_STATUS_CMD,
 			       0, 1,
 			       sizeof(status), &status);
 	if (rc)
@@ -518,7 +518,7 @@ static int hw1_sky_psu_set_current(struct skyloc_dev *dev, uint16_t ma)
 static int hw1_sky_reset(struct skyloc_dev *dev)
 {
 	return skycmd_serial_cmd(dev, &hw1_sky_serial,
-				 HW1_SKY_RESET_CMD, 0, -1);
+				 SKY_HW1_RESET_CMD, 0, -1);
 }
 
 static int hw1_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
@@ -526,7 +526,7 @@ static int hw1_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
 	uint8_t ascan = !!autoscan;
 
 	return skycmd_serial_cmd(dev, &hw1_sky_serial,
-				 HW1_SKY_AUTOMATIC_SCAN_CMD,
+				 SKY_HW1_AUTOMATIC_SCAN_CMD,
 				 1, 1,
 				 sizeof(ascan), &ascan,
 				 sizeof(ascan), &ascan);
@@ -584,7 +584,7 @@ static int hw2_sky_fw_hw_version(struct skyloc_dev *dev,
 				 struct sky_fw_hw_version *ver)
 {
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 HW2_SKY_FW_HW_VERSION_CMD,
+				 SKY_HW2_FW_HW_VERSION_CMD,
 				 0, 2,
 				 sizeof(ver->fw_version),
 				 &ver->fw_version,
@@ -611,7 +611,7 @@ static int hw2_sky_get_state(struct skyloc_dev *dev,
 	int rc;
 
 	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       HW2_SKY_STATE_CMD,
+			       SKY_HW2_STATE_CMD,
 			       0, 3,
 			       sizeof(vol), &vol,
 			       sizeof(cur), &cur,
@@ -634,7 +634,7 @@ static int hw2_sky_psu_set_type(struct skyloc_dev *dev, enum sky_psu_type psu_ty
 	int rc;
 
 	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       HW2_SKY_PSU_SET_TYPE_CMD,
+			       SKY_HW2_PSU_SET_TYPE_CMD,
 			       1, 1,
 			       sizeof(type), &type,
 			       sizeof(ret), &ret);
@@ -642,7 +642,7 @@ static int hw2_sky_psu_set_type(struct skyloc_dev *dev, enum sky_psu_type psu_ty
 		return rc;
 
 	if (ret) {
-		sky_err("HW2_SKY_PSU_SET_TYPE_CMD failed %d\n", ret);
+		sky_err("SKY_HW2_PSU_SET_TYPE_CMD failed %d\n", ret);
 		return -EINVAL;
 	}
 
@@ -655,7 +655,7 @@ static int hw2_sky_psu_set_voltage(struct skyloc_dev *dev, uint16_t mv)
 	int rc;
 
 	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       HW2_SKY_PSU_SET_VOLTAGE_CMD,
+			       SKY_HW2_PSU_SET_VOLTAGE_CMD,
 			       1, 1,
 			       sizeof(mv), &mv,
 			       sizeof(ret), &ret);
@@ -663,7 +663,7 @@ static int hw2_sky_psu_set_voltage(struct skyloc_dev *dev, uint16_t mv)
 		return rc;
 
 	if (ret) {
-		sky_err("HW2_SKY_PSU_SET_VOLTAGE_CMD failed %d\n", ret);
+		sky_err("SKY_HW2_PSU_SET_VOLTAGE_CMD failed %d\n", ret);
 		return -EINVAL;
 	}
 
@@ -676,7 +676,7 @@ static int hw2_sky_psu_set_current(struct skyloc_dev *dev, uint16_t ma)
 	int rc;
 
 	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       HW2_SKY_PSU_SET_CURRENT_CMD,
+			       SKY_HW2_PSU_SET_CURRENT_CMD,
 			       1, 1,
 			       sizeof(ma), &ma,
 			       sizeof(ret), &ret);
@@ -685,7 +685,7 @@ static int hw2_sky_psu_set_current(struct skyloc_dev *dev, uint16_t ma)
 		return rc;
 
 	if (ret) {
-		sky_err("HW2_SKY_PSU_SET_CURRENT_CMD failed %d\n", ret);
+		sky_err("SKY_HW2_PSU_SET_CURRENT_CMD failed %d\n", ret);
 		return -EINVAL;
 	}
 
@@ -695,7 +695,7 @@ static int hw2_sky_psu_set_current(struct skyloc_dev *dev, uint16_t ma)
 static int hw2_sky_reset(struct skyloc_dev *dev)
 {
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 HW2_SKY_RESET_CMD, 0, -1);
+				 SKY_HW2_RESET_CMD, 0, -1);
 }
 
 static int hw2_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
@@ -703,7 +703,7 @@ static int hw2_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
 	uint8_t scan = !!autoscan, ret;
 
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 HW2_SKY_SCAN_CMD,
+				 SKY_HW2_SCAN_CMD,
 				 1, 1,
 				 sizeof(scan), &scan,
 				 sizeof(ret),  &ret);
