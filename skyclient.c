@@ -392,14 +392,20 @@ int main(int argc, char *argv[])
 		}
 
 		printf("Found sky devices:\n");
-		printf("\t  DEV-ID     TYPE  %*s\n",
+		printf("\t  DEV-ID     TYPE  %*s      FW      HW\n",
 		       (int)max_devname, "DEV-NAME");
 		foreach_devdesc(devdesc, devdescs) {
-			printf("\t%08X  %s  %*s\n",
+			printf("\t%08X  %s  %*s  v%u.%u.%u  v%u.%u.%u\n",
 			       sky_dev_desc_crc32(devdesc),
 			       sky_devtype_to_str(devdesc->dev_type),
 			       (int)max_devname,
-			       devdesc->dev_name);
+			       devdesc->dev_name,
+			       version_major(devdesc->fw_version),
+			       version_minor(devdesc->fw_version),
+			       version_revis(devdesc->fw_version),
+			       version_major(devdesc->hw_version),
+			       version_minor(devdesc->hw_version),
+			       version_revis(devdesc->hw_version));
 		}
 	} else if (cli.monitor) {
 		struct sky_subscription sub = {
