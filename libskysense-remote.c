@@ -417,7 +417,7 @@ static int skyrem_paramsget_parse(struct skyrem_async *async,
 	struct {
 		struct sky_get_dev_params_rsp rsp;
 		typeof(((struct sky_get_dev_params_rsp *)NULL)->dev_params[0])
-				dev_params[SKY_NUM_DEVPARAM];
+				dev_params[ARRAY_SIZE(params->dev_params)];
 	} *rsp_uni = rsp_data;
 
 	int rc, i, ind;
@@ -429,10 +429,7 @@ static int skyrem_paramsget_parse(struct skyrem_async *async,
 	if (rc)
 		goto complete;
 
-	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
-		     SKY_NUM_DEVPARAM);
-
-	for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
+	for (i = 0, ind = 0; i < ARRAY_SIZE(params->dev_params); i++) {
 		if (params->dev_params_bits & (1<<i)) {
 			if (rsp_len < (sizeof(rsp_uni->rsp) +
 				  sizeof(rsp_uni->dev_params[0]) * (ind + 1))) {
@@ -462,7 +459,7 @@ static int skyrem_paramsset_send(struct skyrem_async *async,
 	struct {
 		struct sky_set_dev_params_req req;
 		typeof(((struct sky_set_dev_params_req *)NULL)->dev_params[0])
-				dev_params[SKY_NUM_DEVPARAM];
+				dev_params[ARRAY_SIZE(params->dev_params)];
 	} req_uni = {
 		.req.hdr.type        = htole16(req->type),
 		.req.dev_params_bits = htole32(params->dev_params_bits),
@@ -471,10 +468,8 @@ static int skyrem_paramsset_send(struct skyrem_async *async,
 	int sz, i, ind;
 
 	assert(params->dev_params_bits);
-	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
-		     SKY_NUM_DEVPARAM);
 
-	for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
+	for (i = 0, ind = 0; i < ARRAY_SIZE(params->dev_params); i++) {
 		if (params->dev_params_bits & (1<<i))
 			req_uni.dev_params[ind++] =
 				htole32(params->dev_params[i]);

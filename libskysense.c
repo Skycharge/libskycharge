@@ -254,7 +254,7 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	}
 
 	/*
-	 * MUX config
+	 * MUX common config
 	 */
 
 	else if ((str = strstr(line, "mux-type="))) {
@@ -267,92 +267,96 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	} else if ((str = strstr(line, "mux-dev="))) {
 		strncpy(cfg->mux_dev, str + 8, sizeof(cfg->mux_dev) - 1);
 
+	/*
+	 * MUX HW1 config
+	 */
+
 	} else if ((str = strstr(line, "mux-hw1-eeprom-inited="))) {
-		unsigned p = SKY_EEPROM_INITED;
+		unsigned p = SKY_HW1_EEPROM_INITED;
 		rc = sscanf(str + 22, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-scanning-interval="))) {
-		unsigned p = SKY_SCANNING_INTERVAL;
+		unsigned p = SKY_HW1_SCANNING_INTERVAL;
 		rc = sscanf(str + 26, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-precharging-interval="))) {
-		unsigned p = SKY_PRECHARGING_INTERVAL;
+		unsigned p = SKY_HW1_PRECHARGING_INTERVAL;
 		rc = sscanf(str + 29, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-precharging-counter="))) {
-		unsigned p = SKY_PRECHARGING_COUNTER;
+		unsigned p = SKY_HW1_PRECHARGING_COUNTER;
 		rc = sscanf(str + 28, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-postcharging-interval="))) {
-		unsigned p = SKY_POSTCHARGING_INTERVAL;
+		unsigned p = SKY_HW1_POSTCHARGING_INTERVAL;
 		rc = sscanf(str + 30, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-postcharging-delay="))) {
-		unsigned p = SKY_POSTCHARGING_DELAY;
+		unsigned p = SKY_HW1_POSTCHARGING_DELAY;
 		rc = sscanf(str + 27, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-wet-delay="))) {
-		unsigned p = SKY_WET_DELAY;
+		unsigned p = SKY_HW1_WET_DELAY;
 		rc = sscanf(str + 18, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-shortcirc-delay="))) {
-		unsigned p = SKY_SHORTCIRC_DELAY;
+		unsigned p = SKY_HW1_SHORTCIRC_DELAY;
 		rc = sscanf(str + 24, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-thresh-finish-charging="))) {
-		unsigned p = SKY_THRESH_FINISH_CHARGING;
+		unsigned p = SKY_HW1_THRESH_FINISH_CHARGING;
 		rc = sscanf(str + 31, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-thresh-nocharger-present="))) {
-		unsigned p = SKY_THRESH_NOCHARGER_PRESENT;
+		unsigned p = SKY_HW1_THRESH_NOCHARGER_PRESENT;
 		rc = sscanf(str + 33, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-thresh-shortcirc="))) {
-		unsigned p = SKY_THRESH_SHORTCIRC;
+		unsigned p = SKY_HW1_THRESH_SHORTCIRC;
 		rc = sscanf(str + 25, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-current-mon-interval="))) {
-		unsigned p = SKY_CURRENT_MON_INTERVAL;
+		unsigned p = SKY_HW1_CURRENT_MON_INTERVAL;
 		rc = sscanf(str + 29, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw1-wait-start-charging-sec="))) {
-		unsigned p = SKY_WAIT_START_CHARGING_SEC;
+		unsigned p = SKY_HW1_WAIT_START_CHARGING_SEC;
 		rc = sscanf(str + 32, "%u", &cfg->mux_hw1_params.dev_params[p]);
 		if (rc != 1)
 			return -ENODATA;

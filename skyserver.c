@@ -350,9 +350,6 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		BUILD_BUG_ON(sizeof(params.dev_params_bits) * 8 <
-			     SKY_NUM_DEVPARAM);
-
 		params.dev_params_bits = le32toh(req->dev_params_bits);
 		if (params.dev_params_bits == 0) {
 			sky_err("malformed request: dev_params_bits == 0\n");
@@ -360,7 +357,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		for (i = 0, num = 0; i < SKY_NUM_DEVPARAM; i++) {
+		for (i = 0, num = 0; i < ARRAY_SIZE(params.dev_params); i++) {
 			if (params.dev_params_bits & (1<<i))
 				num++;
 		}
@@ -375,7 +372,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 		rsp->hdr.type  = htole16(SKY_GET_DEV_PARAMS_RSP);
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
-			for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
+			for (i = 0, ind = 0; ind < num; i++) {
 				if (!(params.dev_params_bits & (1<<i)))
 					continue;
 				rsp->dev_params[ind++] =
@@ -411,9 +408,6 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		BUILD_BUG_ON(sizeof(params.dev_params_bits) * 8 <
-			     SKY_NUM_DEVPARAM);
-
 		params.dev_params_bits = le32toh(req->dev_params_bits);
 		if (params.dev_params_bits == 0) {
 			sky_err("malformed request: dev_params_bits == 0\n");
@@ -421,7 +415,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		for (i = 0, ind = 0; i < SKY_NUM_DEVPARAM; i++) {
+		for (i = 0, ind = 0; i < ARRAY_SIZE(params.dev_params); i++) {
 			if (!(params.dev_params_bits & (1<<i)))
 				continue;
 			if (zframe_size_const(data_frame) <

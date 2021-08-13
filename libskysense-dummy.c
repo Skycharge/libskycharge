@@ -110,11 +110,8 @@ static int skydum_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
-		     SKY_NUM_DEVPARAM);
-
 	dev = container_of(dev_, struct skydum_dev, dev);
-	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+	for (i = 0; i < SKY_HW1_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		params->dev_params[i] = dev->params.dev_params[i];
@@ -132,11 +129,8 @@ static int skydum_paramsset(struct sky_dev *dev_,
 	if (params->dev_params_bits == 0)
 		return 0;
 
-	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
-		     SKY_NUM_DEVPARAM);
-
 	dev = container_of(dev_, struct skydum_dev, dev);
-	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+	for (i = 0; i < SKY_HW1_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		dev->params.dev_params[i] = params->dev_params[i];

@@ -154,26 +154,44 @@ static inline const char *sky_devstate_to_str(enum sky_dev_hw_state state)
 	}
 }
 
-static inline const char *sky_devparam_to_str(enum sky_dev_param param)
+static inline const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
 {
 	switch(param) {
-	X(SKY_EEPROM_INITED);
-	X(SKY_SCANNING_INTERVAL);
-	X(SKY_PRECHARGING_INTERVAL);
-	X(SKY_PRECHARGING_COUNTER);
-	X(SKY_POSTCHARGING_INTERVAL);
-	X(SKY_POSTCHARGING_DELAY);
-	X(SKY_WET_DELAY);
-	X(SKY_SHORTCIRC_DELAY);
-	X(SKY_THRESH_FINISH_CHARGING);
-	X(SKY_THRESH_NOCHARGER_PRESENT);
-	X(SKY_THRESH_SHORTCIRC);
-	X(SKY_CURRENT_MON_INTERVAL);
-	X(SKY_WAIT_START_CHARGING_SEC);
+	X(SKY_HW1_EEPROM_INITED);
+	X(SKY_HW1_SCANNING_INTERVAL);
+	X(SKY_HW1_PRECHARGING_INTERVAL);
+	X(SKY_HW1_PRECHARGING_COUNTER);
+	X(SKY_HW1_POSTCHARGING_INTERVAL);
+	X(SKY_HW1_POSTCHARGING_DELAY);
+	X(SKY_HW1_WET_DELAY);
+	X(SKY_HW1_SHORTCIRC_DELAY);
+	X(SKY_HW1_THRESH_FINISH_CHARGING);
+	X(SKY_HW1_THRESH_NOCHARGER_PRESENT);
+	X(SKY_HW1_THRESH_SHORTCIRC);
+	X(SKY_HW1_CURRENT_MON_INTERVAL);
+	X(SKY_HW1_WAIT_START_CHARGING_SEC);
 	default:
 		sky_err("unknown param: %d\n", param);
 		return "UNKNOWN_PARAM";
 	}
+}
+
+static inline const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
+{
+	switch(param) {
+	default:
+		sky_err("unknown param: %d\n", param);
+		return "UNKNOWN_PARAM";
+	}
+}
+
+static inline const char *sky_devparam_to_str(enum sky_dev_type dev_type,
+					      enum sky_dev_param param)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devparam_to_str(param);
+
+	return sky_hw2_devparam_to_str(param);
 }
 
 static inline const char *sky_gpsstatus_to_str(enum sky_gps_status status)
@@ -606,6 +624,7 @@ devs_list_http_handler(struct httpd *httpd,
 static void charging_params_skycompletion(struct sky_async_req *skyreq)
 {
 	struct sky_dev_params *params;
+	struct sky_dev_desc devdesc;
 	struct httpd_request *req;
 	char *buffer = NULL;
 	int off = 0, size = 0;
@@ -613,6 +632,8 @@ static void charging_params_skycompletion(struct sky_async_req *skyreq)
 
 	req = container_of(skyreq, typeof(*req), skyreq);
 	rc = skyreq->out.rc;
+	if (!rc)
+		(void)sky_devinfo(skyreq->dev, &devdesc);
 	sky_devclose(skyreq->dev);
 
 	params = &req->skystruct.params;
@@ -624,12 +645,19 @@ static void charging_params_skycompletion(struct sky_async_req *skyreq)
 		goto err;
 
 	if (!rc) {
-		for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+		unsigned int nr_params;
+
+		if (devdesc.dev_type == SKY_MUX_HW1)
+			nr_params = SKY_HW1_NUM_DEVPARAM;
+		else
+			nr_params = SKY_HW2_NUM_DEVPARAM;
+
+		for (i = 0; i < nr_params; i++) {
 			ret = snprintf_buffer(&buffer, &off, &size,
 					      "\t\t\t\"%s\": %d%s\n",
-					      sky_devparam_to_str(i),
+					      sky_devparam_to_str(devdesc.dev_type, i),
 					      params->dev_params[i],
-					      i + 1 < SKY_NUM_DEVPARAM ? "," : "");
+					      i + 1 < nr_params ? "," : "");
 			if (ret)
 				goto err;
 		}
@@ -855,7 +883,7 @@ charging_params_create_request(struct httpd_request *devslist_req)
 	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
 
 	/* Get all params */
-	req->skystruct.params.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1;
+	req->skystruct.params.dev_params_bits = ~0;
 
 	rc = sky_asyncreq_paramsget(req->httpd->async, dev,
 				    &req->skystruct.params, &req->skyreq);

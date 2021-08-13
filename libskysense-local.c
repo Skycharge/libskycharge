@@ -425,7 +425,7 @@ static int hw1_sky_get_params(struct skyloc_dev *dev,
 	if (rc)
 		return rc;
 
-	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+	for (i = 0; i < SKY_HW1_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		rc = hw1_sky_get_param(dev, i, &val);
@@ -453,7 +453,7 @@ static int hw1_sky_set_params(struct skyloc_dev *dev,
 	uint16_t val;
 	int rc, i;
 
-	for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+	for (i = 0; i < SKY_HW1_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		val = params->dev_params[i];
@@ -979,9 +979,6 @@ static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 	if (params->dev_params_bits == 0)
 		return -EINVAL;
 
-	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
-		     SKY_NUM_DEVPARAM);
-
 	dev = container_of(dev_, struct skyloc_dev, dev);
 
 	return get_hwops(dev_)->get_params(dev, params);
@@ -995,9 +992,6 @@ static int skyloc_paramsset(struct sky_dev *dev_,
 	if (params->dev_params_bits == 0)
 		/* Nothing to set */
 		return 0;
-
-	BUILD_BUG_ON(sizeof(params->dev_params_bits) * 8 <
-		     SKY_NUM_DEVPARAM);
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
 

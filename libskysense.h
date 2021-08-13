@@ -74,21 +74,25 @@ enum sky_dev_hw_state {
  * enum sky_dev_param - Configuration device parameter.
  */
 enum sky_dev_param {
-	SKY_EEPROM_INITED	     = 0,
-	SKY_SCANNING_INTERVAL	     = 1,
-	SKY_PRECHARGING_INTERVAL     = 2,
-	SKY_PRECHARGING_COUNTER	     = 3,
-	SKY_POSTCHARGING_INTERVAL    = 4,
-	SKY_POSTCHARGING_DELAY	     = 5,
-	SKY_WET_DELAY		     = 6,
-	SKY_SHORTCIRC_DELAY	     = 7,
-	SKY_THRESH_FINISH_CHARGING   = 8,
-	SKY_THRESH_NOCHARGER_PRESENT = 9,
-	SKY_THRESH_SHORTCIRC	     = 10,
-	SKY_CURRENT_MON_INTERVAL     = 11,
-	SKY_WAIT_START_CHARGING_SEC  = 12,
+	/* HW1 */
+	SKY_HW1_EEPROM_INITED	         = 0,
+	SKY_HW1_SCANNING_INTERVAL	 = 1,
+	SKY_HW1_PRECHARGING_INTERVAL     = 2,
+	SKY_HW1_PRECHARGING_COUNTER	 = 3,
+	SKY_HW1_POSTCHARGING_INTERVAL    = 4,
+	SKY_HW1_POSTCHARGING_DELAY	 = 5,
+	SKY_HW1_WET_DELAY		 = 6,
+	SKY_HW1_SHORTCIRC_DELAY	         = 7,
+	SKY_HW1_THRESH_FINISH_CHARGING   = 8,
+	SKY_HW1_THRESH_NOCHARGER_PRESENT = 9,
+	SKY_HW1_THRESH_SHORTCIRC         = 10,
+	SKY_HW1_CURRENT_MON_INTERVAL     = 11,
+	SKY_HW1_WAIT_START_CHARGING_SEC  = 12,
 
-	SKY_NUM_DEVPARAM, /* Should be the last */
+	SKY_HW1_NUM_DEVPARAM, /* Should be the last for HW1 */
+
+	/* HW2 */
+	SKY_HW2_NUM_DEVPARAM, /* Should be the last for HW2 */
 };
 
 /**
@@ -96,7 +100,7 @@ enum sky_dev_param {
  */
 struct sky_dev_params {
 	uint32_t dev_params_bits;
-	uint32_t dev_params[SKY_NUM_DEVPARAM];
+	uint32_t dev_params[32];
 };
 
 /**

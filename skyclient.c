@@ -74,26 +74,44 @@ static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
 	return crc;
 }
 
-static inline const char *sky_devparam_to_str(enum sky_dev_param param)
+static inline const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
 {
 	switch(param) {
-	X(SKY_EEPROM_INITED);
-	X(SKY_SCANNING_INTERVAL);
-	X(SKY_PRECHARGING_INTERVAL);
-	X(SKY_PRECHARGING_COUNTER);
-	X(SKY_POSTCHARGING_INTERVAL);
-	X(SKY_POSTCHARGING_DELAY);
-	X(SKY_WET_DELAY);
-	X(SKY_SHORTCIRC_DELAY);
-	X(SKY_THRESH_FINISH_CHARGING);
-	X(SKY_THRESH_NOCHARGER_PRESENT);
-	X(SKY_THRESH_SHORTCIRC);
-	X(SKY_CURRENT_MON_INTERVAL);
-	X(SKY_WAIT_START_CHARGING_SEC);
+	X(SKY_HW1_EEPROM_INITED);
+	X(SKY_HW1_SCANNING_INTERVAL);
+	X(SKY_HW1_PRECHARGING_INTERVAL);
+	X(SKY_HW1_PRECHARGING_COUNTER);
+	X(SKY_HW1_POSTCHARGING_INTERVAL);
+	X(SKY_HW1_POSTCHARGING_DELAY);
+	X(SKY_HW1_WET_DELAY);
+	X(SKY_HW1_SHORTCIRC_DELAY);
+	X(SKY_HW1_THRESH_FINISH_CHARGING);
+	X(SKY_HW1_THRESH_NOCHARGER_PRESENT);
+	X(SKY_HW1_THRESH_SHORTCIRC);
+	X(SKY_HW1_CURRENT_MON_INTERVAL);
+	X(SKY_HW1_WAIT_START_CHARGING_SEC);
 	default:
 		sky_err("unknown param: %d\n", param);
 		exit(-1);
 	}
+}
+
+static inline const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
+{
+	switch(param) {
+	default:
+		sky_err("unknown param: %d\n", param);
+		exit(-1);
+	}
+}
+
+static inline const char *sky_devparam_to_str(enum sky_dev_type dev_type,
+					      enum sky_dev_param param)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devparam_to_str(param);
+
+	return sky_hw2_devparam_to_str(param);
 }
 
 /**
@@ -424,32 +442,59 @@ int main(int argc, char *argv[])
 			sleep(1);
 	} else if (cli.showdevparams) {
 		struct sky_dev_params params;
+		struct sky_dev_desc devdesc;
+		unsigned nr_params;
+
+		rc = sky_devinfo(dev, &devdesc);
+		if (rc) {
+			sky_err("sky_devinfo(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+
+		if (devdesc.dev_type == SKY_MUX_HW1)
+			nr_params = SKY_HW1_NUM_DEVPARAM;
+		else
+			nr_params = SKY_HW2_NUM_DEVPARAM;
 
 		/* Get all params */
-		params.dev_params_bits = (1 << SKY_NUM_DEVPARAM) - 1;
+		params.dev_params_bits = ~0;
 		rc = sky_paramsget(dev, &params);
 		if (rc) {
 			sky_err("sky_paramsget(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 		printf("Device has the following parameters:\n");
-		for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-			printf("\t%-30s %u\n", sky_devparam_to_str(i),
+		for (i = 0; i < nr_params; i++) {
+			printf("\t%-34s %u\n",
+			       sky_devparam_to_str(devdesc.dev_type, i),
 			       params.dev_params[i]);
 		}
 	} else if (cli.setdevparam) {
 		struct sky_dev_params params;
+		struct sky_dev_desc devdesc;
+		unsigned nr_params;
 
-		for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
-			if (!strcasecmp(sky_devparam_to_str(i), cli.key))
+		rc = sky_devinfo(dev, &devdesc);
+		if (rc) {
+			sky_err("sky_devinfo(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+
+		if (devdesc.dev_type == SKY_MUX_HW1)
+			nr_params = SKY_HW1_NUM_DEVPARAM;
+		else
+			nr_params = SKY_HW2_NUM_DEVPARAM;
+
+		for (i = 0; i < nr_params; i++) {
+			if (!strcasecmp(sky_devparam_to_str(devdesc.dev_type, i), cli.key))
 				break;
 		}
-		if (i == SKY_NUM_DEVPARAM) {
+		if (i == nr_params) {
 			fprintf(stderr, "Incorrect parameter: %s\n", cli.key);
 			fprintf(stderr, "Please, use one of the following:\n");
-			for (i = 0; i < SKY_NUM_DEVPARAM; i++) {
+			for (i = 0; i < nr_params; i++) {
 				fprintf(stderr, "\t%s\n",
-					sky_devparam_to_str(i));
+						sky_devparam_to_str(devdesc.dev_type, i));
 			}
 			exit(-1);
 		}
