@@ -35,7 +35,7 @@ enum hw1_sky_serial_cmd {
 
 enum hw2_sky_serial_cmd {
 	HW2_SKY_UNKNOWN_CMD            = 0x00,
-	HW2_SKY_FIRMWARE_VERSION_CMD   = 0x01,
+	HW2_SKY_FW_HW_VERSION_CMD      = 0x01,
 	HW2_SKY_RESET_CMD              = 0x02,
 	HW2_SKY_STATE_CMD              = 0x03,
 	HW2_SKY_SCAN_CMD               = 0x04,
@@ -55,6 +55,11 @@ enum {
 
 	CHECK_ALL   = 0,
 	CHECK_MAGIC = 1,
+};
+
+struct sky_fw_hw_version {
+	uint32_t fw_version;
+	uint32_t hw_version;
 };
 
 struct skyloc_dev {
@@ -77,8 +82,7 @@ struct skyserial_desc {
 };
 
 struct sky_hw_ops {
-	int (*firmware_version)(struct skyloc_dev *dev, uint8_t *major,
-				uint8_t *minor, uint8_t *revis);
+	int (*fw_hw_version)(struct skyloc_dev *dev, struct sky_fw_hw_version *ver);
 	int (*get_params)(struct skyloc_dev *dev,
 			  struct sky_dev_params *params);
 	int (*set_params)(struct skyloc_dev *dev,
@@ -377,17 +381,25 @@ struct skyserial_desc hw1_sky_serial = {
 	.check_crc        = hw1_sky_check_crc,
 };
 
-static int hw1_sky_firmware_version(struct skyloc_dev *dev,
-				    uint8_t *major,
-				    uint8_t *minor,
-				    uint8_t *revis)
+static int hw1_sky_fw_hw_version(struct skyloc_dev *dev,
+				 struct sky_fw_hw_version *ver)
 {
-	return skycmd_serial_cmd(dev, &hw1_sky_serial,
-				 HW1_SKY_FIRMWARE_VERSION_CMD,
-				 0, 3,
-				 sizeof(*major), major,
-				 sizeof(*minor), minor,
-				 sizeof(*revis), revis);
+	uint8_t major, minor, revis;
+	int rc;
+
+	rc = skycmd_serial_cmd(dev, &hw1_sky_serial,
+			       HW1_SKY_FIRMWARE_VERSION_CMD,
+			       0, 3,
+			       sizeof(major), &major,
+			       sizeof(minor), &minor,
+			       sizeof(revis), &revis);
+	if (rc)
+		return rc;
+
+	ver->fw_version = major << 16 | minor << 8 | revis;
+	ver->hw_version = 2 << 16 | 30 << 8 | 2; /* 2.30b, latest HW1, I hope */
+
+	return 0;
 }
 
 static int hw1_sky_get_param(struct skyloc_dev *dev,
@@ -521,7 +533,7 @@ static int hw1_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
 }
 
 static struct sky_hw_ops hw1_sky_ops = {
-	.firmware_version = hw1_sky_firmware_version,
+	.fw_hw_version    = hw1_sky_fw_hw_version,
 	.get_params       = hw1_sky_get_params,
 	.set_params       = hw1_sky_set_params,
 	.get_state        = hw1_sky_get_state,
@@ -568,17 +580,16 @@ struct skyserial_desc hw2_sky_serial = {
 	.check_crc        = hw2_sky_check_crc,
 };
 
-static int hw2_sky_firmware_version(struct skyloc_dev *dev,
-				    uint8_t *major,
-				    uint8_t *minor,
-				    uint8_t *revis)
+static int hw2_sky_fw_hw_version(struct skyloc_dev *dev,
+				 struct sky_fw_hw_version *ver)
 {
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 HW2_SKY_FIRMWARE_VERSION_CMD,
-				 0, 3,
-				 sizeof(*major), major,
-				 sizeof(*minor), minor,
-				 sizeof(*revis), revis);
+				 HW2_SKY_FW_HW_VERSION_CMD,
+				 0, 2,
+				 sizeof(ver->fw_version),
+				 &ver->fw_version,
+				 sizeof(ver->hw_version),
+				 &ver->hw_version);
 }
 
 static int hw2_sky_get_params(struct skyloc_dev *dev,
@@ -699,7 +710,7 @@ static int hw2_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
 }
 
 static struct sky_hw_ops hw2_sky_ops = {
-	.firmware_version = hw2_sky_firmware_version,
+	.fw_hw_version    = hw2_sky_fw_hw_version,
 	.get_params       = hw2_sky_get_params,
 	.set_params       = hw2_sky_set_params,
 	.get_state        = hw2_sky_get_state,
@@ -856,18 +867,24 @@ static void devclose(struct skyloc_dev *dev)
 
 static int devprobe(struct sky_dev_desc *devdesc)
 {
+	struct sky_fw_hw_version ver;
 	struct skyloc_dev *dev;
 
-	uint8_t major, minor, revis;
 	int rc;
 
 	rc = devopen(devdesc, &dev, true);
 	if (rc)
 		return rc;
 
-	rc = devdesc->hw_ops->firmware_version(dev, &major, &minor, &revis);
-	if (!rc)
-		devdesc->firmware_version = major << 16 | minor << 8 | revis;
+	rc = devdesc->hw_ops->fw_hw_version(dev, &ver);
+	if (!rc) {
+		devdesc->firmware_version = ver.fw_version;
+		/*
+		 * TODO: devdesc->hw_version = ver.hw_version, but not so
+		 * TODO: easy since requires remote protocol and broker
+		 * TODO: changes, sigh!
+		 */
+	}
 
 	devclose(dev);
 
