@@ -225,16 +225,22 @@ static inline struct sky_dev *sky_find_dev(struct sky_server *serv,
 }
 
 static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
-			     void **rsp_hdr, size_t *rsp_len)
+			     uint16_t proto_version, void **rsp_hdr, size_t *rsp_len)
 {
 	struct sky_conf *conf = &serv->conf;
 	struct sky_dev_desc *dev, *head;
 	struct sky_devs_list_rsp *rsp;
 	void *rsp_void = NULL;
-	size_t len;
+	size_t len, info_len;
+	bool dyn_info;
 	int rc;
 
-	len = sizeof(*rsp);
+	/* Compatibility with protocols below 0x0400 */
+	dyn_info = (proto_version >= 0x0400);
+
+	len = dyn_info ?
+		sizeof(*rsp) :
+		offsetof_end(typeof(*rsp), info_off);
 	rsp = rsp_void = calloc(1, len);
 	if (!rsp)
 		return -ENOMEM;
@@ -246,8 +252,13 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 	if (!rc) {
 		int num;
 
+		/* Compatibility with protocols below 0x0400 */
+		info_len = dyn_info ?
+			sizeof(rsp->info[0]) :
+			offsetof_end(typeof(rsp->info[0]), portname);
+
 		foreach_devdesc(dev, head)
-			len += sizeof(rsp->info[0]);
+			len += info_len;
 
 		rsp = realloc(rsp, len);
 		if (!rsp) {
@@ -258,19 +269,32 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 		rsp_void = rsp;
 		num = 0;
 		foreach_devdesc(dev, head) {
-			struct sky_dev_info *info = &rsp->info[num++];
+			struct sky_dev_info *info =
+				(void *)&rsp->info[0] + info_len * num;
 
+			memset(info, 0, info_len);
 			info->dev_type = htole16(dev->dev_type);
-			info->firmware_version =
-				htole32(dev->firmware_version);
+			info->fw_version = htole32(dev->fw_version);
 			memcpy(info->portname, dev->portname,
 			       sizeof(dev->portname));
 			memcpy(info->dev_uuid, conf->devuuid,
 			       sizeof(conf->devuuid));
 			strncpy(info->dev_name, dev_name, sizeof(info->dev_name));
+
+			if (dyn_info) {
+				/* Protocol version >= 0x0400 */
+				info->info_len = htole16(sizeof(*info));
+				info->hw_version = htole32(dev->hw_version);
+				info->proto_version = SKY_PROTO_VERSION;
+			}
+			num += 1;
 		}
 		sky_devsfree(head);
 		rsp->num_devs = htole16(num);
+		if (dyn_info) {
+			/* Protocol version >= 0x0400 */
+			rsp->info_off = htole16(offsetof_end(typeof(*rsp), info_off));
+		}
 	}
 
 	*rsp_hdr = rsp_void;
@@ -289,13 +313,21 @@ static void sky_execute_cmd(struct sky_server *serv,
 	struct sky_dev *dev;
 
 	void *rsp_void = NULL;
+	uint16_t proto_version;
 	size_t len;
 	int rc, i;
 
-	if (zframe_size_const(data_frame) < sizeof(*req_hdr)) {
+	len = zframe_size_const(data_frame);
+	if (len < offsetof_end(typeof(*req_hdr), type)) {
 		sky_err("malformed request header\n");
 		rc = -EINVAL;
 		goto emergency;
+	} else if (len == offsetof_end(typeof(*req_hdr), type)) {
+		/* Protocols below 0x0400 version */
+		proto_version = 0;
+	} else {
+		/* Protocols below 0x0400 version has 0 in the field */
+		proto_version = le16toh(req_hdr->proto_version);
 	}
 
 	req_type = le16toh(req_hdr->type);
@@ -617,7 +649,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 		break;
 	}
 	case SKY_DEVS_LIST_REQ: {
-		rc = sky_devs_list_rsp(serv, serv->conf.devname,
+		rc = sky_devs_list_rsp(serv, serv->conf.devname, proto_version,
 				       &rsp_void, &len);
 		if (rc)
 			goto emergency;
@@ -1173,6 +1205,7 @@ static int sky_send_first_req(struct sky_server *serv,
 		goto err;
 	}
 	rc = sky_devs_list_rsp(serv, serv->conf.devname,
+			       SKY_PROTO_VERSION,
 			       &rsp_void, &rsp_len);
 	if (rc) {
 		sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));

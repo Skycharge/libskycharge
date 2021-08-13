@@ -588,11 +588,14 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		printf("%s firmware version: %d.%d.%d\n",
+		printf("%s, FW v%d.%d.%d, HW v%d.%d.%d\n",
 		       sky_devtype_to_str(devdesc.dev_type),
-		       version_major(devdesc.firmware_version),
-		       version_minor(devdesc.firmware_version),
-		       version_revis(devdesc.firmware_version));
+		       version_major(devdesc.fw_version),
+		       version_minor(devdesc.fw_version),
+		       version_revis(devdesc.fw_version),
+		       version_major(devdesc.hw_version),
+		       version_minor(devdesc.hw_version),
+		       version_revis(devdesc.hw_version));
 	} else if (cli.gpsinfo) {
 		struct sky_gpsdata gpsdata;
 

@@ -17,7 +17,11 @@ struct server_peer {
 	zframe_t *ident_frame;
 	zframe_t *data_frame;
 	zframe_t *usruuid_frame;
-	struct sky_devs_list_rsp *rsp;
+	const void *rsp_data;
+	size_t rsp_len;
+	size_t num_devs;
+	size_t info_off;
+	bool dyn_info;
 	union {
 		unsigned long long expires_at;
 		struct server_peer *next;
@@ -145,21 +149,56 @@ static int sky_reap_dead_servers(zhashx_t *hash)
 	return nearest == ~0ull ? -1 : (nearest - ms) * ZMQ_POLL_MSEC;
 }
 
-static bool sky_is_valid_devs_list_rsp(zframe_t *data)
+static bool sky_is_valid_devs_list_rsp(zframe_t *data, struct server_peer *peer)
 {
 	struct sky_devs_list_rsp *rsp;
-	size_t num_devs, len;
 
-	rsp = (void *)zframe_data(data);
-	len = zframe_size(data);
-	if (len < sizeof(*rsp))
+	size_t num_devs, rsp_len, off, info_off;
+	void *rsp_data;
+	bool dyn_info;
+	int i;
+
+	rsp_data = (void *)zframe_data(data);
+	rsp = rsp_data;
+	rsp_len = zframe_size(data);
+	if (rsp_len < offsetof_end(typeof(*rsp), info_off))
 		return false;
 	if (rsp->hdr.error)
 		return false;
 
 	num_devs = le16toh(rsp->num_devs);
-	if (len != sizeof(*rsp) + sizeof(rsp->info[0]) * num_devs)
+	if (!num_devs)
 		return false;
+
+	info_off = le16toh(rsp->info_off);
+	/* Dynamic info is supported starting from protocol version >= 0x0400 */
+	dyn_info = !!info_off;
+	info_off = off = (info_off ?: offsetof_end(typeof(*rsp), info_off));
+	if (rsp_len < info_off)
+		return false;
+
+	for (i = 0; i < num_devs; i++) {
+		struct sky_dev_info *notrust_info = rsp_data + info_off;
+		size_t info_len;
+
+		/* Sanity checks */
+		if (rsp_len < info_off + offsetof_end(typeof(*notrust_info), info_len))
+			return false;
+
+		/* Compatibility with protocols below 0x0400 */
+		info_len = dyn_info ?
+			le16toh(notrust_info->info_len) :
+			offsetof_end(typeof(*notrust_info), portname);
+		if (!info_len)
+			return false;
+
+		info_off += info_len;
+	}
+
+	peer->rsp_len = rsp_len;
+	peer->num_devs = num_devs;
+	peer->info_off = off;
+	peer->dyn_info = dyn_info;
 
 	return true;
 }
@@ -224,7 +263,7 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		peer->idents_msg = msg;
 		peer->ident_frame = ident;
 
-		if (!sky_is_valid_devs_list_rsp(data)) {
+		if (!sky_is_valid_devs_list_rsp(data, peer)) {
 			sky_err("Malformed devs list\n");
 			server_peer_free(peer);
 			return;
@@ -232,7 +271,7 @@ static void sky_handle_server_msg(void *servers, void *clients,
 
 		/* Take ownership on data frame */
 		peer->data_frame = data;
-		peer->rsp = (void *)zframe_data(data);
+		peer->rsp_data = (void *)zframe_data(data);
 		zmsg_remove(msg, data);
 
 		/* Take ownership on USRUUID frame */
@@ -293,18 +332,27 @@ static void sky_handle_server_msg(void *servers, void *clients,
 
 static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 			     zframe_t *usruuid,
+			     uint16_t proto_version,
 			     struct sky_devs_list_rsp **rsp_,
 			     size_t *rsp_len)
 {
 	struct sky_devs_list_rsp *rsp;
 	struct server_peer *peer;
+	void *rsp_data;
+	bool dyn_info;
+
 	size_t num, len;
 
 	*rsp_ = NULL;
 	*rsp_len = 0;
 
-	len = sizeof(*rsp);
-	rsp = calloc(1, len);
+	/* Compatibility with protocols below 0x0400 */
+	dyn_info = (proto_version >= 0x0400);
+
+	len = dyn_info ?
+		sizeof(*rsp) :
+		offsetof_end(typeof(*rsp), info_off);
+	rsp = rsp_data = calloc(1, len);
 	if (!rsp)
 		return -ENOMEM;
 
@@ -316,25 +364,36 @@ static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 	 */
 	for (num = 0, peer = zhashx_first(srvs_hash); peer;
 	     peer = zhashx_next(srvs_hash)) {
+		size_t info_len;
 		void *tmp;
 
 		/* Find corresponding user devices */
 		if (!zframe_eq(peer->usruuid_frame, usruuid))
 			continue;
 
-		len += peer->rsp->num_devs * sizeof(peer->rsp->info[0]);
-		tmp = realloc(rsp, len);
+		/* Skybroker does not try to peer old clients with new servers */
+		if (!dyn_info && peer->dyn_info) {
+			sky_err("The old client can't peer with the new server, so server will not be added to the result list!\n");
+			continue;
+		}
+
+		info_len = peer->rsp_len - peer->info_off;
+		tmp = realloc(rsp, len + info_len);
 		if (!tmp) {
 			free(rsp);
 			return -ENOMEM;
 		}
-		rsp = tmp;
+		rsp = rsp_data = tmp;
 
-		memcpy(&rsp->info[num], &peer->rsp->info[0],
-		       peer->rsp->num_devs * sizeof(peer->rsp->info[0]));
-		num += peer->rsp->num_devs;
+		memcpy(rsp_data + len, peer->rsp_data + peer->info_off, info_len);
+		num += peer->num_devs;
+		len += info_len;
 	}
 	rsp->num_devs = htole16(num);
+	if (dyn_info) {
+		/* Protocol version >= 0x0400 */
+		rsp->info_off = htole16(offsetof_end(typeof(*rsp), info_off));
+	}
 
 	*rsp_ = rsp;
 	*rsp_len = len;
@@ -345,10 +404,14 @@ static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 static void sky_handle_client_msg(void *servers, void *clients,
 				  zhashx_t *srvs_hash)
 {
+	enum sky_proto_type req_type;
+	struct sky_req_hdr *req_hdr;
 	struct server_peer *peer;
-	struct sky_req_hdr *req;
 	zframe_t *data, *ident;
 	zmsg_t *msg, *srv_msg;
+	size_t len;
+
+	uint16_t proto_version;
 	int rc;
 
 	msg = zmsg_recv(clients);
@@ -364,14 +427,25 @@ static void sky_handle_client_msg(void *servers, void *clients,
 		zmsg_destroy(&msg);
 		return;
 	}
-	if (zframe_size(data) < sizeof(*req)) {
+	req_hdr = (void *)zframe_data(data);
+
+	len = zframe_size(data);
+	if (len < offsetof_end(typeof(*req_hdr), type)) {
+		sky_err("malformed request header\n");
 		/* Malformed request? */
 		zmsg_destroy(&msg);
 		return;
+	} else if (len == offsetof_end(typeof(*req_hdr), type)) {
+		/* Protocols below 0x0400 version */
+		proto_version = 0;
+	} else {
+		/* Protocols below 0x0400 version has 0 in this field */
+		proto_version = le16toh(req_hdr->proto_version);
 	}
 
-	req = (void *)zframe_data(data);
-	switch (le16toh(req->type)) {
+	req_type = le16toh(req_hdr->type);
+
+	switch (req_type) {
 	case SKY_DEVS_LIST_REQ: {
 		/* TODO: cooperate with skyserver, make single function */
 		struct sky_devs_list_rsp *rsp;
@@ -385,7 +459,7 @@ static void sky_handle_client_msg(void *servers, void *clients,
 			zmsg_destroy(&msg);
 			return;
 		}
-		rc = sky_devs_list_rsp(srvs_hash, usruuid, &rsp, &len);
+		rc = sky_devs_list_rsp(srvs_hash, usruuid, proto_version, &rsp, &len);
 		if (rc) {
 			sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
 			zmsg_destroy(&msg);

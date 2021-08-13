@@ -97,7 +97,7 @@ enum {
 	DEFAULT_TIMEOUT = 30000,
 	PORTNAME_LEN = 32,
 
-	SKY_PROTO_VERSION = 0x0300,
+	SKY_PROTO_VERSION = 0x0400,
 
 	SKY_HEARTBEAT_IVL_MS = 5000,
 	SKY_HEARTBEAT_CNT    = 3,
@@ -123,6 +123,11 @@ struct sky_discovery {
 
 struct sky_req_hdr {
 	le16 type;
+	le16 proto_version; /*
+			     * Protocol version before 0x0400 does not have
+			     * `proto_version`, so for versions below this
+			     * member is equal to 0.
+			     */
 };
 
 struct sky_rsp_hdr {
@@ -132,7 +137,6 @@ struct sky_rsp_hdr {
 
 struct sky_get_dev_params_req {
 	struct sky_req_hdr hdr;
-	le16 padding;
 	le32 dev_params_bits;
 };
 
@@ -143,7 +147,6 @@ struct sky_get_dev_params_rsp {
 
 struct sky_set_dev_params_req {
 	struct sky_req_hdr hdr;
-	le16 padding;
 	le32 dev_params_bits;
 	le32 dev_params[];
 };
@@ -173,18 +176,35 @@ union sky_req {
 
 struct sky_dev_info {
 	le16 dev_type;
-	le16 padding;
-	le32 firmware_version;
+	le16 info_len; /*
+			* Protocol version before 0x0400 does not have `info_len`,
+			* so for versions below this member is equal to 0.
+			*/
+	le32 fw_version;
 	char dev_name[16];
 	unsigned char dev_uuid[16];
 	char portname[PORTNAME_LEN];
+
+	/* The members below were added for the protocol version 0x0400 */
+	le32 hw_version;
+	le16 proto_version;
+	le16 padding2;
 };
 
 struct sky_devs_list_rsp {
 	struct sky_rsp_hdr hdr;
 	le16 num_devs;
-	le16 padding;
-	struct sky_dev_info info[];
+	le16 info_off; /*
+			* Protocol version before 0x0400 does not have `info_off`,
+			* so for old protocol versions this member is equal to 0.
+			* New members should be added strictly after `info_off`.
+			*/
+
+	struct sky_dev_info info[]; /*
+				     * This can't be accessed as an array,
+				     * in protocol version 0x400 `info->info_len`
+				     * has to be taken into consideration.
+				     */
 };
 
 struct sky_charging_state_rsp {

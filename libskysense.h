@@ -180,12 +180,14 @@ struct sky_dev_desc {
 	enum sky_dev_type dev_type;
 	const struct sky_dev_ops *dev_ops;
 	const struct sky_hw_ops *hw_ops;
-	unsigned firmware_version;
+	uint32_t fw_version;
+	uint32_t hw_version;
 	char dev_name[16];
 	unsigned char dev_uuid[16];
 	char portname[32];
 };
 
+#define make_version(min, maj, rev) (((maj) & 0xff) << 16 | ((min) & 0xff) << 8 | ((rev) & 0xff))
 #define version_major(v) (((v) >> 16) & 0xff)
 #define version_minor(v) (((v) >> 8) & 0xff)
 #define version_revis(v) ((v) & 0xff)

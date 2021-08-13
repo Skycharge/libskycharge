@@ -27,6 +27,8 @@
 #endif
 #endif
 
+#define offsetof_end(TYPE, MEMBER) (offsetof(TYPE, MEMBER) + sizeof((TYPE *)0)->MEMBER)
+
 #define barrier() __asm__ __volatile__("": : :"memory")
 
 #define container_of(ptr, type, member) ({                      \

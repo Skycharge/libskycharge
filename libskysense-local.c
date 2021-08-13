@@ -878,12 +878,8 @@ static int devprobe(struct sky_dev_desc *devdesc)
 
 	rc = devdesc->hw_ops->fw_hw_version(dev, &ver);
 	if (!rc) {
-		devdesc->firmware_version = ver.fw_version;
-		/*
-		 * TODO: devdesc->hw_version = ver.hw_version, but not so
-		 * TODO: easy since requires remote protocol and broker
-		 * TODO: changes, sigh!
-		 */
+		devdesc->fw_version = ver.fw_version;
+		devdesc->hw_version = ver.hw_version;
 	}
 
 	devclose(dev);

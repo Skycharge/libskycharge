@@ -237,6 +237,9 @@ static int skyrem_sendreq(struct skyrem_async *async,
 	if (!msg)
 		return -ENOMEM;
 
+	/* Set protocol version for each request */
+	hdr->proto_version = htole16(SKY_PROTO_VERSION);
+
 	tag = async->reqs_seq + 1;
 	le32tag = htole32(tag);
 
@@ -541,7 +544,8 @@ static int skyrem_devslist_parse(struct skyrem_async *async,
 	size_t num_devs;
 	int rc;
 
-	if (rsp_len < sizeof(*rsp))
+	/* Sanity checks */
+	if (rsp_len < offsetof_end(typeof(*rsp), info_off))
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
@@ -551,34 +555,64 @@ static int skyrem_devslist_parse(struct skyrem_async *async,
 
 	num_devs = le16toh(rsp->num_devs);
 
-	/* Sanity checks */
-	if (rsp_len < sizeof(*rsp) + sizeof(rsp->info[0]) * num_devs)
-		/* Malformed response */
-		goto complete_with_EPROTO;
-
 	if (num_devs) {
 		struct sky_dev_desc *devdesc;
+		size_t info_off;
+		bool dyn_info;
 		int i;
 
+		/*
+		 * Protocol version before 0x0400 does not have `info_off`,
+		 * so we use the fact that it is 0 if the protocol is below.
+		 */
+		dyn_info = !!rsp->info_off;
+		info_off = dyn_info ?
+			le16toh(rsp->info_off) :
+			offsetof_end(typeof(*rsp), info_off);
+
 		for (i = 0; i < num_devs; i++) {
-			struct sky_dev_info *info = &rsp->info[i];
+			struct sky_dev_info *notrust_info = rsp_data + info_off;
+			struct sky_dev_info info;
+			size_t info_len;
+
+			/* Sanity checks */
+			if (rsp_len < info_off + offsetof_end(typeof(info), info_len))
+				/* Malformed response */
+				goto complete_with_EPROTO;
+
+			/*
+			 * Protocol version before 0x0400 does not have `info_len`.
+			 * But there is one corner case, when we are connected to
+			 * the new skybroker, which sets `info_off` but forwards
+			 * us the sky_dev_info from the old server, where the
+			 * `info_len` is 0. So handle this carefully.
+			 */
+			info_len = le16toh(notrust_info->info_len) ?:
+				offsetof_end(typeof(*notrust_info), portname);
+			info_len = dyn_info ? info_len :
+				offsetof_end(typeof(*notrust_info), portname);
+			info_off += info_len;
+
+			/* Copy to a local buffer */
+			memset(&info, 0, sizeof(info));
+			memcpy(&info, notrust_info, min(info_len, sizeof(info)));
 
 			devdesc = calloc(1, sizeof(*devdesc));
 			if (!devdesc) {
 				sky_devsfree(head);
 				return -ENOMEM;
 			}
-			devdesc->dev_type = le16toh(info->dev_type);
-			memcpy(devdesc->dev_name, info->dev_name,
+			devdesc->dev_type = le16toh(info.dev_type);
+			memcpy(devdesc->dev_name, info.dev_name,
 			       sizeof(devdesc->dev_name));
-			memcpy(devdesc->dev_uuid, info->dev_uuid,
+			memcpy(devdesc->dev_uuid, info.dev_uuid,
 			       sizeof(devdesc->dev_uuid));
-			devdesc->firmware_version =
-				le32toh(info->firmware_version);
+			devdesc->fw_version = le32toh(info.fw_version);
+			devdesc->hw_version = le32toh(info.hw_version);
 			devdesc->conf = *async->async.conf;
 			devdesc->dev_ops = async->async.ops;
-			memcpy(devdesc->portname, info->portname,
-			       sizeof(info->portname));
+			memcpy(devdesc->portname, info.portname,
+			       sizeof(info.portname));
 
 			devdesc->next = head;
 			head = devdesc;

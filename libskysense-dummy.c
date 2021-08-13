@@ -43,7 +43,8 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 		return -ENOMEM;
 
 	dev->dev_type = SKY_MUX_HW1;
-	dev->firmware_version = 0x00010203;
+	dev->fw_version = 0x00010203;
+	dev->hw_version = 0x00040302;
 	dev->conf = *conf;
 	dev->dev_ops = ops;
 	strcpy(dev->portname, "dummy0");
