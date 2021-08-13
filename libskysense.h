@@ -33,17 +33,8 @@ enum sky_con_type {
  * enum sky_dev_type - Device type.
  */
 enum sky_dev_type {
-	SKY_INDOOR  = 0,
-	SKY_OUTDOOR = 1,
-};
-
-/**
- * enum sky_mux_type - MUX type.
- */
-enum sky_mux_type {
-	SKY_MUX_UNKNOWN = 0,
-	SKY_MUX_HW1 = 1,
-	SKY_MUX_HW2 = 2
+	SKY_MUX_HW1 = 0,
+	SKY_MUX_HW2 = 1,
 };
 
 /**
@@ -148,7 +139,7 @@ struct sky_conf {
 
 	enum sky_con_type     contype;
 
-	enum sky_mux_type     mux_hw;
+	enum sky_dev_type     mux_type;
 	char                  mux_dev[32];
 	struct sky_dev_params mux_hw1_params;
 

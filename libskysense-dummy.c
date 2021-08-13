@@ -42,7 +42,7 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 	if (!dev)
 		return -ENOMEM;
 
-	dev->dev_type = SKY_INDOOR;
+	dev->dev_type = SKY_MUX_HW1;
 	dev->firmware_version = 0x00010203;
 	dev->conf = *conf;
 	dev->dev_ops = ops;

@@ -890,9 +890,9 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 	 * so resolve all references and make sure we have a real path.
 	 */
 	if (realpath(conf->mux_dev, mux_dev_path)) {
-		if (conf->mux_hw == SKY_MUX_HW1)
+		if (conf->mux_type == SKY_MUX_HW1)
 			hw_ops = &hw1_sky_ops;
-		else if (conf->mux_hw == SKY_MUX_HW2)
+		else if (conf->mux_type == SKY_MUX_HW2)
 			hw_ops = &hw2_sky_ops;
 		else
 			assert(0);
@@ -904,7 +904,7 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 		}
 		memcpy(devdesc->portname, mux_dev_path,
 		       min(strlen(mux_dev_path), sizeof(devdesc->portname) - 1));
-		devdesc->dev_type = SKY_INDOOR;
+		devdesc->dev_type = conf->mux_type;
 		devdesc->conf = *conf;
 		devdesc->dev_ops = dev_ops;
 		devdesc->hw_ops = hw_ops;

@@ -1460,7 +1460,7 @@ static void sky_wait_for_mux_hw1_dev(struct sky_server *serv)
 	bool printed = false;
 	int rc;
 
-	if (serv->conf.mux_hw != SKY_MUX_HW1)
+	if (serv->conf.mux_type != SKY_MUX_HW1)
 		/* Only HW1 MUX should be awaited */
 		return;
 
@@ -1595,7 +1595,7 @@ int main(int argc, char *argv[])
 			sky_err("sky_devpopen(): %s\n", strerror(-rc));
 			goto close_devs;
 		}
-		if (conf->mux_hw == SKY_MUX_HW1 &&
+		if (conf->mux_type == SKY_MUX_HW1 &&
 		    conf->mux_hw1_params.dev_params_bits) {
 			/* Apply MUX hw1 params */
 			rc = sky_paramsset(servdev->dev, &conf->mux_hw1_params);

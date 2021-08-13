@@ -257,9 +257,12 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	 * MUX config
 	 */
 
-	else if ((str = strstr(line, "mux-hw="))) {
-		rc = sscanf(str + 7, "%u", &cfg->mux_hw);
-		if (rc != 1)
+	else if ((str = strstr(line, "mux-type="))) {
+		if (0 == strcasecmp(str + 9, "hw1"))
+			cfg->mux_type = SKY_MUX_HW1;
+		else if (0 == strcasecmp(str + 9, "hw2"))
+			cfg->mux_type = SKY_MUX_HW2;
+		else
 			return -ENODATA;
 	} else if ((str = strstr(line, "mux-dev="))) {
 		strncpy(cfg->mux_dev, str + 8, sizeof(cfg->mux_dev) - 1);
@@ -467,21 +470,13 @@ void sky_confinit(struct sky_conf *cfg)
 
 static int validate_conf(struct sky_conf *cfg)
 {
-	if (cfg->mux_hw == SKY_MUX_UNKNOWN && !strlen(cfg->mux_dev)) {
+	if (cfg->mux_type == SKY_MUX_HW1 && !strlen(cfg->mux_dev)) {
 		/* A bit of compatibility */
-		sky_err("Config warning: 'mux_hw' is not specified, assume HW1\n");
-		cfg->mux_hw = SKY_MUX_HW1;
+		sky_err("Config warning: 'mux_dev' is not specified, assume /dev/skysenseUSB\n");
 		strcpy(cfg->mux_dev, "/dev/skysenseUSB");
-	} else {
-		if (cfg->mux_hw != SKY_MUX_HW1 &&
-		    cfg->mux_hw != SKY_MUX_HW2) {
-			sky_err("Config error: 'mux_hw' has incorrect value\n");
-			return -ENODATA;
-		}
-		if (!strlen(cfg->mux_dev)) {
-			sky_err("Config error: 'mux_dev' is not specified\n");
-			return -ENODATA;
-		}
+	} else if (!strlen(cfg->mux_dev)) {
+		sky_err("Config error: 'mux_dev' is not specified\n");
+		return -ENODATA;
 	}
 
 	return 0;
