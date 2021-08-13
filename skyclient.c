@@ -106,6 +106,7 @@ static struct sky_dev_desc *sky_find_devdesc_by_id(struct sky_dev_desc *head,
 }
 
 static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
+			    struct sky_dev_desc **devdesc,
 			    struct sky_dev_desc **devdescs)
 {
 	struct sky_conf conf;
@@ -122,29 +123,29 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 		exit(-1);
 	}
 	if (!cli->listdevs) {
-		struct sky_dev_desc *devdesc;
-
 		if (!cli->devid) {
 			if ((*devdescs)->next) {
 				sky_err("Error: multiple devices found, please specify --id <dev-id>\n");
 				exit(-1);
 			}
-			devdesc = *devdescs;
+			*devdesc = *devdescs;
 		} else {
-			devdesc = sky_find_devdesc_by_id(*devdescs, cli->devid);
-			if (!devdesc) {
+			*devdesc = sky_find_devdesc_by_id(*devdescs, cli->devid);
+			if (!*devdesc) {
 				sky_err("Error: device by id '%s' was no found\n",
 					cli->devid);
 				exit(-1);
 			}
 		}
-		rc = sky_devopen(devdesc, dev);
+		rc = sky_devopen(*devdesc, dev);
 		if (rc) {
 			sky_err("sky_devopen(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-	} else
+	} else {
 		*dev = NULL;
+		*devdesc = NULL;
+	}
 }
 
 static void sky_print_charging_state(enum sky_dev_type dev_type,
@@ -223,7 +224,7 @@ static void sky_print_gpsdata(struct cli *cli, struct sky_gpsdata *gpsdata)
 }
 
 struct sky_on_charging_state_arg {
-	struct sky_dev_desc devdesc;
+	struct sky_dev_desc *devdesc;
 	struct cli *cli;
 };
 
@@ -231,12 +232,13 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
 	struct sky_on_charging_state_arg *arg = data;
 
-	sky_print_charging_state(arg->devdesc.dev_type, arg->cli, state);
+	sky_print_charging_state(arg->devdesc->dev_type, arg->cli, state);
 }
 
 int main(int argc, char *argv[])
 {
 	struct sky_dev_desc *devdescs = NULL;
+	struct sky_dev_desc *devdesc;
 	struct sky_dev *dev;
 	struct cli cli;
 	int rc, i;
@@ -319,7 +321,7 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 
-	sky_prepare_dev(&cli, &dev, &devdescs);
+	sky_prepare_dev(&cli, &dev, &devdesc, &devdescs);
 
 	if (cli.listdevs) {
 		size_t max_devname = strlen("DEV-NAME");
@@ -349,7 +351,8 @@ int main(int argc, char *argv[])
 		}
 	} else if (cli.monitor) {
 		struct sky_on_charging_state_arg arg = {
-			.cli = &cli
+			.cli = &cli,
+			.devdesc = devdesc,
 		};
 		struct sky_subscription sub = {
 			.data = &arg,
@@ -357,11 +360,6 @@ int main(int argc, char *argv[])
 			.interval_msecs = 1000,
 		};
 
-		rc = sky_devinfo(dev, &arg.devdesc);
-		if (rc) {
-			sky_err("sky_devinfo(): %s\n", strerror(-rc));
-			exit(-1);
-		}
 		rc = sky_subscribe(dev, &sub);
 		if (rc) {
 			sky_err("sky_subscribe(): %s\n", strerror(-rc));
@@ -372,16 +370,9 @@ int main(int argc, char *argv[])
 			sleep(1);
 	} else if (cli.showdevparams) {
 		struct sky_dev_params params;
-		struct sky_dev_desc devdesc;
 		unsigned nr_params;
 
-		rc = sky_devinfo(dev, &devdesc);
-		if (rc) {
-			sky_err("sky_devinfo(): %s\n", strerror(-rc));
-			exit(-1);
-		}
-
-		if (devdesc.dev_type == SKY_MUX_HW1)
+		if (devdesc->dev_type == SKY_MUX_HW1)
 			nr_params = SKY_HW1_NUM_DEVPARAM;
 		else
 			nr_params = SKY_HW2_NUM_DEVPARAM;
@@ -396,27 +387,20 @@ int main(int argc, char *argv[])
 		printf("Device has the following parameters:\n");
 		for (i = 0; i < nr_params; i++) {
 			printf("\t%-34s %u\n",
-			       sky_devparam_to_str(devdesc.dev_type, i),
+			       sky_devparam_to_str(devdesc->dev_type, i),
 			       params.dev_params[i]);
 		}
 	} else if (cli.setdevparam) {
 		struct sky_dev_params params;
-		struct sky_dev_desc devdesc;
 		unsigned nr_params;
 
-		rc = sky_devinfo(dev, &devdesc);
-		if (rc) {
-			sky_err("sky_devinfo(): %s\n", strerror(-rc));
-			exit(-1);
-		}
-
-		if (devdesc.dev_type == SKY_MUX_HW1)
+		if (devdesc->dev_type == SKY_MUX_HW1)
 			nr_params = SKY_HW1_NUM_DEVPARAM;
 		else
 			nr_params = SKY_HW2_NUM_DEVPARAM;
 
 		for (i = 0; i < nr_params; i++) {
-			if (!strcasecmp(sky_devparam_to_str(devdesc.dev_type, i), cli.key))
+			if (!strcasecmp(sky_devparam_to_str(devdesc->dev_type, i), cli.key))
 				break;
 		}
 		if (i == nr_params) {
@@ -424,7 +408,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Please, use one of the following:\n");
 			for (i = 0; i < nr_params; i++) {
 				fprintf(stderr, "\t%s\n",
-						sky_devparam_to_str(devdesc.dev_type, i));
+						sky_devparam_to_str(devdesc->dev_type, i));
 			}
 			exit(-1);
 		}
@@ -546,20 +530,14 @@ int main(int argc, char *argv[])
 		}
 	} else if (cli.showchargingstate) {
 		struct sky_charging_state state;
-		struct sky_dev_desc devdesc;
 
-		rc = sky_devinfo(dev, &devdesc);
-		if (rc) {
-			sky_err("sky_devinfo(): %s\n", strerror(-rc));
-			exit(-1);
-		}
 		rc = sky_chargingstate(dev, &state);
 		if (rc) {
 			sky_err("sky_chargingstate(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 		cli.pretty = !cli.nopretty;
-		sky_print_charging_state(devdesc.dev_type, &cli, &state);
+		sky_print_charging_state(devdesc->dev_type, &cli, &state);
 	} else if (cli.reset) {
 		rc = sky_reset(dev);
 		if (rc) {
@@ -567,22 +545,14 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (cli.devinfo) {
-		struct sky_dev_desc devdesc;
-
-		rc = sky_devinfo(dev, &devdesc);
-		if (rc) {
-			sky_err("sky_devinfo(): %s\n", strerror(-rc));
-			exit(-1);
-		}
-
 		printf("%s, FW v%d.%d.%d, HW v%d.%d.%d\n",
-		       sky_devtype_to_str(devdesc.dev_type),
-		       version_major(devdesc.fw_version),
-		       version_minor(devdesc.fw_version),
-		       version_revis(devdesc.fw_version),
-		       version_major(devdesc.hw_version),
-		       version_minor(devdesc.hw_version),
-		       version_revis(devdesc.hw_version));
+		       sky_devtype_to_str(devdesc->dev_type),
+		       version_major(devdesc->fw_version),
+		       version_minor(devdesc->fw_version),
+		       version_revis(devdesc->fw_version),
+		       version_major(devdesc->hw_version),
+		       version_minor(devdesc->hw_version),
+		       version_revis(devdesc->hw_version));
 	} else if (cli.gpsinfo) {
 		struct sky_gpsdata gpsdata;
 
