@@ -116,9 +116,11 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 		bool was_charging, is_charging;
 
 		was_charging =
-			sky_hw_is_charging(servdev->prev_state.dev_hw_state);
+			sky_hw_is_charging(devdesc->dev_type,
+					   servdev->prev_state.dev_hw_state);
 		is_charging =
-			sky_hw_is_charging(state->dev_hw_state);
+			sky_hw_is_charging(devdesc->dev_type,
+					   state->dev_hw_state);
 
 		if (was_charging && is_charging) {
 			/*

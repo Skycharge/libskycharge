@@ -27,40 +27,66 @@ static inline const char *sky_devtype_to_str(enum sky_dev_type type)
 	return type == SKY_MUX_HW1 ? "MUX-HW1": "MUX-HW2";
 }
 
-static inline const char *sky_devstate_to_str(enum sky_dev_hw_state state)
+static inline const char *sky_hw1_devstate_to_str(enum sky_dev_state state)
 {
 	switch(state) {
-	X(SKY_UNKNOWN);
-	X(SKY_SCANNING_INIT);
-	X(SKY_SCANNING_RUN);
-	X(SKY_SCANNING_CHECK_MATRIX);
-	X(SKY_SCANNING_PRINT);
-	X(SKY_SCANNING_CHECK_WATER);
-	X(SKY_SCANNING_WET);
-	X(SKY_SCANNING_DETECTING);
-	X(SKY_PRE_CHARGING_INIT);
-	X(SKY_PRE_CHARGING_RUN);
-	X(SKY_PRE_CHARGING_CHECK_MATRIX);
-	X(SKY_PRE_CHARGING_PRINT);
-	X(SKY_PRE_CHARGING_CHECK_WATER);
-	X(SKY_PRE_CHARGING_WET);
-	X(SKY_PRE_CHARGING_FIND_CHARGERS);
-	X(SKY_CHARGING_INIT);
-	X(SKY_CHARGING_RUN);
-	X(SKY_CHARGING_MONITOR_CURRENT);
-	X(SKY_POST_CHARGING_INIT);
-	X(SKY_POST_CHARGING_RUN);
-	X(SKY_POST_CHARGING_CHECK_MATRIX);
-	X(SKY_POST_CHARGING_PRINT);
-	X(SKY_POST_CHARGING_CHECK_WATER);
-	X(SKY_POST_CHARGING_WET);
-	X(SKY_POST_CHARGING_FIND_CHARGERS);
-	X(SKY_OVERLOAD);
-	X(SKY_AUTOSCAN_DISABLED);
+	X(SKY_HW1_UNKNOWN);
+	X(SKY_HW1_SCANNING_INIT);
+	X(SKY_HW1_SCANNING_RUN);
+	X(SKY_HW1_SCANNING_CHECK_MATRIX);
+	X(SKY_HW1_SCANNING_PRINT);
+	X(SKY_HW1_SCANNING_CHECK_WATER);
+	X(SKY_HW1_SCANNING_WET);
+	X(SKY_HW1_SCANNING_DETECTING);
+	X(SKY_HW1_PRE_CHARGING_INIT);
+	X(SKY_HW1_PRE_CHARGING_RUN);
+	X(SKY_HW1_PRE_CHARGING_CHECK_MATRIX);
+	X(SKY_HW1_PRE_CHARGING_PRINT);
+	X(SKY_HW1_PRE_CHARGING_CHECK_WATER);
+	X(SKY_HW1_PRE_CHARGING_WET);
+	X(SKY_HW1_PRE_CHARGING_FIND_CHARGERS);
+	X(SKY_HW1_CHARGING_INIT);
+	X(SKY_HW1_CHARGING_RUN);
+	X(SKY_HW1_CHARGING_MONITOR_CURRENT);
+	X(SKY_HW1_POST_CHARGING_INIT);
+	X(SKY_HW1_POST_CHARGING_RUN);
+	X(SKY_HW1_POST_CHARGING_CHECK_MATRIX);
+	X(SKY_HW1_POST_CHARGING_PRINT);
+	X(SKY_HW1_POST_CHARGING_CHECK_WATER);
+	X(SKY_HW1_POST_CHARGING_WET);
+	X(SKY_HW1_POST_CHARGING_FIND_CHARGERS);
+	X(SKY_HW1_OVERLOAD);
+	X(SKY_HW1_AUTOSCAN_DISABLED);
 	default:
 		sky_err("unknown state: %d\n", state);
 		exit(-1);
 	}
+}
+
+static inline const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
+{
+	switch(state) {
+	X(SKY_HW2_UNKNOWN);
+	X(SKY_HW2_SCANNING);
+	X(SKY_HW2_SCANNING_DISABLED);
+	X(SKY_HW2_PRE_CHARGING);
+	X(SKY_HW2_CHARGING);
+	X(SKY_HW2_CHARGING_FINISHED);
+	X(SKY_HW2_ERR_INVAL_CHARGING_SETTINGS);
+	X(SKY_HW2_ERR_NOLINK_WITH_SINK);
+	default:
+		sky_err("unknown state: %d\n", state);
+		return "UNKNOWN_STATE";
+	}
+}
+
+static inline const char *sky_devstate_to_str(enum sky_dev_type dev_type,
+					      enum sky_dev_state state)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devstate_to_str(state);
+
+	return sky_hw2_devstate_to_str(state);
 }
 
 static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
@@ -231,7 +257,8 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 		*dev = NULL;
 }
 
-static void sky_print_charging_state(struct cli *cli,
+static void sky_print_charging_state(enum sky_dev_type dev_type,
+				     struct cli *cli,
 				     struct sky_charging_state *state)
 {
 	char timestr[64];
@@ -254,7 +281,7 @@ static void sky_print_charging_state(struct cli *cli,
 		       timestr,
 		       state->voltage / 1000.0f,
 		       state->current / 1000.0f,
-		       sky_devstate_to_str(state->dev_hw_state));
+		       sky_devstate_to_str(dev_type, state->dev_hw_state));
 		if (state->bms.charge_time)
 			printf("\t%u\t%u\n", state->bms.charge_perc,
 			       state->bms.charge_time);
@@ -263,7 +290,7 @@ static void sky_print_charging_state(struct cli *cli,
 	} else {
 		printf("Timestamp:   %s\n", timestr);
 		printf("Dev state:   %s\n",
-		       sky_devstate_to_str(state->dev_hw_state));
+		       sky_devstate_to_str(dev_type, state->dev_hw_state));
 		printf("  Voltage:   %.2fV\n", state->voltage / 1000.0f);
 		printf("  Current:   %.2fA\n", state->current / 1000.0f);
 
@@ -305,11 +332,16 @@ static void sky_print_gpsdata(struct cli *cli, struct sky_gpsdata *gpsdata)
 	       gpsdata->dop.vdop, gpsdata->dop.tdop, gpsdata->dop.gdop);
 }
 
+struct sky_on_charging_state_arg {
+	struct sky_dev_desc devdesc;
+	struct cli *cli;
+};
+
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
-	struct cli *cli = data;
+	struct sky_on_charging_state_arg *arg = data;
 
-	sky_print_charging_state(cli, state);
+	sky_print_charging_state(arg->devdesc.dev_type, arg->cli, state);
 }
 
 int main(int argc, char *argv[])
@@ -426,12 +458,20 @@ int main(int argc, char *argv[])
 			       version_revis(devdesc->hw_version));
 		}
 	} else if (cli.monitor) {
+		struct sky_on_charging_state_arg arg = {
+			.cli = &cli
+		};
 		struct sky_subscription sub = {
-			.data = &cli,
+			.data = &arg,
 			.on_state = sky_on_charging_state,
 			.interval_msecs = 1000,
 		};
 
+		rc = sky_devinfo(dev, &arg.devdesc);
+		if (rc) {
+			sky_err("sky_devinfo(): %s\n", strerror(-rc));
+			exit(-1);
+		}
 		rc = sky_subscribe(dev, &sub);
 		if (rc) {
 			sky_err("sky_subscribe(): %s\n", strerror(-rc));
@@ -616,14 +656,20 @@ int main(int argc, char *argv[])
 		}
 	} else if (cli.showchargingstate) {
 		struct sky_charging_state state;
+		struct sky_dev_desc devdesc;
 
+		rc = sky_devinfo(dev, &devdesc);
+		if (rc) {
+			sky_err("sky_devinfo(): %s\n", strerror(-rc));
+			exit(-1);
+		}
 		rc = sky_chargingstate(dev, &state);
 		if (rc) {
 			sky_err("sky_chargingstate(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 		cli.pretty = !cli.nopretty;
-		sky_print_charging_state(&cli, &state);
+		sky_print_charging_state(devdesc.dev_type, &cli, &state);
 	} else if (cli.reset) {
 		rc = sky_reset(dev);
 		if (rc) {

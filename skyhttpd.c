@@ -118,40 +118,66 @@ static bool http_is_get(const char *method)
 #define X(state) \
 	case state: return #state
 
-static inline const char *sky_devstate_to_str(enum sky_dev_hw_state state)
+static inline const char *sky_hw1_devstate_to_str(enum sky_dev_state state)
 {
 	switch(state) {
-	X(SKY_UNKNOWN);
-	X(SKY_SCANNING_INIT);
-	X(SKY_SCANNING_RUN);
-	X(SKY_SCANNING_CHECK_MATRIX);
-	X(SKY_SCANNING_PRINT);
-	X(SKY_SCANNING_CHECK_WATER);
-	X(SKY_SCANNING_WET);
-	X(SKY_SCANNING_DETECTING);
-	X(SKY_PRE_CHARGING_INIT);
-	X(SKY_PRE_CHARGING_RUN);
-	X(SKY_PRE_CHARGING_CHECK_MATRIX);
-	X(SKY_PRE_CHARGING_PRINT);
-	X(SKY_PRE_CHARGING_CHECK_WATER);
-	X(SKY_PRE_CHARGING_WET);
-	X(SKY_PRE_CHARGING_FIND_CHARGERS);
-	X(SKY_CHARGING_INIT);
-	X(SKY_CHARGING_RUN);
-	X(SKY_CHARGING_MONITOR_CURRENT);
-	X(SKY_POST_CHARGING_INIT);
-	X(SKY_POST_CHARGING_RUN);
-	X(SKY_POST_CHARGING_CHECK_MATRIX);
-	X(SKY_POST_CHARGING_PRINT);
-	X(SKY_POST_CHARGING_CHECK_WATER);
-	X(SKY_POST_CHARGING_WET);
-	X(SKY_POST_CHARGING_FIND_CHARGERS);
-	X(SKY_OVERLOAD);
-	X(SKY_AUTOSCAN_DISABLED);
+	X(SKY_HW1_UNKNOWN);
+	X(SKY_HW1_SCANNING_INIT);
+	X(SKY_HW1_SCANNING_RUN);
+	X(SKY_HW1_SCANNING_CHECK_MATRIX);
+	X(SKY_HW1_SCANNING_PRINT);
+	X(SKY_HW1_SCANNING_CHECK_WATER);
+	X(SKY_HW1_SCANNING_WET);
+	X(SKY_HW1_SCANNING_DETECTING);
+	X(SKY_HW1_PRE_CHARGING_INIT);
+	X(SKY_HW1_PRE_CHARGING_RUN);
+	X(SKY_HW1_PRE_CHARGING_CHECK_MATRIX);
+	X(SKY_HW1_PRE_CHARGING_PRINT);
+	X(SKY_HW1_PRE_CHARGING_CHECK_WATER);
+	X(SKY_HW1_PRE_CHARGING_WET);
+	X(SKY_HW1_PRE_CHARGING_FIND_CHARGERS);
+	X(SKY_HW1_CHARGING_INIT);
+	X(SKY_HW1_CHARGING_RUN);
+	X(SKY_HW1_CHARGING_MONITOR_CURRENT);
+	X(SKY_HW1_POST_CHARGING_INIT);
+	X(SKY_HW1_POST_CHARGING_RUN);
+	X(SKY_HW1_POST_CHARGING_CHECK_MATRIX);
+	X(SKY_HW1_POST_CHARGING_PRINT);
+	X(SKY_HW1_POST_CHARGING_CHECK_WATER);
+	X(SKY_HW1_POST_CHARGING_WET);
+	X(SKY_HW1_POST_CHARGING_FIND_CHARGERS);
+	X(SKY_HW1_OVERLOAD);
+	X(SKY_HW1_AUTOSCAN_DISABLED);
 	default:
 		sky_err("unknown state: %d\n", state);
 		return "UNKNOWN_STATE";
 	}
+}
+
+static inline const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
+{
+	switch(state) {
+	X(SKY_HW2_UNKNOWN);
+	X(SKY_HW2_SCANNING);
+	X(SKY_HW2_SCANNING_DISABLED);
+	X(SKY_HW2_PRE_CHARGING);
+	X(SKY_HW2_CHARGING);
+	X(SKY_HW2_CHARGING_FINISHED);
+	X(SKY_HW2_ERR_INVAL_CHARGING_SETTINGS);
+	X(SKY_HW2_ERR_NOLINK_WITH_SINK);
+	default:
+		sky_err("unknown state: %d\n", state);
+		return "UNKNOWN_STATE";
+	}
+}
+
+static inline const char *sky_devstate_to_str(enum sky_dev_type dev_type,
+					      enum sky_dev_state state)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devstate_to_str(state);
+
+	return sky_hw2_devstate_to_str(state);
 }
 
 static inline const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
@@ -682,6 +708,7 @@ err:
 static void charging_state_skycompletion(struct sky_async_req *skyreq)
 {
 	struct sky_charging_state *state;
+	struct sky_dev_desc devdesc;
 	struct httpd_request *req;
 	char *buffer = NULL;
 	int off = 0, size = 0;
@@ -689,6 +716,8 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 
 	req = container_of(skyreq, typeof(*req), skyreq);
 	rc = skyreq->out.rc;
+	if (!rc)
+		(void)sky_devinfo(skyreq->dev, &devdesc);
 	sky_devclose(skyreq->dev);
 
 	state = &req->skystruct.charging_state;
@@ -708,7 +737,8 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 				      "\t\t\t\t\"charge-percentage\": %d,\n"
 				      "\t\t\t\t\"charge-time-sec\": %d\n"
 				      "\t\t\t}\n",
-				      sky_devstate_to_str(state->dev_hw_state),
+				      sky_devstate_to_str(devdesc.dev_type,
+							  state->dev_hw_state),
 				      state->voltage,
 				      state->current,
 				      state->bms.charge_perc,

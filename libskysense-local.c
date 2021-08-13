@@ -1183,7 +1183,7 @@ static int skyloc_dronedetect(struct sky_dev *dev_,
 	if (rc)
 		return rc;
 
-	*status = sky_hw_is_charging(state.dev_hw_state) ?
+	*status = sky_hw_is_charging(dev_->devdesc.dev_type, state.dev_hw_state) ?
 		SKY_DRONE_DETECTED :
 		SKY_DRONE_NOT_DETECTED;
 

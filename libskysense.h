@@ -38,36 +38,48 @@ enum sky_dev_type {
 };
 
 /**
- * enum sky_dev_hw_state - Hardware state of the device.
+ * enum sky_dev_state - Hardware state of the device.
  */
-enum sky_dev_hw_state {
-	SKY_UNKNOWN			= 0,
-	SKY_SCANNING_INIT		= 1,
-	SKY_SCANNING_RUN		= 2,
-	SKY_SCANNING_CHECK_MATRIX	= 3,
-	SKY_SCANNING_PRINT		= 4,
-	SKY_SCANNING_CHECK_WATER	= 5,
-	SKY_SCANNING_WET		= 6,
-	SKY_SCANNING_DETECTING		= 7,
-	SKY_PRE_CHARGING_INIT		= 8,
-	SKY_PRE_CHARGING_RUN		= 9,
-	SKY_PRE_CHARGING_CHECK_MATRIX	= 10,
-	SKY_PRE_CHARGING_PRINT		= 11,
-	SKY_PRE_CHARGING_CHECK_WATER	= 12,
-	SKY_PRE_CHARGING_WET		= 13,
-	SKY_PRE_CHARGING_FIND_CHARGERS	= 14,
-	SKY_CHARGING_INIT		= 15,
-	SKY_CHARGING_RUN		= 16,
-	SKY_CHARGING_MONITOR_CURRENT	= 17,
-	SKY_POST_CHARGING_INIT		= 18,
-	SKY_POST_CHARGING_RUN		= 19,
-	SKY_POST_CHARGING_CHECK_MATRIX	= 20,
-	SKY_POST_CHARGING_PRINT		= 21,
-	SKY_POST_CHARGING_CHECK_WATER	= 22,
-	SKY_POST_CHARGING_WET		= 23,
-	SKY_POST_CHARGING_FIND_CHARGERS = 24,
-	SKY_OVERLOAD			= 25,
-	SKY_AUTOSCAN_DISABLED		= 250,
+enum sky_dev_state {
+	/* HW1 */
+	SKY_HW1_UNKNOWN				= 0,
+	SKY_HW1_SCANNING_INIT			= 1,
+	SKY_HW1_SCANNING_RUN			= 2,
+	SKY_HW1_SCANNING_CHECK_MATRIX		= 3,
+	SKY_HW1_SCANNING_PRINT			= 4,
+	SKY_HW1_SCANNING_CHECK_WATER		= 5,
+	SKY_HW1_SCANNING_WET		        = 6,
+	SKY_HW1_SCANNING_DETECTING		= 7,
+	SKY_HW1_PRE_CHARGING_INIT		= 8,
+	SKY_HW1_PRE_CHARGING_RUN		= 9,
+	SKY_HW1_PRE_CHARGING_CHECK_MATRIX	= 10,
+	SKY_HW1_PRE_CHARGING_PRINT		= 11,
+	SKY_HW1_PRE_CHARGING_CHECK_WATER	= 12,
+	SKY_HW1_PRE_CHARGING_WET		= 13,
+	SKY_HW1_PRE_CHARGING_FIND_CHARGERS	= 14,
+	SKY_HW1_CHARGING_INIT			= 15,
+	SKY_HW1_CHARGING_RUN			= 16,
+	SKY_HW1_CHARGING_MONITOR_CURRENT	= 17,
+	SKY_HW1_POST_CHARGING_INIT		= 18,
+	SKY_HW1_POST_CHARGING_RUN		= 19,
+	SKY_HW1_POST_CHARGING_CHECK_MATRIX	= 20,
+	SKY_HW1_POST_CHARGING_PRINT		= 21,
+	SKY_HW1_POST_CHARGING_CHECK_WATER	= 22,
+	SKY_HW1_POST_CHARGING_WET		= 23,
+	SKY_HW1_POST_CHARGING_FIND_CHARGERS	= 24,
+	SKY_HW1_OVERLOAD			= 25,
+	SKY_HW1_AUTOSCAN_DISABLED		= 250,
+
+	/* HW2 */
+	SKY_HW2_UNKNOWN				= 0,
+	SKY_HW2_SCANNING			= 1,
+	SKY_HW2_SCANNING_DISABLED		= 2,
+	SKY_HW2_PRE_CHARGING			= 3,
+	SKY_HW2_CHARGING			= 4,
+	SKY_HW2_CHARGING_FINISHED		= 5,
+	/* HW2 error states */
+	SKY_HW2_ERR_INVAL_CHARGING_SETTINGS     = 16,
+	SKY_HW2_ERR_NOLINK_WITH_SINK            = 17,
 };
 
 /**
@@ -203,7 +215,7 @@ struct sky_dev_desc {
  * struct sky_charging_state - Charging device state.
  */
 struct sky_charging_state {
-	enum sky_dev_hw_state dev_hw_state;
+	enum sky_dev_state dev_hw_state;
 	unsigned short current;
 	unsigned short voltage;
 	struct {
@@ -338,10 +350,14 @@ struct sky_async_req {
 /**
  * sky_hw_is_charging() - returns true if hardware is in charge state
  */
-static inline int sky_hw_is_charging(enum sky_dev_hw_state hw_state)
+static inline int sky_hw_is_charging(enum sky_dev_type mux_type,
+				     enum sky_dev_state hw_state)
 {
-	return  hw_state == SKY_CHARGING_RUN ||
-		hw_state == SKY_CHARGING_MONITOR_CURRENT;
+	if (mux_type == SKY_MUX_HW1)
+		return  hw_state == SKY_HW1_CHARGING_RUN ||
+			hw_state == SKY_HW1_CHARGING_MONITOR_CURRENT;
+
+	return hw_state == SKY_HW2_CHARGING;
 }
 
 /**
