@@ -1595,7 +1595,7 @@ int main(int argc, char *argv[])
 			sky_err("sky_devpopen(): %s\n", strerror(-rc));
 			goto close_devs;
 		}
-		if (version_major(devdesc->firmware_version) == 1 &&
+		if (conf->mux_hw == SKY_MUX_HW1 &&
 		    conf->mux_hw1_params.dev_params_bits) {
 			/* Apply MUX hw1 params */
 			rc = sky_paramsset(servdev->dev, &conf->mux_hw1_params);
