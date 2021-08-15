@@ -348,6 +348,36 @@ struct sky_async_req {
 };
 
 /**
+ * Returns string representation of the device type.
+ */
+static inline const char *sky_devtype_to_str(enum sky_dev_type type)
+{
+	return type == SKY_MUX_HW1 ? "MUX-HW1": "MUX-HW2";
+}
+
+/**
+ * Returns string representation of the device state.
+ */
+const char *sky_devstate_to_str(enum sky_dev_type dev_type,
+				enum sky_dev_state state);
+
+/**
+ * Returns string representation of the device param.
+ */
+const char *sky_devparam_to_str(enum sky_dev_type dev_type,
+				enum sky_dev_param param);
+
+/**
+ * Returns string representation of the GPS status.
+ */
+const char *sky_gpsstatus_to_str(enum sky_gps_status status);
+
+/**
+ * Returns string representation of the GPS mode.
+ */
+const char *sky_gpsmode_to_str(enum sky_gps_mode mode);
+
+/**
  * sky_hw_is_charging() - returns true if hardware is in charge state
  */
 static inline int sky_hw_is_charging(enum sky_dev_type mux_type,

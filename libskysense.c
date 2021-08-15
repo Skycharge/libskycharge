@@ -467,6 +467,137 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	return 0;
 }
 
+#define X(state) \
+	case state: return #state
+
+static const char *sky_hw1_devstate_to_str(enum sky_dev_state state)
+{
+	switch(state) {
+	X(SKY_HW1_UNKNOWN);
+	X(SKY_HW1_SCANNING_INIT);
+	X(SKY_HW1_SCANNING_RUN);
+	X(SKY_HW1_SCANNING_CHECK_MATRIX);
+	X(SKY_HW1_SCANNING_PRINT);
+	X(SKY_HW1_SCANNING_CHECK_WATER);
+	X(SKY_HW1_SCANNING_WET);
+	X(SKY_HW1_SCANNING_DETECTING);
+	X(SKY_HW1_PRE_CHARGING_INIT);
+	X(SKY_HW1_PRE_CHARGING_RUN);
+	X(SKY_HW1_PRE_CHARGING_CHECK_MATRIX);
+	X(SKY_HW1_PRE_CHARGING_PRINT);
+	X(SKY_HW1_PRE_CHARGING_CHECK_WATER);
+	X(SKY_HW1_PRE_CHARGING_WET);
+	X(SKY_HW1_PRE_CHARGING_FIND_CHARGERS);
+	X(SKY_HW1_CHARGING_INIT);
+	X(SKY_HW1_CHARGING_RUN);
+	X(SKY_HW1_CHARGING_MONITOR_CURRENT);
+	X(SKY_HW1_POST_CHARGING_INIT);
+	X(SKY_HW1_POST_CHARGING_RUN);
+	X(SKY_HW1_POST_CHARGING_CHECK_MATRIX);
+	X(SKY_HW1_POST_CHARGING_PRINT);
+	X(SKY_HW1_POST_CHARGING_CHECK_WATER);
+	X(SKY_HW1_POST_CHARGING_WET);
+	X(SKY_HW1_POST_CHARGING_FIND_CHARGERS);
+	X(SKY_HW1_OVERLOAD);
+	X(SKY_HW1_AUTOSCAN_DISABLED);
+	default:
+		sky_err("unknown state: %d\n", state);
+		return "UNKNOWN_STATE";
+	}
+}
+
+static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
+{
+	switch(state) {
+	X(SKY_HW2_UNKNOWN);
+	X(SKY_HW2_SCANNING);
+	X(SKY_HW2_SCANNING_DISABLED);
+	X(SKY_HW2_PRE_CHARGING);
+	X(SKY_HW2_CHARGING);
+	X(SKY_HW2_CHARGING_FINISHED);
+	X(SKY_HW2_ERR_INVAL_CHARGING_SETTINGS);
+	X(SKY_HW2_ERR_NOLINK_WITH_SINK);
+	default:
+		sky_err("unknown state: %d\n", state);
+		return "UNKNOWN_STATE";
+	}
+}
+
+const char *sky_devstate_to_str(enum sky_dev_type dev_type,
+				enum sky_dev_state state)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devstate_to_str(state);
+
+	return sky_hw2_devstate_to_str(state);
+}
+
+static const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
+{
+	switch(param) {
+	X(SKY_HW1_EEPROM_INITED);
+	X(SKY_HW1_SCANNING_INTERVAL);
+	X(SKY_HW1_PRECHARGING_INTERVAL);
+	X(SKY_HW1_PRECHARGING_COUNTER);
+	X(SKY_HW1_POSTCHARGING_INTERVAL);
+	X(SKY_HW1_POSTCHARGING_DELAY);
+	X(SKY_HW1_WET_DELAY);
+	X(SKY_HW1_SHORTCIRC_DELAY);
+	X(SKY_HW1_THRESH_FINISH_CHARGING);
+	X(SKY_HW1_THRESH_NOCHARGER_PRESENT);
+	X(SKY_HW1_THRESH_SHORTCIRC);
+	X(SKY_HW1_CURRENT_MON_INTERVAL);
+	X(SKY_HW1_WAIT_START_CHARGING_SEC);
+	default:
+		sky_err("unknown param: %d\n", param);
+		return "UNKNOWN_PARAM";
+	}
+}
+
+static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
+{
+	switch(param) {
+	default:
+		sky_err("unknown param: %d\n", param);
+		return "UNKNOWN_PARAM";
+	}
+}
+
+const char *sky_devparam_to_str(enum sky_dev_type dev_type,
+				enum sky_dev_param param)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devparam_to_str(param);
+
+	return sky_hw2_devparam_to_str(param);
+}
+
+
+const char *sky_gpsstatus_to_str(enum sky_gps_status status)
+{
+	switch(status) {
+	X(SKY_GPS_STATUS_NO_FIX);
+	X(SKY_GPS_STATUS_FIX);
+	X(SKY_GPS_STATUS_DGPS_FIX);
+	default:
+		sky_err("unknown status: %d\n", status);
+		return "UNKNOWN_STATUS";
+	}
+}
+
+const char *sky_gpsmode_to_str(enum sky_gps_mode mode)
+{
+	switch(mode) {
+	X(SKY_GPS_MODE_NOT_SEEN);
+	X(SKY_GPS_MODE_NO_FIX);
+	X(SKY_GPS_MODE_2D);
+	X(SKY_GPS_MODE_3D);
+	default:
+		sky_err("unknown mode: %d\n", mode);
+		return "UNKNOWN_MODE";
+	}
+}
+
 void sky_confinit(struct sky_conf *cfg)
 {
 	memset(cfg, 0, sizeof(*cfg));

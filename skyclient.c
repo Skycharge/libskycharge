@@ -19,76 +19,6 @@
 
 #define CONFFILE "/etc/skysense.conf"
 
-#define X(state) \
-	case state: return #state
-
-static inline const char *sky_devtype_to_str(enum sky_dev_type type)
-{
-	return type == SKY_MUX_HW1 ? "MUX-HW1": "MUX-HW2";
-}
-
-static inline const char *sky_hw1_devstate_to_str(enum sky_dev_state state)
-{
-	switch(state) {
-	X(SKY_HW1_UNKNOWN);
-	X(SKY_HW1_SCANNING_INIT);
-	X(SKY_HW1_SCANNING_RUN);
-	X(SKY_HW1_SCANNING_CHECK_MATRIX);
-	X(SKY_HW1_SCANNING_PRINT);
-	X(SKY_HW1_SCANNING_CHECK_WATER);
-	X(SKY_HW1_SCANNING_WET);
-	X(SKY_HW1_SCANNING_DETECTING);
-	X(SKY_HW1_PRE_CHARGING_INIT);
-	X(SKY_HW1_PRE_CHARGING_RUN);
-	X(SKY_HW1_PRE_CHARGING_CHECK_MATRIX);
-	X(SKY_HW1_PRE_CHARGING_PRINT);
-	X(SKY_HW1_PRE_CHARGING_CHECK_WATER);
-	X(SKY_HW1_PRE_CHARGING_WET);
-	X(SKY_HW1_PRE_CHARGING_FIND_CHARGERS);
-	X(SKY_HW1_CHARGING_INIT);
-	X(SKY_HW1_CHARGING_RUN);
-	X(SKY_HW1_CHARGING_MONITOR_CURRENT);
-	X(SKY_HW1_POST_CHARGING_INIT);
-	X(SKY_HW1_POST_CHARGING_RUN);
-	X(SKY_HW1_POST_CHARGING_CHECK_MATRIX);
-	X(SKY_HW1_POST_CHARGING_PRINT);
-	X(SKY_HW1_POST_CHARGING_CHECK_WATER);
-	X(SKY_HW1_POST_CHARGING_WET);
-	X(SKY_HW1_POST_CHARGING_FIND_CHARGERS);
-	X(SKY_HW1_OVERLOAD);
-	X(SKY_HW1_AUTOSCAN_DISABLED);
-	default:
-		sky_err("unknown state: %d\n", state);
-		exit(-1);
-	}
-}
-
-static inline const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
-{
-	switch(state) {
-	X(SKY_HW2_UNKNOWN);
-	X(SKY_HW2_SCANNING);
-	X(SKY_HW2_SCANNING_DISABLED);
-	X(SKY_HW2_PRE_CHARGING);
-	X(SKY_HW2_CHARGING);
-	X(SKY_HW2_CHARGING_FINISHED);
-	X(SKY_HW2_ERR_INVAL_CHARGING_SETTINGS);
-	X(SKY_HW2_ERR_NOLINK_WITH_SINK);
-	default:
-		sky_err("unknown state: %d\n", state);
-		return "UNKNOWN_STATE";
-	}
-}
-
-static inline const char *sky_devstate_to_str(enum sky_dev_type dev_type,
-					      enum sky_dev_state state)
-{
-	if (dev_type == SKY_MUX_HW1)
-		return sky_hw1_devstate_to_str(state);
-
-	return sky_hw2_devstate_to_str(state);
-}
-
 static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
 {
 	uLong crc;
@@ -98,46 +28,6 @@ static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
 	crc = crc32(crc, (void *)devdesc->portname, strlen(devdesc->portname));
 
 	return crc;
-}
-
-static inline const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
-{
-	switch(param) {
-	X(SKY_HW1_EEPROM_INITED);
-	X(SKY_HW1_SCANNING_INTERVAL);
-	X(SKY_HW1_PRECHARGING_INTERVAL);
-	X(SKY_HW1_PRECHARGING_COUNTER);
-	X(SKY_HW1_POSTCHARGING_INTERVAL);
-	X(SKY_HW1_POSTCHARGING_DELAY);
-	X(SKY_HW1_WET_DELAY);
-	X(SKY_HW1_SHORTCIRC_DELAY);
-	X(SKY_HW1_THRESH_FINISH_CHARGING);
-	X(SKY_HW1_THRESH_NOCHARGER_PRESENT);
-	X(SKY_HW1_THRESH_SHORTCIRC);
-	X(SKY_HW1_CURRENT_MON_INTERVAL);
-	X(SKY_HW1_WAIT_START_CHARGING_SEC);
-	default:
-		sky_err("unknown param: %d\n", param);
-		exit(-1);
-	}
-}
-
-static inline const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
-{
-	switch(param) {
-	default:
-		sky_err("unknown param: %d\n", param);
-		exit(-1);
-	}
-}
-
-static inline const char *sky_devparam_to_str(enum sky_dev_type dev_type,
-					      enum sky_dev_param param)
-{
-	if (dev_type == SKY_MUX_HW1)
-		return sky_hw1_devparam_to_str(param);
-
-	return sky_hw2_devparam_to_str(param);
 }
 
 /**
