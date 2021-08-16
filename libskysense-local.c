@@ -144,22 +144,16 @@ static void devunlock(struct skyloc_dev *dev)
 static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 			   size_t off, size_t maxlen)
 {
+	uint32_t val32, *val32p;
 	uint16_t val16, *val16p;
-	uint8_t *val8p;
+	void *p;
+
 	uint8_t sz;
 
 	sz = va_arg(*ap, int);
 	switch (sz) {
-	case 1:
-		val8p = va_arg(*ap, typeof(val8p));
-		if (off + 1 > maxlen)
-			return -EINVAL;
-		if (dir == TO_BUF)
-			memcpy(buf + off, val8p, 1);
-		else if (dir == FROM_BUF)
-			memcpy(val8p, buf + off, 1);
-
-		return 1;
+	case 0:
+		return -EINVAL;
 	case 2:
 		val16p = va_arg(*ap, typeof(val16p));
 		if (off + 2 > maxlen)
@@ -187,8 +181,16 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 
 		return 4;
 	default:
-		assert(0);
-		return -EINVAL;
+		/* No attempt to do conversion between bytes order */
+		p = va_arg(*ap, typeof(p));
+		if (off + sz > maxlen)
+			return -EINVAL;
+		if (dir == TO_BUF)
+			memcpy(buf + off, p, sz);
+		else if (dir == FROM_BUF)
+			memcpy(p, buf + off, sz);
+
+		return sz;
 	}
 }
 
@@ -220,7 +222,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			     ...)
 {
 	uint8_t len, cmd_len, rsp_len;
-	char cmd_buf[8], rsp_buf[16];
+	char cmd_buf[8], rsp_buf[128];
 	enum sp_return sprc;
 	int rc, args, off;
 	va_list ap;
