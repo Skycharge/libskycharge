@@ -50,6 +50,7 @@ enum sky_hw2_serial_cmd {
 enum {
 	TO_BUF   = 0,
 	FROM_BUF = 1,
+	COUNT_SZ = 2,
 
 	TIMEOUT_MS = 5000,
 
@@ -155,7 +156,7 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 			return -EINVAL;
 		if (dir == TO_BUF)
 			memcpy(buf + off, val8p, 1);
-		else
+		else if (dir == FROM_BUF)
 			memcpy(val8p, buf + off, 1);
 
 		return 1;
@@ -166,38 +167,50 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 		if (dir == TO_BUF) {
 			val16 = htole16(*val16p);
 			memcpy(buf + off, &val16, 2);
-		} else {
+		} else if (dir == FROM_BUF) {
 			memcpy(&val16, buf + off, 2);
 			*val16p = htole16(val16);
 		}
 
 		return 2;
+	case 4:
+		val32p = va_arg(*ap, typeof(val32p));
+		if (off + 4 > maxlen)
+			return -EINVAL;
+		if (dir == TO_BUF) {
+			val32 = htole32(*val32p);
+			memcpy(buf + off, &val32, 4);
+		} else if (dir == FROM_BUF) {
+			memcpy(&val32, buf + off, 4);
+			*val32p = htole32(val32);
+		}
+
+		return 4;
 	default:
 		assert(0);
 		return -EINVAL;
 	}
 }
 
-static int skycmd_args_inbytes(va_list ap, size_t num)
+static int skycmd_args_inbytes(va_list ap, size_t num, size_t maxlen)
 {
 	va_list ap_cpy;
-	char buf[64];
-	int len, i;
+	int off, i;
 	int rc;
 
 	va_copy(ap_cpy, ap);
-	for (len = 0, i = 0; i < num; i++) {
-		rc = skycmd_arg_copy(&ap_cpy, TO_BUF, buf, 0, sizeof(buf));
+	for (off = 0, i = 0; i < num; i++) {
+		rc = skycmd_arg_copy(&ap_cpy, COUNT_SZ, NULL, off, maxlen);
 		if (rc < 0) {
-			len = rc;
+			off = rc;
 			goto out;
 		}
-		len += rc;
+		off += rc;
 	}
 out:
 	va_end(ap_cpy);
 
-	return len;
+	return off;
 }
 
 static int skycmd_serial_cmd(struct skyloc_dev *dev,
@@ -251,7 +264,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		goto out_unlock;
 	}
 	if (rsp_num >= 0) {
-		rc = skycmd_args_inbytes(ap, rsp_num);
+		rc = skycmd_args_inbytes(ap, rsp_num, sizeof(rsp_buf));
 		if (rc < 0) {
 			sky_err("skycmd_args_inbytes(): %s\n", strerror(-rc));
 			goto out_unlock;
