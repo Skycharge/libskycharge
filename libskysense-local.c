@@ -79,6 +79,7 @@ struct skyserial_desc {
 	void (*fill_cmd_hdr)(char *cmd_buf, uint8_t len, uint8_t cmd);
 	bool (*is_valid_rsp_hdr)(const char *rsp_buf, uint8_t len, uint8_t cmd,
 				 bool only_magic);
+	size_t (*get_rsp_len)(const char *rsp_buf);
 	bool (*check_crc)(const char *rsp_buf);
 };
 
@@ -307,8 +308,11 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			rc = -EPROTO;
 			goto out_unlock;
 		}
-		/* Read the rest */
-		rsp_len = len + proto->hdr_len;
+		/*
+		 * Read the rest, for HW2 we don't care about the size for
+		 * the compatibility sake.
+		 */
+		rsp_len = min(len, proto->get_rsp_len(rsp_buf)) + proto->hdr_len;
 		sprc = sp_blocking_read(dev->port, rsp_buf + proto->data_off,
 				rsp_len - proto->data_off,
 				TIMEOUT_MS);
@@ -341,9 +345,11 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			rc = -EPROTO;
 			goto out_unlock;
 		}
-		for (off = proto->data_off, args = 0; args < rsp_num; args++) {
+		for (off = proto->data_off, args = 0;
+		     off < rsp_len + proto->data_off && args < rsp_num;
+		     args++) {
 			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
-					     len + proto->data_off);
+					     rsp_len + proto->data_off);
 			if (rc < 0) {
 				sky_err("skycmd_arg_copy(): %s\n", strerror(-rc));
 				goto out_unlock;
@@ -375,6 +381,11 @@ static bool hw1_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
 	return (rsp_buf[0] == 0x55 && rsp_buf[1] == len && rsp_buf[2] == cmd);
 }
 
+static size_t hw1_sky_get_rsp_len(const char *rsp_buf)
+{
+	return rsp_buf[1];
+}
+
 static void hw1_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
 {
 	cmd_buf[0] = 0x55;
@@ -393,6 +404,7 @@ struct skyserial_desc hw1_sky_serial = {
 	.data_off = 3,
 	.fill_cmd_hdr     = hw1_sky_fill_cmd_hdr,
 	.is_valid_rsp_hdr = hw1_sky_is_valid_rsp_hdr,
+	.get_rsp_len      = hw1_sky_get_rsp_len,
 	.check_crc        = hw1_sky_check_crc,
 };
 
@@ -569,7 +581,15 @@ static bool hw2_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
 	if (only_magic)
 		return (rsp_buf[0] == 0x42);
 
-	return (rsp_buf[0] == 0x42 && rsp_buf[2] == len && rsp_buf[3] == cmd);
+	/*
+	 * A bit of compatibility: we don't care about the length at all
+	 */
+	return (rsp_buf[0] == 0x42 && rsp_buf[3] == cmd);
+}
+
+static size_t hw2_sky_get_rsp_len(const char *rsp_buf)
+{
+	return rsp_buf[2];
 }
 
 static void hw2_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
@@ -592,6 +612,7 @@ struct skyserial_desc hw2_sky_serial = {
 	.data_off = 4,
 	.fill_cmd_hdr     = hw2_sky_fill_cmd_hdr,
 	.is_valid_rsp_hdr = hw2_sky_is_valid_rsp_hdr,
+	.get_rsp_len      = hw2_sky_get_rsp_len,
 	.check_crc        = hw2_sky_check_crc,
 };
 
