@@ -1266,7 +1266,11 @@ static bool httpd_limit_requests_rate(struct httpd *httpd,
 	return false;
 }
 
+#if MHD_VERSION >= 0x00097101
+static enum MHD_Result
+#else
 static int
+#endif
 httpd_accept_policy_call(void *arg,
 			 const struct sockaddr *saddr,
 			 socklen_t addrlen)
@@ -1300,7 +1304,11 @@ httpd_request_completed_call(void *arg,
 	*ctx = NULL;
 }
 
+#if MHD_VERSION >= 0x00097101
+static enum MHD_Result
+#else
 static int
+#endif
 httpd_access_handler_call(void *arg,
 			  struct MHD_Connection *con,
 			  const char *url,
