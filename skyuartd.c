@@ -289,14 +289,33 @@ static void uartd_charging_state_req(struct uartd *uartd)
 	if (rc)
 		sky_err("sky_chargingstate(): %s\n", strerror(-rc));
 
+	memset(&uart_rsp, 0, sizeof(uart_rsp));
 	uart_rsp.rsp.hdr.type  = htole16(SKY_CHARGING_STATE_RSP);
 	uart_rsp.rsp.hdr.error = htole16(-rc);
 	if (!rc) {
 		uart_rsp.rsp.dev_hw_state = htole32(state.dev_hw_state);
-		uart_rsp.rsp.current = htole16(state.current);
-		uart_rsp.rsp.voltage = htole16(state.voltage);
-		uart_rsp.rsp.bms.charge_perc = htole16(state.bms.charge_perc);
-		uart_rsp.rsp.bms.charge_time = htole16(state.bms.charge_time);
+		uart_rsp.rsp.current_mA = htole16(state.current_mA);
+		uart_rsp.rsp.voltage_mV = htole16(state.voltage_mV);
+		uart_rsp.rsp.state_of_charge = htole16(state.state_of_charge);
+		uart_rsp.rsp.until_full_secs = htole16(state.until_full_secs);
+		uart_rsp.rsp.charging_secs = htole16(state.charging_secs);
+		uart_rsp.rsp.mux_temperature_C
+			= htole16(state.mux_temperature_C);
+		uart_rsp.rsp.sink_temperature_C
+			= htole16(state.sink_temperature_C);
+		uart_rsp.rsp.energy_mWh = htole32(state.energy_mWh);
+		uart_rsp.rsp.charge_mAh = htole32(state.charge_mAh);
+		uart_rsp.rsp.mux_humidity_perc = state.mux_humidity_perc;
+		uart_rsp.rsp.link_quality_factor = state.link_quality_factor;
+		uart_rsp.rsp.tx.bytes       = htole16(state.tx.bytes);
+		uart_rsp.rsp.tx.packets     = htole16(state.tx.packets);
+		uart_rsp.rsp.tx.err_bytes   = htole16(state.tx.err_bytes);
+		uart_rsp.rsp.tx.err_packets = htole16(state.tx.err_packets);
+		uart_rsp.rsp.rx.bytes       = htole16(state.rx.bytes);
+		uart_rsp.rsp.rx.packets     = htole16(state.rx.packets);
+		uart_rsp.rsp.rx.err_bytes   = htole16(state.rx.err_bytes);
+		uart_rsp.rsp.rx.err_packets = htole16(state.rx.err_packets);
+
 	}
 
 	(void)uartd_send_rsp(uartd, &uart_rsp.uart_hdr, sizeof(uart_rsp.rsp));
@@ -315,6 +334,7 @@ static void uartd_droneport_state_req(struct uartd *uartd)
 	if (rc)
 		sky_err("sky_droneport_state(): %s\n", strerror(-rc));
 
+	memset(&uart_rsp, 0, sizeof(uart_rsp));
 	uart_rsp.rsp.hdr.type  = htole16(SKY_DRONEPORT_STATE_RSP);
 	uart_rsp.rsp.hdr.error = htole16(-rc);
 	if (!rc) {
@@ -462,8 +482,8 @@ static int do_some_tests(void)
 		printf("\n>> type=%d, error=%d\n", chg_rsp.rsp.hdr.type,
 		       chg_rsp.rsp.hdr.error);
 		printf(">> hw_state=%d\n", chg_rsp.rsp.dev_hw_state);
-		printf(">> voltage=%d\n", chg_rsp.rsp.voltage);
-		printf(">> current=%d\n", chg_rsp.rsp.current);
+		printf(">> voltage=%d\n", chg_rsp.rsp.voltage_mV);
+		printf(">> current=%d\n", chg_rsp.rsp.current_mA);
 	}
 	{
 		struct {

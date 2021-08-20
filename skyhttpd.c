@@ -601,18 +601,43 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 	if (!rc) {
 		ret = snprintf_buffer(&buffer, &off, &size,
 				      "\t\t\t\"state\": \"%s\",\n"
-				      "\t\t\t\"voltage_mv\": %d,\n"
-				      "\t\t\t\"current_ma\": %d,\n"
-				      "\t\t\t\"bms\": {\n"
-				      "\t\t\t\t\"charge-percentage\": %d,\n"
-				      "\t\t\t\t\"charge-time-sec\": %d\n"
+				      "\t\t\t\"voltage-mV\": %d,\n"
+				      "\t\t\t\"current-mA\": %d,\n"
+				      "\t\t\t\"charging-time-sec\": %d,\n"
+				      "\t\t\t\"state-of-charge-perc\": %d,\n"
+				      "\t\t\t\"until-full-charge-time-sec\": %d,\n"
+				      "\t\t\t\"mux-temperature-C\": %d,\n"
+				      "\t\t\t\"sink-temperature-C\": %d,\n"
+				      "\t\t\t\"energy-mWh\": %d,\n"
+				      "\t\t\t\"charge-mAh\": %d,\n"
+				      "\t\t\t\"tx-bytes\": %d,\n"
+				      "\t\t\t\"tx-packets\": %d,\n"
+				      "\t\t\t\"tx-err-bytes\": %d,\n"
+				      "\t\t\t\"tx-err-packets\": %d,\n"
+				      "\t\t\t\"rx-bytes\": %d,\n"
+				      "\t\t\t\"rx-packets\": %d,\n"
+				      "\t\t\t\"rx-err-bytes\": %d,\n"
+				      "\t\t\t\"rx-err-packets\": %d\n"
 				      "\t\t\t}\n",
 				      sky_devstate_to_str(devdesc.dev_type,
 							  state->dev_hw_state),
-				      state->voltage,
-				      state->current,
-				      state->bms.charge_perc,
-				      state->bms.charge_time);
+				      state->voltage_mV,
+				      state->current_mA,
+				      state->charging_secs,
+				      state->state_of_charge,
+				      state->until_full_secs,
+				      state->mux_temperature_C,
+				      state->sink_temperature_C,
+				      state->energy_mWh,
+				      state->charge_mAh,
+				      state->tx.bytes,
+				      state->tx.packets,
+				      state->tx.err_bytes,
+				      state->tx.err_packets,
+				      state->rx.bytes,
+				      state->rx.packets,
+				      state->rx.err_bytes,
+				      state->rx.err_packets);
 		if (ret)
 			goto err;
 	}

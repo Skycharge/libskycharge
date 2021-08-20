@@ -209,16 +209,31 @@ struct sky_devs_list_rsp {
 
 struct sky_charging_state_rsp {
 	struct sky_rsp_hdr hdr;
-	le16 voltage;  /* mV */
-	le16 current;  /* mA */
+	le16 voltage_mV;
+	le16 current_mA;
 	le16 dev_hw_state;
+	le16 state_of_charge; /* 0-100% */
+	le16 until_full_secs;
+	le16 charging_secs;
+	le16 mux_temperature_C;
+	le16 sink_temperature_C;
+	le32 energy_mWh;
+	le32 charge_mAh;
+	uint8_t mux_humidity_perc; /* 0-100% */
+	uint8_t link_quality_factor; /* 0-100% */
+	le16  padding;
 	struct {
-		le16 charge_perc; /* 0-100% */
-		le16 charge_time; /* seconds */
-	} bms;
-	le16 unused1;
-	le32 unused2;
-	le32 unused3;
+		le32 bytes;
+		le32 packets;
+		le32 err_bytes;
+		le32 err_packets;
+	} tx;
+	struct {
+		le32 bytes;
+		le32 packets;
+		le32 err_bytes;
+		le32 err_packets;
+	} rx;
 };
 
 struct sky_peerinfo_rsp {

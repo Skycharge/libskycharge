@@ -144,13 +144,28 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 		servdev->prev_state = *state;
 	}
 
-	rsp.hdr.type = htole16(SKY_CHARGING_STATE_EV);
-	rsp.hdr.error = 0;
-	rsp.dev_hw_state = htole16(state->dev_hw_state);
-	rsp.current = htole16(state->current);
-	rsp.voltage = htole16(state->voltage);
-	rsp.bms.charge_perc = htole16(state->bms.charge_perc);
-	rsp.bms.charge_time = htole16(state->bms.charge_time);
+	rsp.hdr.type            = htole16(SKY_CHARGING_STATE_EV);
+	rsp.hdr.error           = 0;
+	rsp.dev_hw_state        = htole16(state->dev_hw_state);
+	rsp.current_mA          = htole16(state->current_mA);
+	rsp.voltage_mV          = htole16(state->voltage_mV);
+	rsp.state_of_charge     = htole16(state->state_of_charge);
+	rsp.until_full_secs     = htole16(state->until_full_secs);
+	rsp.charging_secs       = htole16(state->charging_secs);
+	rsp.mux_temperature_C   = htole16(state->mux_temperature_C);
+	rsp.sink_temperature_C  = htole16(state->sink_temperature_C);
+	rsp.energy_mWh          = htole32(state->energy_mWh);
+	rsp.charge_mAh          = htole32(state->charge_mAh);
+	rsp.mux_humidity_perc   = state->mux_humidity_perc;
+	rsp.link_quality_factor = state->link_quality_factor;
+	rsp.tx.bytes            = htole16(state->tx.bytes);
+	rsp.tx.packets          = htole16(state->tx.packets);
+	rsp.tx.err_bytes        = htole16(state->tx.err_bytes);
+	rsp.tx.err_packets      = htole16(state->tx.err_packets);
+	rsp.rx.bytes            = htole16(state->rx.bytes);
+	rsp.rx.packets          = htole16(state->rx.packets);
+	rsp.rx.err_bytes        = htole16(state->rx.err_bytes);
+	rsp.rx.err_packets      = htole16(state->rx.err_packets);
 
 	msg = zmsg_new();
 	if (!msg) {
@@ -612,12 +627,29 @@ static void sky_execute_cmd(struct sky_server *serv,
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
 			rsp->dev_hw_state = htole32(state.dev_hw_state);
-			rsp->current = htole16(state.current);
-			rsp->voltage = htole16(state.voltage);
-			rsp->bms.charge_perc =
-				htole16(state.bms.charge_perc);
-			rsp->bms.charge_time =
-				htole16(state.bms.charge_time);
+			rsp->current_mA = htole16(state.current_mA);
+			rsp->voltage_mV = htole16(state.voltage_mV);
+			rsp->state_of_charge =
+				htole16(state.state_of_charge);
+			rsp->until_full_secs =
+				htole16(state.until_full_secs);
+			rsp->charging_secs = htole16(state.charging_secs);
+			rsp->mux_temperature_C
+				= htole16(state.mux_temperature_C);
+			rsp->sink_temperature_C
+				= htole16(state.sink_temperature_C);
+			rsp->energy_mWh = htole32(state.energy_mWh);
+			rsp->charge_mAh = htole32(state.charge_mAh);
+			rsp->mux_humidity_perc = state.mux_humidity_perc;
+			rsp->link_quality_factor = state.link_quality_factor;
+			rsp->tx.bytes       = htole16(state.tx.bytes);
+			rsp->tx.packets     = htole16(state.tx.packets);
+			rsp->tx.err_bytes   = htole16(state.tx.err_bytes);
+			rsp->tx.err_packets = htole16(state.tx.err_packets);
+			rsp->rx.bytes       = htole16(state.rx.bytes);
+			rsp->rx.packets     = htole16(state.rx.packets);
+			rsp->rx.err_bytes   = htole16(state.rx.err_bytes);
+			rsp->rx.err_packets = htole16(state.rx.err_packets);
 		}
 
 		break;

@@ -148,6 +148,20 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 	}
 }
 
+static void
+seconds_to_hms(unsigned seconds, unsigned *hours, unsigned *mins, unsigned *secs)
+{
+	unsigned h, m, s;
+
+	h = seconds / 3600;
+	m = (seconds - h * 3600) / 60;
+	s = (seconds - h * 3600 - m * 60);
+
+	*hours = h;
+	*mins  = m;
+	*secs  = s;
+}
+
 static void sky_print_charging_state(enum sky_dev_type dev_type,
 				     struct cli *cli,
 				     struct sky_charging_state *state)
@@ -163,34 +177,92 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		sky_err("localtime(): %s\n", strerror(errno));
 		exit(-1);
 	}
+	if (dev_type == SKY_MUX_HW1 && cli->linkstat) {
+		sky_err("--link-stat is not supported for the HW1\n");
+		exit(-1);
+	}
 	len = strftime(timestr, sizeof(timestr), "%Y-%m-%d %H:%M:%S", tm);
 	snprintf(timestr + len, sizeof(timestr) - len,
 		 ".%03ld", tv.tv_usec/1000);
 
 	if (!cli->pretty) {
-		printf("%s\t%.2fV\t%.2fA\t%s",
-		       timestr,
-		       state->voltage / 1000.0f,
-		       state->current / 1000.0f,
-		       sky_devstate_to_str(dev_type, state->dev_hw_state));
-		if (state->bms.charge_time)
-			printf("\t%u\t%u\n", state->bms.charge_perc,
-			       state->bms.charge_time);
-		else
+		if (dev_type == SKY_MUX_HW2) {
+			printf("%s\t%-30s\t%.2fV\t%.2fA\t%.2fW\t%.2fWh\t%.2fAh\t%us\t%us\t%u%%",
+			       timestr,
+			       sky_devstate_to_str(dev_type, state->dev_hw_state),
+			       state->voltage_mV / 1000.0f,
+			       state->current_mA / 1000.0f,
+			       state->voltage_mV * state->current_mA / 1000000.0f,
+			       state->energy_mWh / 1000.0f,
+			       state->charge_mAh / 1000.0f,
+			       state->charging_secs,
+			       state->until_full_secs,
+			       state->state_of_charge);
+
+			if (cli->linkstat) {
+				printf("\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u%%\n",
+				       state->tx.bytes,
+				       state->tx.packets,
+				       state->tx.err_bytes,
+				       state->tx.err_packets,
+				       state->rx.bytes,
+				       state->rx.packets,
+				       state->rx.err_bytes,
+				       state->rx.err_packets,
+				       state->link_quality_factor);
+			}
 			printf("\n");
-	} else {
-		printf("Timestamp:   %s\n", timestr);
-		printf("Dev state:   %s\n",
-		       sky_devstate_to_str(dev_type, state->dev_hw_state));
-		printf("  Voltage:   %.2fV\n", state->voltage / 1000.0f);
-		printf("  Current:   %.2fA\n", state->current / 1000.0f);
-
-		if (state->bms.charge_time) {
-			printf("BMS:\n");
-			printf("  Charged:   %u %%\n", state->bms.charge_perc);
-			printf("  Till full: %u sec\n", state->bms.charge_time);
+		} else {
+			printf("%s\t%-30s\t%.2fV\t%.2fA\t%.2fW\n",
+			       timestr,
+			       sky_devstate_to_str(dev_type, state->dev_hw_state),
+			       state->voltage_mV / 1000.0f,
+			       state->current_mA / 1000.0f,
+			       state->voltage_mV * state->current_mA / 1000000.0f);
 		}
+	} else {
+		unsigned hours, mins, secs;
 
+		printf("Timestamp:       %s\n", timestr);
+		printf("Dev state:       %s\n",
+		       sky_devstate_to_str(dev_type, state->dev_hw_state));
+		printf("Voltage:         %.2fV\n", state->voltage_mV / 1000.0f);
+		printf("Current:         %.2fA\n", state->current_mA / 1000.0f);
+		printf("Power:           %.2fW\n",
+		       (float)state->voltage_mV * state->current_mA / 1000000.0f);
+		if (dev_type == SKY_MUX_HW2) {
+			printf("MUX temp:        %dC\n", state->mux_temperature_C);
+			printf("Sink temp:       %dC\n", state->sink_temperature_C);
+			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
+			printf("Charging:        %02uh:%02um:%02us\n", hours, mins, secs);
+			printf("Energy:          %.2fWh\n", state->energy_mWh / 1000.0f);
+			printf("Charge:          %.2fAh\n", state->charge_mAh / 1000.0f);
+			seconds_to_hms(state->until_full_secs, &hours, &mins, &secs);
+			printf("State of charge: %u%% ~ %02uh:%02um\n",
+			       state->state_of_charge, hours, mins);
+			if (cli->linkstat) {
+				printf("Link quality:    %u%%\n"
+				       "TX stat:\n"
+				       "    bytes:       %u\n"
+				       "    packets:     %u\n"
+				       "    err bytes:   %u\n"
+				       "    err packets: %u\n"
+				       "RX stat:\n"
+				       "    bytes:       %u\n"
+				       "    packets:     %u\n"
+				       "    err bytes:   %u\n"
+				       "    err packets: %u\n",
+				       state->link_quality_factor,
+				       state->tx.bytes,
+				       state->tx.packets,
+				       state->tx.err_bytes,
+				       state->tx.err_packets,
+				       state->rx.bytes,
+				       state->rx.packets,
+				       state->rx.err_bytes,
+				       state->rx.err_packets);
+			}
+		}
 		printf("\n");
 	}
 }

@@ -1273,6 +1273,7 @@ static void *subscription_work(void *data)
 
 	while (!dev->unsubscribed) {
 		ms = msecs_epoch();
+		memset(&state, 0, sizeof(state));
 		rc = get_devops(dev)->subscription_work(dev, &state);
 		ms = msecs_epoch() - ms;
 

@@ -520,8 +520,8 @@ static int hw1_sky_get_state(struct skyloc_dev *dev,
 	if (rc)
 		return rc;
 
-	state->voltage = vol;
-	state->current = cur;
+	state->voltage_mV = vol;
+	state->current_mA = cur;
 	state->dev_hw_state = status;
 
 	return 0;
@@ -655,8 +655,8 @@ static int hw2_sky_get_state(struct skyloc_dev *dev,
 	if (rc)
 		return rc;
 
-	state->voltage = vol;
-	state->current = cur;
+	state->voltage_mV = vol;
+	state->current_mA = cur;
 	/* HW1 and HW2 states are equal */
 	state->dev_hw_state = st;
 
@@ -1044,17 +1044,15 @@ static int skyloc_chargingstate(struct sky_dev *dev_,
 
 	dev = container_of(dev_, struct skyloc_dev, dev);
 
+	memset(state, 0, sizeof(*state));
 	rc = get_hwops(dev_)->get_state(dev, state);
 	if (rc)
 		return rc;
 
 	rc = bms_request_data(&dev->bms, &bms_data);
 	if (!rc) {
-		state->bms.charge_time = bms_data.charge_time;
-		state->bms.charge_perc = bms_data.charge_perc;
-	} else {
-		state->bms.charge_time = 0;
-		state->bms.charge_perc = 0;
+		state->until_full_secs = bms_data.charge_time;
+		state->state_of_charge = bms_data.charge_perc;
 	}
 
 	return 0;

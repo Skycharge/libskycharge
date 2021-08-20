@@ -503,22 +503,43 @@ static int skyrem_chargingstate_parse(struct skyrem_async *async,
 				      void *rsp_data, size_t rsp_len)
 {
 	struct sky_charging_state *state = req->out.ptr;
-	struct sky_charging_state_rsp *rsp = rsp_data;
+	struct sky_charging_state_rsp *untrusty_rsp = rsp_data;
+	struct sky_charging_state_rsp rsp;
 	int rc;
 
-	if (rsp_len < sizeof(*rsp))
+	if (rsp_len < sizeof(untrusty_rsp->hdr))
 		/* Malformed response */
 		goto complete_with_EPROTO;
 
-	rc = -le16toh(rsp->hdr.error);
+	rc = -le16toh(untrusty_rsp->hdr.error);
 	if (rc)
 		goto complete;
 
-	state->dev_hw_state = le16toh(rsp->dev_hw_state);
-	state->voltage = le16toh(rsp->voltage);
-	state->current = le16toh(rsp->current);
-	state->bms.charge_perc = le16toh(rsp->bms.charge_perc);
-	state->bms.charge_time = le16toh(rsp->bms.charge_time);
+	memset(&rsp, 0, sizeof(rsp));
+	memcpy(&rsp, untrusty_rsp, min(rsp_len, sizeof(rsp)));
+
+	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->voltage_mV = le16toh(rsp.voltage_mV);
+	state->current_mA = le16toh(rsp.current_mA);
+	state->state_of_charge = le16toh(rsp.state_of_charge);
+	state->until_full_secs = le16toh(rsp.until_full_secs);
+	state->charging_secs = le16toh(rsp.charging_secs);
+	state->mux_temperature_C = le16toh(rsp.mux_temperature_C);
+	state->sink_temperature_C = le16toh(rsp.sink_temperature_C);
+	state->energy_mWh = le32toh(rsp.energy_mWh);
+	state->charge_mAh = le32toh(rsp.charge_mAh);
+	state->mux_humidity_perc = rsp.mux_humidity_perc;
+	state->link_quality_factor = rsp.link_quality_factor;
+
+	state->tx.bytes       = le32toh(rsp.tx.bytes);
+	state->tx.packets     = le32toh(rsp.tx.packets);
+	state->tx.err_bytes   = le32toh(rsp.tx.err_bytes);
+	state->tx.err_packets = le32toh(rsp.tx.err_packets);
+
+	state->rx.bytes       = le32toh(rsp.rx.bytes);
+	state->rx.packets     = le32toh(rsp.rx.packets);
+	state->rx.err_bytes   = le32toh(rsp.rx.err_bytes);
+	state->rx.err_packets = le32toh(rsp.rx.err_packets);
 
 complete:
 	skyrem_asyncreq_complete(async, req, rc);
@@ -1231,10 +1252,27 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	memcpy(&rsp, untrusty_rsp, min(zframe_size(frame), sizeof(rsp)));
 
 	state->dev_hw_state = le16toh(rsp.dev_hw_state);
-	state->voltage = le16toh(rsp.voltage);
-	state->current = le16toh(rsp.current);
-	state->bms.charge_perc = le16toh(rsp.bms.charge_perc);
-	state->bms.charge_time = le16toh(rsp.bms.charge_time);
+	state->voltage_mV = le16toh(rsp.voltage_mV);
+	state->current_mA = le16toh(rsp.current_mA);
+	state->state_of_charge = le16toh(rsp.state_of_charge);
+	state->until_full_secs = le16toh(rsp.until_full_secs);
+	state->charging_secs = le16toh(rsp.charging_secs);
+	state->mux_temperature_C = le16toh(rsp.mux_temperature_C);
+	state->sink_temperature_C = le16toh(rsp.sink_temperature_C);
+	state->energy_mWh = le32toh(rsp.energy_mWh);
+	state->charge_mAh = le32toh(rsp.charge_mAh);
+	state->mux_humidity_perc = rsp.mux_humidity_perc;
+	state->link_quality_factor = rsp.link_quality_factor;
+
+	state->tx.bytes       = le32toh(rsp.tx.bytes);
+	state->tx.packets     = le32toh(rsp.tx.packets);
+	state->tx.err_bytes   = le32toh(rsp.tx.err_bytes);
+	state->tx.err_packets = le32toh(rsp.tx.err_packets);
+
+	state->rx.bytes       = le32toh(rsp.rx.bytes);
+	state->rx.packets     = le32toh(rsp.rx.packets);
+	state->rx.err_bytes   = le32toh(rsp.rx.err_bytes);
+	state->rx.err_packets = le32toh(rsp.rx.err_packets);
 
 	/* Indicate we sleep here */
 	return 1;

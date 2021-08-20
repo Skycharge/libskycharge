@@ -22,7 +22,10 @@ struct skydum_dev {
 
 	struct sky_droneport_state dp_state;
 
+	unsigned capacity_mAh;
 	unsigned cur, vol;
+
+	unsigned long long ts_ms;
 };
 
 static int skydum_peerinfo(const struct sky_dev_ops *ops,
@@ -83,8 +86,10 @@ static int skydum_devopen(const struct sky_dev_desc *devdesc,
 
 	bms_init(&dev->bms);
 
-	dev->cur = rand_between(100,  5000);
-	dev->vol = rand_between(10000, 30000);
+	dev->capacity_mAh = 500;
+	dev->cur = rand_between(5000,  15000);
+	dev->vol = rand_between(16000, 51000);
+	dev->ts_ms = msecs_epoch();
 
 	*dev_ = &dev->dev;
 
@@ -144,12 +149,20 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 {
 	struct bms_data bms_data;
 	struct skydum_dev *dev;
+	float dt;
 	int rc;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
 
-	dev->state.current = dev->cur;
-	dev->state.voltage = dev->vol;
+	dt = (msecs_epoch() - dev->ts_ms) / 1000.0;
+
+	dev->state.mux_temperature_C = rand_between(43, 56);
+	dev->state.sink_temperature_C = rand_between(55, 64);
+	dev->state.current_mA = dev->cur;
+	dev->state.voltage_mV = dev->vol;
+	dev->state.charging_secs = dt;
+	dev->state.energy_mWh = dev->vol * dev->cur / 1000 * (dt / 3600.0);
+	dev->state.charge_mAh = dev->cur * (dt / 3600.0);
 
 	dev->state.dev_hw_state += 1;
 	if (dev->state.dev_hw_state == 4)
@@ -164,11 +177,31 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 
 	rc = bms_request_data(&dev->bms, &bms_data);
 	if (!rc) {
-		state->bms.charge_time = bms_data.charge_time;
-		state->bms.charge_perc = bms_data.charge_perc;
+		state->until_full_secs = bms_data.charge_time;
+		state->state_of_charge = bms_data.charge_perc;
 	} else {
-		state->bms.charge_time = 0;
-		state->bms.charge_perc = 0;
+		unsigned int until_full_mAh;
+
+		state->state_of_charge =
+			(float)dev->state.charge_mAh / dev->capacity_mAh * 100;
+
+		if (state->state_of_charge >= 100) {
+			/* Start new charging */
+
+			dev->ts_ms = msecs_epoch();
+			dev->state.current_mA = dev->cur =
+				rand_between(5000,  15000);
+			dev->state.voltage_mV = dev->vol =
+				rand_between(16000, 51000);
+			state->state_of_charge = 0;
+			dev->state.charging_secs = 0;
+			dev->state.energy_mWh = 0;
+			dev->state.charge_mAh = 0;
+		}
+
+		until_full_mAh = dev->capacity_mAh - dev->state.charge_mAh;
+		state->until_full_secs =
+			(float)until_full_mAh / dev->cur * 3600.0;
 	}
 
 	return 0;

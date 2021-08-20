@@ -215,13 +215,31 @@ struct sky_dev_desc {
  * struct sky_charging_state - Charging device state.
  */
 struct sky_charging_state {
-	enum sky_dev_state dev_hw_state;
-	unsigned short current;
-	unsigned short voltage;
+	uint16_t dev_hw_state; /* enum sky_dev_state */
+	uint16_t voltage_mV;
+	uint16_t current_mA;
+	uint16_t state_of_charge; /* 0-100% */
+	uint16_t until_full_secs;
+	uint16_t charging_secs;
+	int16_t  mux_temperature_C;
+	int16_t  sink_temperature_C;
+	uint32_t energy_mWh;
+	uint32_t charge_mAh;
+	uint8_t  mux_humidity_perc; /* 0-100% */
+	uint8_t  link_quality_factor; /* 0-100% */
+	uint16_t padding;
 	struct {
-		unsigned short charge_perc; /* 0-100% */
-		unsigned short charge_time; /* seconds */
-	} bms;
+		uint32_t bytes;
+		uint32_t packets;
+		uint32_t err_bytes;
+		uint32_t err_packets;
+	} tx;
+	struct {
+		uint32_t bytes;
+		uint32_t packets;
+		uint32_t err_bytes;
+		uint32_t err_packets;
+	} rx;
 };
 
 enum sky_droneport_status {
