@@ -1199,7 +1199,8 @@ static void skyrem_unsubscribe(struct sky_dev *dev_)
 static int skyrem_subscription_work(struct sky_dev *dev_,
 				    struct sky_charging_state *state)
 {
-	struct sky_charging_state_rsp *rsp;
+	struct sky_charging_state_rsp *untrusty_rsp;
+	struct sky_charging_state_rsp rsp;
 	struct skyrem_dev *dev;
 	zframe_t *frame;
 	zmsg_t *msg;
@@ -1217,20 +1218,23 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	zmsg_first(msg);
 	frame = zmsg_next(msg);
 
-	if (zframe_size(frame) != sizeof(*rsp))
+	if (zframe_size(frame) < sizeof(untrusty_rsp->hdr))
 		/* Malformed response */
 		return -ECONNRESET;
 
-	rsp = (void *)zframe_data(frame);
-	rc = -le16toh(rsp->hdr.error);
+	untrusty_rsp = (void *)zframe_data(frame);
+	rc = -le16toh(untrusty_rsp->hdr.error);
 	if (rc)
 		return rc;
 
-	state->dev_hw_state = le16toh(rsp->dev_hw_state);
-	state->voltage = le16toh(rsp->voltage);
-	state->current = le16toh(rsp->current);
-	state->bms.charge_perc = le16toh(rsp->bms.charge_perc);
-	state->bms.charge_time = le16toh(rsp->bms.charge_time);
+	memset(&rsp, 0, sizeof(rsp));
+	memcpy(&rsp, untrusty_rsp, min(zframe_size(frame), sizeof(rsp)));
+
+	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->voltage = le16toh(rsp.voltage);
+	state->current = le16toh(rsp.current);
+	state->bms.charge_perc = le16toh(rsp.bms.charge_perc);
+	state->bms.charge_time = le16toh(rsp.bms.charge_time);
 
 	/* Indicate we sleep here */
 	return 1;
