@@ -533,22 +533,28 @@ static const char *sky_hw1_devstate_to_str(enum sky_dev_state state)
 static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
 {
 	switch(state) {
-	case SKY_HW2_UNKNOWN:
-		return "UNKNOWN";
+	case SKY_HW2_STOPPED:
+		return "STOPPED";
+	case SKY_HW2_PASSTHRU:
+		return "PASSTHRU";
 	case SKY_HW2_SCANNING:
 		return "SCANNING";
-	case SKY_HW2_SCANNING_DISABLED:
-		return "SCANING_DISABLED";
-	case SKY_HW2_PRE_CHARGING:
-		return "PRE_CHARGING";
+	case SKY_HW2_LINK_ESTABLISHED:
+		return "LINK_ESTABLISHED";
+	case SKY_HW2_PRECHARGE_DELAYED:
+		return "PRECHARGE_DELAYED";
+	case SKY_HW2_PRECHARGING:
+		return "PRECHARGING";
 	case SKY_HW2_CHARGING:
 		return "CHARGING";
 	case SKY_HW2_CHARGING_FINISHED:
 		return "CHARGING_FINISHED";
 	case SKY_HW2_ERR_INVAL_CHARGING_SETTINGS:
 		return "ERR_INVAL_CHARGING_SETTINGS";
-	case SKY_HW2_ERR_NOLINK_WITH_SINK:
-		return "ERR_NOLINK_WITH_SINK";
+	case SKY_HW2_ERR_BAD_LINK:
+		return "ERR_BAD_LINK";
+	case SKY_HW2_ERR_LOW_VOLTAGE:
+		return "ERR_LOW_VOLTAGE";
 	default:
 		sky_err("unknown state: %d\n", state);
 		return "UNKNOWN";

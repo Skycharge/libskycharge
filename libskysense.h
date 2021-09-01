@@ -71,15 +71,19 @@ enum sky_dev_state {
 	SKY_HW1_AUTOSCAN_DISABLED		= 250,
 
 	/* HW2 */
-	SKY_HW2_UNKNOWN				= 0,
-	SKY_HW2_SCANNING			= 1,
-	SKY_HW2_SCANNING_DISABLED		= 2,
-	SKY_HW2_PRE_CHARGING			= 3,
-	SKY_HW2_CHARGING			= 4,
-	SKY_HW2_CHARGING_FINISHED		= 5,
+	SKY_HW2_STOPPED				= 0x00,
+	SKY_HW2_PASSTHRU			= 0x01,
+	SKY_HW2_SCANNING			= 0x02,
+	SKY_HW2_LINK_ESTABLISHED		= 0x03,
+	SKY_HW2_PRECHARGE_DELAYED		= 0x04,
+	SKY_HW2_PRECHARGING			= 0x05,
+	SKY_HW2_CHARGING			= 0x06,
+	SKY_HW2_CHARGING_FINISHED		= 0x07,
+
 	/* HW2 error states */
-	SKY_HW2_ERR_INVAL_CHARGING_SETTINGS     = 16,
-	SKY_HW2_ERR_NOLINK_WITH_SINK            = 17,
+	SKY_HW2_ERR_INVAL_CHARGING_SETTINGS	= 0x80,
+	SKY_HW2_ERR_BAD_LINK			= 0x81,
+	SKY_HW2_ERR_LOW_VOLTAGE			= 0x82,
 };
 
 /**
@@ -405,7 +409,8 @@ static inline int sky_hw_is_charging(enum sky_dev_type mux_type,
 		return  hw_state == SKY_HW1_CHARGING_RUN ||
 			hw_state == SKY_HW1_CHARGING_MONITOR_CURRENT;
 
-	return hw_state == SKY_HW2_CHARGING;
+	return (hw_state == SKY_HW2_PRECHARGING ||
+		hw_state == SKY_HW2_CHARGING);
 }
 
 /**
