@@ -192,19 +192,38 @@ struct sky_dev_ops;
 struct sky_hw_ops;
 
 /**
+ * struct sky_hw_uid - HW unique id
+ */
+struct sky_hw_uid {
+	uint32_t part1;
+	uint32_t part2;
+	uint32_t part3;
+};
+
+/**
+ * struct sky_hw_info - HW information
+ */
+struct sky_hw_info {
+	uint32_t          fw_version;
+	uint32_t          hw_version;
+	uint32_t          plc_proto_version;
+	struct sky_hw_uid uid;
+};
+
+/**
  * struct sky_dev_desc - Device descriptor.
  */
 struct sky_dev_desc {
-	struct sky_dev_desc *next;
-	struct sky_conf   conf;
-	enum sky_dev_type dev_type;
+	struct sky_dev_desc      *next;
+	struct sky_conf          conf;
+	enum sky_dev_type        dev_type;
 	const struct sky_dev_ops *dev_ops;
-	const struct sky_hw_ops *hw_ops;
-	uint32_t fw_version;
-	uint32_t hw_version;
-	char dev_name[16];
-	unsigned char dev_uuid[16];
-	char portname[32];
+	const struct sky_hw_ops  *hw_ops;
+	char                     dev_name[16];
+	unsigned char            dev_uuid[16];
+	char                     portname[32];
+	uint16_t                 proto_version;
+	struct sky_hw_info       hw_info;
 };
 
 #define make_version(min, maj, rev) (((maj) & 0xff) << 16 | ((min) & 0xff) << 8 | ((rev) & 0xff))

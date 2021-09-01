@@ -414,12 +414,12 @@ int main(int argc, char *argv[])
 			       sky_devtype_to_str(devdesc->dev_type),
 			       (int)max_devname,
 			       devdesc->dev_name,
-			       version_major(devdesc->fw_version),
-			       version_minor(devdesc->fw_version),
-			       version_revis(devdesc->fw_version),
-			       version_major(devdesc->hw_version),
-			       version_minor(devdesc->hw_version),
-			       version_revis(devdesc->hw_version));
+			       version_major(devdesc->hw_info.fw_version),
+			       version_minor(devdesc->hw_info.fw_version),
+			       version_revis(devdesc->hw_info.fw_version),
+			       version_major(devdesc->hw_info.hw_version),
+			       version_minor(devdesc->hw_info.hw_version),
+			       version_revis(devdesc->hw_info.hw_version));
 		}
 	} else if (cli.monitor) {
 		struct sky_on_charging_state_arg arg = {
@@ -619,12 +619,12 @@ int main(int argc, char *argv[])
 	} else if (cli.devinfo) {
 		printf("%s, FW v%d.%d.%d, HW v%d.%d.%d\n",
 		       sky_devtype_to_str(devdesc->dev_type),
-		       version_major(devdesc->fw_version),
-		       version_minor(devdesc->fw_version),
-		       version_revis(devdesc->fw_version),
-		       version_major(devdesc->hw_version),
-		       version_minor(devdesc->hw_version),
-		       version_revis(devdesc->hw_version));
+		       version_major(devdesc->hw_info.fw_version),
+		       version_minor(devdesc->hw_info.fw_version),
+		       version_revis(devdesc->hw_info.fw_version),
+		       version_major(devdesc->hw_info.hw_version),
+		       version_minor(devdesc->hw_info.hw_version),
+		       version_revis(devdesc->hw_info.hw_version));
 	} else if (cli.gpsinfo) {
 		struct sky_gpsdata gpsdata;
 

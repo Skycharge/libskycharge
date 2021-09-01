@@ -15,6 +15,11 @@
 #include "types.h"
 #include "crc8.h"
 
+/* XXX remove ASAP */
+#define SKY_HW2_PSU_SET_TYPE_CMD 0
+#define SKY_HW2_PSU_SET_VOLTAGE_CMD 0
+#define SKY_HW2_PSU_SET_CURRENT_CMD 0
+
 enum sky_hw1_serial_cmd {
 	SKY_HW1_RESET_CMD              = 0x01,
 	SKY_HW1_SAVE_DATA_TO_EEP_CMD   = 0x02,
@@ -34,17 +39,24 @@ enum sky_hw1_serial_cmd {
 };
 
 enum sky_hw2_serial_cmd {
-	SKY_HW2_UNKNOWN_CMD            = 0x00,
-	SKY_HW2_FW_HW_VERSION_CMD      = 0x01,
-	SKY_HW2_RESET_CMD              = 0x02,
-	SKY_HW2_STATE_CMD              = 0x03,
-	SKY_HW2_SCAN_CMD               = 0x04,
-	SKY_HW2_PSU_SET_TYPE_CMD       = 0x05,
-	SKY_HW2_PSU_SET_VOLTAGE_CMD    = 0x06,
-	SKY_HW2_PSU_SET_CURRENT_CMD    = 0x07,
+	SKY_HW2_RESET_CMD                      = 0x00,
+	SKY_HW2_STOP_CMD                       = 0x01,
+	SKY_HW2_PASSTHRU_CMD                   = 0x02,
+	SKY_HW2_RESUME_CMD                     = 0x03,
+	SKY_HW2_SEND_PASSTHRU_DATA_CMD         = 0x04,
+	SKY_HW2_GET_CHARGING_STATE_CMD         = 0x05,
+	SKY_HW2_GET_MUX_INFO_CMD               = 0x06,
+	SKY_HW2_GET_MUX_SETTINGS_CMD           = 0x07,
+	SKY_HW2_SET_MUX_SETTINGS_CMD           = 0x08,
+	SKY_HW2_GET_SINK_INFO_CMD              = 0x09,
+	SKY_HW2_GET_SINK_CHARGING_SETTINGS_CMD = 0x0a,
+	SKY_HW2_SET_SINK_CHARGING_SETTINGS_CMD = 0x0b,
 
-	/* The last one */
-	SKY_HW2_ERROR                  = 0xff,
+	/*
+	 * Types of messages from mux
+	 */
+	SKY_HW2_SYNC_RESPONSE_CMD              = 0x80, /* response on each sync command */
+	SKY_HW2_ASYNC_PASSTHRU_DATA_CMD        = 0x81, /* async passthru data */
 };
 
 enum {
@@ -58,11 +70,6 @@ enum {
 	CHECK_MAGIC = 1,
 };
 
-struct sky_fw_hw_version {
-	uint32_t fw_version;
-	uint32_t hw_version;
-};
-
 struct skyloc_dev {
 	struct sky_dev dev;
 	struct sp_port *port;
@@ -74,17 +81,21 @@ struct skyloc_dev {
 };
 
 struct skyserial_desc {
-	uint8_t hdr_len;
-	uint8_t data_off;
-	void (*fill_cmd_hdr)(char *cmd_buf, uint8_t len, uint8_t cmd);
-	bool (*is_valid_rsp_hdr)(const char *rsp_buf, uint8_t len, uint8_t cmd,
-				 bool only_magic);
-	size_t (*get_rsp_len)(const char *rsp_buf);
-	bool (*check_crc)(const char *rsp_buf);
+	uint8_t req_hdr_len;
+	uint8_t req_data_off;
+
+	uint8_t rsp_hdr_len;
+	uint8_t rsp_data_off;
+
+	void (*fill_cmd_hdr)(uint8_t *cmd_buf, uint8_t len, uint8_t cmd);
+	bool (*is_valid_rsp_hdr)(const uint8_t *rsp_buf, uint8_t len, uint8_t cmd,
+				 bool only_magic, int *rc);
+	size_t (*get_rsp_len)(const uint8_t *rsp_buf);
+	bool (*check_crc)(const uint8_t *rsp_buf);
 };
 
 struct sky_hw_ops {
-	int (*fw_hw_version)(struct skyloc_dev *dev, struct sky_fw_hw_version *ver);
+	int (*get_hw_info)(struct skyloc_dev *dev, struct sky_hw_info *info);
 	int (*get_params)(struct skyloc_dev *dev,
 			  struct sky_dev_params *params);
 	int (*set_params)(struct skyloc_dev *dev,
@@ -223,17 +234,17 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			     ...)
 {
 	uint8_t len, cmd_len, rsp_len;
-	char cmd_buf[8], rsp_buf[128];
+	uint8_t cmd_buf[256], rsp_buf[256];
 	enum sp_return sprc;
 	int rc, args, off;
 	va_list ap;
 
-	char strdump_req[128];
-	char strdump_rsp[128];
+	char strdump_req[512];
+	char strdump_rsp[512];
 	bool valid_crc;
 
 	va_start(ap, rsp_num);
-	for (len = 0, off = proto->data_off, args = 0; args < req_num; args++) {
+	for (len = 0, off = proto->req_data_off, args = 0; args < req_num; args++) {
 		rc = skycmd_arg_copy(&ap, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
 		if (rc < 0)
@@ -254,7 +265,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		sky_err("sp_flush(): %s\n", strerror(-rc));
 		goto out_unlock;
 	}
-	cmd_len = len + proto->hdr_len;
+	cmd_len = len + proto->req_hdr_len;
 	sprc = sp_blocking_write(dev->port, cmd_buf, cmd_len, TIMEOUT_MS);
 	if (sprc < 0) {
 		rc = sprc_to_errno(sprc);
@@ -274,29 +285,29 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		}
 
 		len = rc;
-		if (len > sizeof(rsp_buf) - proto->hdr_len) {
+		if (len > sizeof(rsp_buf) - proto->rsp_hdr_len) {
 			rc = -EINVAL;
 			sky_err("skycmd_args_inbytes(): %s\n", strerror(-rc));
 			goto out_unlock;
 		}
 		/* Firstly read header */
-		sprc = sp_blocking_read(dev->port, rsp_buf, proto->data_off,
+		sprc = sp_blocking_read(dev->port, rsp_buf, proto->rsp_data_off,
 					TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			sky_err("sp_blocking_read(): %s\n", strerror(-rc));
 			goto out_unlock;
-		} else if (sprc != proto->data_off) {
+		} else if (sprc != proto->rsp_data_off) {
 			sky_err("sp_blocking_read(): failed to read within %d ms timeout, only %d is read, but expected %d\n",
-				TIMEOUT_MS, sprc, proto->data_off);
+				TIMEOUT_MS, sprc, proto->rsp_data_off);
 			rc = -ETIMEDOUT;
 			goto out_unlock;
-		} else if (!proto->is_valid_rsp_hdr(rsp_buf,
-				len + proto->hdr_len, cmd, CHECK_MAGIC)) {
+		} else if (!proto->is_valid_rsp_hdr(rsp_buf, len + proto->rsp_hdr_len,
+						    cmd, CHECK_MAGIC, NULL)) {
 			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
 					   strdump_req, sizeof(strdump_req),
 					   false);
-			hex_dump_to_buffer(rsp_buf, proto->data_off, 16, 1,
+			hex_dump_to_buffer(rsp_buf, proto->rsp_data_off, 16, 1,
 					   strdump_rsp, sizeof(strdump_rsp),
 					   false);
 
@@ -312,22 +323,22 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		 * Read the rest, for HW2 we don't care about the size for
 		 * the compatibility sake.
 		 */
-		rsp_len = min(len, proto->get_rsp_len(rsp_buf)) + proto->hdr_len;
-		sprc = sp_blocking_read(dev->port, rsp_buf + proto->data_off,
-				rsp_len - proto->data_off,
+		rsp_len = min(len, proto->get_rsp_len(rsp_buf)) + proto->rsp_hdr_len;
+		sprc = sp_blocking_read(dev->port, rsp_buf + proto->rsp_data_off,
+				rsp_len - proto->rsp_data_off,
 				TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			sky_err("sp_blocking_read(): %s\n", strerror(-rc));
 			goto out_unlock;
-		} else if (sprc != rsp_len - proto->data_off) {
+		} else if (sprc != rsp_len - proto->rsp_data_off) {
 			sky_err("sp_blocking_read(): failed to read within %d ms timeout, only %d is read, but expected %d\n",
-				TIMEOUT_MS, sprc, rsp_len - proto->data_off);
+				TIMEOUT_MS, sprc, rsp_len - proto->rsp_data_off);
 			rc = -ETIMEDOUT;
 			goto out_unlock;
 		} else if (!(valid_crc = proto->check_crc(rsp_buf)) ||
 			   !proto->is_valid_rsp_hdr(rsp_buf, rsp_len, cmd,
-						    CHECK_ALL)) {
+						    CHECK_ALL, &rc)) {
 			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
 					   strdump_req, sizeof(strdump_req), false);
 			hex_dump_to_buffer(rsp_buf, rsp_len, 16, 1,
@@ -345,11 +356,15 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			rc = -EPROTO;
 			goto out_unlock;
 		}
-		for (off = proto->data_off, args = 0;
-		     off < rsp_len + proto->data_off && args < rsp_num;
+		/* Check response errno */
+		if (rc)
+			goto out_unlock;
+
+		for (off = proto->rsp_data_off, args = 0;
+		     off < rsp_len + proto->rsp_data_off && args < rsp_num;
 		     args++) {
 			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
-					     rsp_len + proto->data_off);
+					     rsp_len + proto->rsp_data_off);
 			if (rc < 0) {
 				sky_err("skycmd_arg_copy(): %s\n", strerror(-rc));
 				goto out_unlock;
@@ -372,21 +387,24 @@ out:
  * HW1 specific operations
  */
 
-static bool hw1_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
-				     uint8_t cmd, bool only_magic)
+static bool hw1_sky_is_valid_rsp_hdr(const uint8_t *rsp_buf, uint8_t len,
+				     uint8_t cmd, bool only_magic, int *rc)
 {
 	if (only_magic)
 		return (rsp_buf[0] == 0x55);
 
+	*rc = 0;
+
 	return (rsp_buf[0] == 0x55 && rsp_buf[1] == len && rsp_buf[2] == cmd);
 }
 
-static size_t hw1_sky_get_rsp_len(const char *rsp_buf)
+static size_t hw1_sky_get_rsp_len(const uint8_t *rsp_buf)
 {
-	return rsp_buf[1];
+	/* Without header */
+	return rsp_buf[1] - 4;
 }
 
-static void hw1_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
+static void hw1_sky_fill_cmd_hdr(uint8_t *cmd_buf, uint8_t len, uint8_t cmd)
 {
 	cmd_buf[0] = 0x55;
 	cmd_buf[1] = len + 4;
@@ -394,22 +412,24 @@ static void hw1_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
 	cmd_buf[len + 3] = 0x00;
 }
 
-static bool hw1_sky_check_crc(const char *rsp_buf)
+static bool hw1_sky_check_crc(const uint8_t *rsp_buf)
 {
 	return true;
 }
 
 struct skyserial_desc hw1_sky_serial = {
-	.hdr_len  = 4,
-	.data_off = 3,
+	.req_hdr_len  = 4,
+	.req_data_off = 3,
+	.rsp_hdr_len  = 4,
+	.rsp_data_off = 3,
 	.fill_cmd_hdr     = hw1_sky_fill_cmd_hdr,
 	.is_valid_rsp_hdr = hw1_sky_is_valid_rsp_hdr,
 	.get_rsp_len      = hw1_sky_get_rsp_len,
 	.check_crc        = hw1_sky_check_crc,
 };
 
-static int hw1_sky_fw_hw_version(struct skyloc_dev *dev,
-				 struct sky_fw_hw_version *ver)
+static int hw1_sky_get_hw_info(struct skyloc_dev *dev,
+			       struct sky_hw_info *info)
 {
 	uint8_t major, minor, revis;
 	int rc;
@@ -423,8 +443,10 @@ static int hw1_sky_fw_hw_version(struct skyloc_dev *dev,
 	if (rc)
 		return rc;
 
-	ver->fw_version = major << 16 | minor << 8 | revis;
-	ver->hw_version = 2 << 16 | 30 << 8 | 2; /* 2.30b, latest HW1, I hope */
+	*info = (struct sky_hw_info) {
+		.fw_version = major << 16 | minor << 8 | revis,
+		.hw_version = 2 << 16 | 30 << 8 | 2 /* 2.30b, latest HW1, I hope */
+	};
 
 	return 0;
 }
@@ -560,7 +582,7 @@ static int hw1_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
 }
 
 static struct sky_hw_ops hw1_sky_ops = {
-	.fw_hw_version    = hw1_sky_fw_hw_version,
+	.get_hw_info      = hw1_sky_get_hw_info,
 	.get_params       = hw1_sky_get_params,
 	.set_params       = hw1_sky_set_params,
 	.get_state        = hw1_sky_get_state,
@@ -575,57 +597,65 @@ static struct sky_hw_ops hw1_sky_ops = {
  * HW2 specific operations
  */
 
-static bool hw2_sky_is_valid_rsp_hdr(const char *rsp_buf, uint8_t len,
-				     uint8_t cmd, bool only_magic)
+static bool hw2_sky_is_valid_rsp_hdr(const uint8_t *rsp_buf, uint8_t len,
+				     uint8_t cmd, bool only_magic, int *rc)
 {
+	uint8_t type;
+
 	if (only_magic)
 		return (rsp_buf[0] == 0x42);
 
+	type = rsp_buf[3] & 0xf;
+	*rc  = -skyerrno_to_errno(rsp_buf[3] >> 4);
+
 	/*
 	 * A bit of compatibility: we don't care about the length at all
+	 * TODO: the 3'rd byte is type of response, in future need to
+	 *       support events as well
 	 */
-	return (rsp_buf[0] == 0x42 && rsp_buf[3] == cmd);
+	return (rsp_buf[0] == 0x42 && type == SKY_HW2_SYNC_RESPONSE_CMD);
 }
 
-static size_t hw2_sky_get_rsp_len(const char *rsp_buf)
+static size_t hw2_sky_get_rsp_len(const uint8_t *rsp_buf)
 {
 	return rsp_buf[2];
 }
 
-static void hw2_sky_fill_cmd_hdr(char *cmd_buf, uint8_t len, uint8_t cmd)
+static void hw2_sky_fill_cmd_hdr(uint8_t *cmd_buf, uint8_t len, uint8_t cmd)
 {
 	cmd_buf[0] = 0x42;
-	cmd_buf[2] = len + 4;
+	cmd_buf[2] = len;
 	cmd_buf[3] = cmd;
-	cmd_buf[1] = crc8((uint8_t *)cmd_buf + 2, len + 4 - 2);
+	cmd_buf[1] = crc8(cmd_buf + 2, len + 4 - 2);
 }
 
-static bool hw2_sky_check_crc(const char *rsp_buf)
+static bool hw2_sky_check_crc(const uint8_t *rsp_buf)
 {
-	uint8_t crc = crc8((uint8_t *)rsp_buf + 2, rsp_buf[2] - 2);
+	uint8_t crc;
 
-	return (crc == (uint8_t)rsp_buf[1]);
+	crc = crc8((uint8_t *)rsp_buf + 2, rsp_buf[2] + 2);
+
+	return (crc == rsp_buf[1]);
 }
 
 struct skyserial_desc hw2_sky_serial = {
-	.hdr_len  = 4,
-	.data_off = 4,
+	.req_hdr_len      = 4,
+	.req_data_off     = 4,
+	.rsp_hdr_len      = 4,
+	.rsp_data_off     = 4,
 	.fill_cmd_hdr     = hw2_sky_fill_cmd_hdr,
 	.is_valid_rsp_hdr = hw2_sky_is_valid_rsp_hdr,
 	.get_rsp_len      = hw2_sky_get_rsp_len,
 	.check_crc        = hw2_sky_check_crc,
 };
 
-static int hw2_sky_fw_hw_version(struct skyloc_dev *dev,
-				 struct sky_fw_hw_version *ver)
+static int hw2_sky_get_hw_info(struct skyloc_dev *dev,
+			       struct sky_hw_info *info)
 {
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 SKY_HW2_FW_HW_VERSION_CMD,
-				 0, 2,
-				 sizeof(ver->fw_version),
-				 &ver->fw_version,
-				 sizeof(ver->hw_version),
-				 &ver->hw_version);
+				 SKY_HW2_GET_MUX_INFO_CMD,
+				 0, 1,
+				 sizeof(*info), info);
 }
 
 static int hw2_sky_get_params(struct skyloc_dev *dev,
@@ -643,24 +673,10 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 static int hw2_sky_get_state(struct skyloc_dev *dev,
 			     struct sky_charging_state *state)
 {
-	uint16_t vol, cur, st;
-	int rc;
-
-	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       SKY_HW2_STATE_CMD,
-			       0, 3,
-			       sizeof(vol), &vol,
-			       sizeof(cur), &cur,
-			       sizeof(st),  &st);
-	if (rc)
-		return rc;
-
-	state->voltage_mV = vol;
-	state->current_mA = cur;
-	/* HW1 and HW2 states are equal */
-	state->dev_hw_state = st;
-
-	return 0;
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_GET_CHARGING_STATE_CMD,
+				 0, 1,
+				 sizeof(*state), state);
 }
 
 static int hw2_sky_psu_set_type(struct skyloc_dev *dev, enum sky_psu_type psu_type)
@@ -734,19 +750,20 @@ static int hw2_sky_reset(struct skyloc_dev *dev)
 				 SKY_HW2_RESET_CMD, 0, -1);
 }
 
-static int hw2_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
+static int hw2_sky_scan(struct skyloc_dev *dev, unsigned do_resume)
 {
-	uint8_t scan = !!autoscan, ret;
+	uint8_t cmd, ret;
+
+	cmd = do_resume ? SKY_HW2_RESUME_CMD : SKY_HW2_STOP_CMD;
 
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 SKY_HW2_SCAN_CMD,
-				 1, 1,
-				 sizeof(scan), &scan,
+				 cmd,
+				 0, 1,
 				 sizeof(ret),  &ret);
 }
 
 static struct sky_hw_ops hw2_sky_ops = {
-	.fw_hw_version    = hw2_sky_fw_hw_version,
+	.get_hw_info      = hw2_sky_get_hw_info,
 	.get_params       = hw2_sky_get_params,
 	.set_params       = hw2_sky_set_params,
 	.get_state        = hw2_sky_get_state,
@@ -903,7 +920,6 @@ static void devclose(struct skyloc_dev *dev)
 
 static int devprobe(struct sky_dev_desc *devdesc)
 {
-	struct sky_fw_hw_version ver;
 	struct skyloc_dev *dev;
 
 	int rc;
@@ -912,12 +928,7 @@ static int devprobe(struct sky_dev_desc *devdesc)
 	if (rc)
 		return rc;
 
-	rc = devdesc->hw_ops->fw_hw_version(dev, &ver);
-	if (!rc) {
-		devdesc->fw_version = ver.fw_version;
-		devdesc->hw_version = ver.hw_version;
-	}
-
+	rc = devdesc->hw_ops->get_hw_info(dev, &devdesc->hw_info);
 	devclose(dev);
 
 	return rc;
@@ -957,6 +968,7 @@ static int skyloc_devslist(const struct sky_dev_ops *dev_ops,
 		devdesc->conf = *conf;
 		devdesc->dev_ops = dev_ops;
 		devdesc->hw_ops = hw_ops;
+		devdesc->proto_version = 0; /* 0 for the local driver */
 		rc = devprobe(devdesc);
 		if (rc) {
 			free(devdesc);

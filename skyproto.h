@@ -175,20 +175,28 @@ union sky_req {
 };
 
 struct sky_dev_info {
-	le16 dev_type;
-	le16 info_len; /*
-			* Protocol version before 0x0400 does not have `info_len`,
-			* so for versions below this member is equal to 0.
-			*/
-	le32 fw_version;
-	char dev_name[16];
+	le16          dev_type;
+	le16          info_len; /*
+				 * Protocol version before 0x0400 does not have
+				 * `info_len`, so for versions below this member
+				 * is equal to 0.
+				 */
+	le32          fw_version;
+	char          dev_name[16];
 	unsigned char dev_uuid[16];
-	char portname[PORTNAME_LEN];
+	char          portname[PORTNAME_LEN];
 
 	/* The members below were added for the protocol version 0x0400 */
-	le32 hw_version;
-	le16 proto_version;
-	le16 padding2;
+
+	le16         proto_version;
+	le16         padding;
+	le32         hw_version;
+	le32         plc_proto_version;
+	struct {
+		le32 part1;
+		le32 part2;
+		le32 part3;
+	}            hw_uid;
 };
 
 struct sky_devs_list_rsp {

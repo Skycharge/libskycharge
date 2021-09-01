@@ -291,7 +291,7 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 
 			memset(info, 0, info_len);
 			info->dev_type = htole16(dev->dev_type);
-			info->fw_version = htole32(dev->fw_version);
+			info->fw_version = htole32(dev->hw_info.fw_version);
 			memcpy(info->portname, dev->portname,
 			       sizeof(dev->portname));
 			memcpy(info->dev_uuid, conf->devuuid,
@@ -301,8 +301,18 @@ static int sky_devs_list_rsp(struct sky_server *serv, const char *dev_name,
 			if (dyn_info) {
 				/* Protocol version >= 0x0400 */
 				info->info_len = htole16(sizeof(*info));
-				info->hw_version = htole32(dev->hw_version);
-				info->proto_version = SKY_PROTO_VERSION;
+				info->proto_version =
+					htole16(SKY_PROTO_VERSION);
+				info->hw_version =
+					htole32(dev->hw_info.hw_version);
+				info->plc_proto_version =
+					htole32(dev->hw_info.plc_proto_version);
+				info->hw_uid.part1 =
+					htole32(dev->hw_info.uid.part1);
+				info->hw_uid.part2 =
+					htole32(dev->hw_info.uid.part2);
+				info->hw_uid.part3 =
+					htole32(dev->hw_info.uid.part3);
 			}
 			num += 1;
 		}

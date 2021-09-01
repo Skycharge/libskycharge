@@ -623,8 +623,15 @@ static int skyrem_devslist_parse(struct skyrem_async *async,
 			       sizeof(devdesc->dev_name));
 			memcpy(devdesc->dev_uuid, info.dev_uuid,
 			       sizeof(devdesc->dev_uuid));
-			devdesc->fw_version = le32toh(info.fw_version);
-			devdesc->hw_version = le32toh(info.hw_version);
+			devdesc->proto_version = le16toh(info.proto_version);
+			devdesc->hw_info = (struct sky_hw_info) {
+				.fw_version        = le32toh(info.fw_version),
+				.hw_version        = le32toh(info.hw_version),
+				.plc_proto_version = le32toh(info.plc_proto_version),
+				.uid.part1         = le32toh(info.hw_uid.part1),
+				.uid.part2         = le32toh(info.hw_uid.part2),
+				.uid.part3         = le32toh(info.hw_uid.part3),
+			};
 			devdesc->conf = *async->async.conf;
 			devdesc->dev_ops = async->async.ops;
 			memcpy(devdesc->portname, info.portname,
