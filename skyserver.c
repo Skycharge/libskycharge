@@ -36,8 +36,10 @@ struct sky_server_dev {
 	struct sky_server *serv;
 	struct sky_dev_desc *devdesc;
 	struct sky_dev *dev;
-	struct sky_charging_state prev_state;
-	unsigned precharge_iter;
+	struct {
+		struct sky_charging_state prev_state;
+		unsigned                  precharge_iter;
+	} hw1; /* PSU is controlled by the BB for HW1 only */
 };
 
 struct sky_server {
@@ -47,7 +49,7 @@ struct sky_server {
 	struct zocket zock;
 	struct sky_server_dev *devs;
 	struct sky_dev_desc *devhead;
-	struct sky_psu global_psu;
+	struct sky_psu hw1_psu;
 	struct avahi *avahi;
 };
 
@@ -82,16 +84,16 @@ static float get_precharge_current(struct sky_server_dev *servdev)
 	 * TODO Here we assume this function is called exactly with
 	 *      1 second rate
 	 */
-	if (servdev->precharge_iter >= conf->psu.precharge_secs)
+	if (servdev->hw1.precharge_iter >= conf->psu.precharge_secs)
 		return conf->psu.current;
 
-	servdev->precharge_iter++;
+	servdev->hw1.precharge_iter++;
 
 	current_delta =	conf->psu.current - conf->psu.precharge_current;
 	current_delta /= conf->psu.precharge_secs;
 
 	return conf->psu.precharge_current +
-		current_delta * servdev->precharge_iter;
+		current_delta * servdev->hw1.precharge_iter;
 }
 
 static pthread_mutex_t subsc_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -111,13 +113,13 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	BUILD_BUG_ON(sizeof(conf->devuuid) + sizeof(devdesc->portname) >
 		     sizeof(topic));
 
-	if (serv->global_psu.type != SKY_PSU_UNKNOWN &&
-	    sky_psu_is_precharge_set(&serv->global_psu)) {
+	if (serv->hw1_psu.type != SKY_PSU_UNKNOWN &&
+	    sky_psu_is_precharge_set(&serv->hw1_psu)) {
 		bool was_charging, is_charging;
 
 		was_charging =
 			sky_hw_is_charging(devdesc->dev_type,
-					   servdev->prev_state.dev_hw_state);
+					   servdev->hw1.prev_state.dev_hw_state);
 		is_charging =
 			sky_hw_is_charging(devdesc->dev_type,
 					   state->dev_hw_state);
@@ -129,19 +131,19 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 			float current;
 
 			current = get_precharge_current(servdev);
-			sky_psu_set_current(&serv->global_psu, current);
+			sky_psu_set_current(&serv->hw1_psu, current);
 
 		} else if (was_charging ^ is_charging) {
 			/*
 			 * Set to precharge current if charging has been
 			 * started or has been stopped.
 			 */
-			sky_psu_set_current(&serv->global_psu,
+			sky_psu_set_current(&serv->hw1_psu,
 					    conf->psu.precharge_current);
-			servdev->precharge_iter = 0;
+			servdev->hw1.precharge_iter = 0;
 		}
 
-		servdev->prev_state = *state;
+		servdev->hw1.prev_state = *state;
 	}
 
 	rsp.hdr.type            = htole16(SKY_CHARGING_STATE_EV);
@@ -1547,6 +1549,52 @@ again:
 	}
 }
 
+static int sky_hw1_psu_init(struct sky_server *serv)
+{
+	struct sky_conf *conf = &serv->conf;
+	int rc;
+
+	if (conf->psu.type == SKY_PSU_UNKNOWN)
+		return 0;
+
+	rc = sky_psu_init(conf, &serv->hw1_psu);
+	if (rc)
+		return rc;
+
+	/* Set voltage */
+	rc = sky_psu_set_voltage(&serv->hw1_psu,
+				 conf->psu.voltage);
+	if (rc) {
+		sky_err("psu: can't set voltage");
+		goto deinit_psu;
+	}
+
+	/* Set precharge current if specified */
+	if (sky_psu_is_precharge_set(&serv->hw1_psu))
+		rc = sky_psu_set_current(&serv->hw1_psu,
+					 conf->psu.precharge_current);
+	else
+		rc = sky_psu_set_current(&serv->hw1_psu,
+					 conf->psu.current);
+	if (rc) {
+		sky_err("psu: can't set current: %s", strerror(-rc));
+		goto deinit_psu;
+	}
+
+	return 0;
+
+deinit_psu:
+	sky_psu_deinit(&serv->hw1_psu);
+
+	return rc;
+}
+
+static void sky_hw1_psu_deinit(struct sky_server *serv)
+{
+	if (serv->conf.psu.type != SKY_PSU_UNKNOWN)
+		sky_psu_deinit(&serv->hw1_psu);
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_server serv = {
@@ -1568,30 +1616,13 @@ int main(int argc, char *argv[])
 		sky_err("sky_confparse(): %s\n", strerror(-rc));
 		goto free_cli;
 	}
-	if (conf->psu.type != SKY_PSU_UNKNOWN) {
-		rc = sky_psu_init(conf, &serv.global_psu);
+	/* PSU is controlled by the BB, only HW1 */
+	if (conf->mux_type == SKY_MUX_HW1) {
+		rc = sky_hw1_psu_init(&serv);
 		if (rc)
 			goto free_cli;
-
-		/* Set voltage */
-		rc = sky_psu_set_voltage(&serv.global_psu,
-					 conf->psu.voltage);
-		if (rc) {
-			sky_err("psu: can't set voltage");
-			goto deinit_psu;
-		}
-
-		/* Set precharge current if specified */
-		if (sky_psu_is_precharge_set(&serv.global_psu))
-			rc = sky_psu_set_current(&serv.global_psu,
-					conf->psu.precharge_current);
-		else
-			rc = sky_psu_set_current(&serv.global_psu,
-					 conf->psu.current);
-		if (rc) {
-			sky_err("psu: can't set current: %s", strerror(-rc));
-			goto deinit_psu;
-		}
+	} else if (conf->mux_type == SKY_MUX_HW2) {
+		/* TODO */
 	}
 
 	/*
@@ -1713,9 +1744,8 @@ destroy_zocket:
 	sky_zocket_destroy(&serv);
 deinit_avahi:
 	avahi_deinit(serv.avahi);
-deinit_psu:
-	if (conf->psu.type != SKY_PSU_UNKNOWN)
-		sky_psu_deinit(&serv.global_psu);
+	if (conf->mux_type == SKY_MUX_HW1)
+		sky_hw1_psu_deinit(&serv);
 free_cli:
 	cli_free(&serv.cli);
 
