@@ -624,13 +624,104 @@ static int hw2_sky_get_hw_info(struct skyloc_dev *dev,
 static int hw2_sky_get_params(struct skyloc_dev *dev,
 			      struct sky_dev_params *params)
 {
-	return -EOPNOTSUPP;
+	struct sky_hw2_mux_settings settings;
+	int p, rc;
+
+	memset(&settings, 0, sizeof(settings));
+	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
+			       SKY_HW2_GET_MUX_SETTINGS_CMD,
+			       0, 1,
+			       sizeof(settings), &settings);
+	if (rc)
+		return rc;
+
+	for (p = 0; p < SKY_HW2_NUM_DEVPARAM; p++) {
+		if (!(params->dev_params_bits & (1<<p)))
+			continue;
+
+		switch (p) {
+		case SKY_HW2_PSU_TYPE:
+			params->dev_params[p] =
+				settings.psu_type;
+			break;
+		case SKY_HW2_NR_BAD_HEARTBEATS:
+			params->dev_params[p] =
+				settings.nr_bad_heartbeats;
+			break;
+		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+			params->dev_params[p] =
+				settings.ignore_inval_charging_settings;
+			break;
+		case SKY_HW2_IGNORE_LOW_VOLTAGE:
+			params->dev_params[p] =
+				settings.ignore_low_voltage;
+			break;
+		case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
+			params->dev_params[p] =
+				settings.error_indication_timeout_secs;
+			break;
+		case SKY_HW2_KEEP_SILENCE:
+			params->dev_params[p] =
+				settings.keep_silence;
+			break;
+		}
+	}
+
+	return 0;
 }
 
 static int hw2_sky_set_params(struct skyloc_dev *dev,
 			      const struct sky_dev_params *params)
 {
-	return -EOPNOTSUPP;
+	struct sky_hw2_mux_settings settings;
+	int p, rc;
+
+	/* First retreive settings */
+	memset(&settings, 0, sizeof(settings));
+	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
+			       SKY_HW2_GET_MUX_SETTINGS_CMD,
+			       0, 1,
+			       sizeof(settings), &settings);
+	if (rc)
+		return rc;
+
+	for (p = 0; p < SKY_HW2_NUM_DEVPARAM; p++) {
+		if (!(params->dev_params_bits & (1<<p)))
+			continue;
+
+		switch (p) {
+		case SKY_HW2_PSU_TYPE:
+			settings.psu_type =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_NR_BAD_HEARTBEATS:
+			settings.nr_bad_heartbeats =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+			settings.ignore_inval_charging_settings =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_IGNORE_LOW_VOLTAGE:
+			settings.ignore_low_voltage =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
+			settings.error_indication_timeout_secs =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_KEEP_SILENCE:
+			settings.keep_silence =
+				params->dev_params[p];
+			break;
+		}
+	}
+
+	/* Commit changed settings */
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SET_MUX_SETTINGS_CMD,
+				 1, 0,
+				 sizeof(settings), &settings);
 }
 
 static int hw2_sky_get_state(struct skyloc_dev *dev,

@@ -108,6 +108,13 @@ enum sky_dev_param {
 	SKY_HW1_NUM_DEVPARAM, /* Should be the last for HW1 */
 
 	/* HW2 */
+	SKY_HW2_PSU_TYPE                        = 0,
+	SKY_HW2_NR_BAD_HEARTBEATS               = 1,
+	SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS  = 2,
+	SKY_HW2_IGNORE_LOW_VOLTAGE              = 3,
+	SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS   = 4,
+	SKY_HW2_KEEP_SILENCE                    = 5,
+
 	SKY_HW2_NUM_DEVPARAM, /* Should be the last for HW2 */
 };
 
@@ -162,6 +169,7 @@ struct sky_conf {
 	enum sky_dev_type     mux_type;
 	char                  mux_dev[32];
 	struct sky_dev_params mux_hw1_params;
+	struct sky_dev_params mux_hw2_params;
 
 	struct {
 		enum sky_psu_type type;
