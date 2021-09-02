@@ -17,11 +17,6 @@
 #include "hw1-pri.h"
 #include "hw2-pri.h"
 
-/* XXX remove ASAP */
-#define SKY_HW2_PSU_SET_TYPE_CMD 0
-#define SKY_HW2_PSU_SET_VOLTAGE_CMD 0
-#define SKY_HW2_PSU_SET_CURRENT_CMD 0
-
 enum {
 	TO_BUF   = 0,
 	FROM_BUF = 1,
@@ -65,9 +60,6 @@ struct sky_hw_ops {
 			  const struct sky_dev_params *params);
 	int (*get_state)(struct skyloc_dev *dev,
 			 struct sky_charging_state *state);
-	int (*psu_set_type)(struct skyloc_dev *dev, enum sky_psu_type);
-	int (*psu_set_voltage)(struct skyloc_dev *dev, uint16_t mv);
-	int (*psu_set_current)(struct skyloc_dev *dev, uint16_t ma);
 	int (*reset)(struct skyloc_dev *dev);
 	int (*scan)(struct skyloc_dev *dev, unsigned autoscan);
 };
@@ -512,21 +504,6 @@ static int hw1_sky_get_state(struct skyloc_dev *dev,
 	return 0;
 }
 
-static int hw1_sky_psu_set_type(struct skyloc_dev *dev, enum sky_psu_type psu_type)
-{
-	return -EOPNOTSUPP;
-}
-
-static int hw1_sky_psu_set_voltage(struct skyloc_dev *dev, uint16_t mv)
-{
-	return -EOPNOTSUPP;
-}
-
-static int hw1_sky_psu_set_current(struct skyloc_dev *dev, uint16_t ma)
-{
-	return -EOPNOTSUPP;
-}
-
 static int hw1_sky_reset(struct skyloc_dev *dev)
 {
 	return skycmd_serial_cmd(dev, &hw1_sky_serial,
@@ -549,9 +526,6 @@ static struct sky_hw_ops hw1_sky_ops = {
 	.get_params       = hw1_sky_get_params,
 	.set_params       = hw1_sky_set_params,
 	.get_state        = hw1_sky_get_state,
-	.psu_set_type     = hw1_sky_psu_set_type,
-	.psu_set_voltage  = hw1_sky_psu_set_voltage,
-	.psu_set_current  = hw1_sky_psu_set_current,
 	.reset            = hw1_sky_reset,
 	.scan             = hw1_sky_scan,
 };
@@ -733,71 +707,6 @@ static int hw2_sky_get_state(struct skyloc_dev *dev,
 				 sizeof(*state), state);
 }
 
-static int hw2_sky_psu_set_type(struct skyloc_dev *dev, enum sky_psu_type psu_type)
-{
-	uint8_t type = psu_type;
-	uint8_t ret;
-	int rc;
-
-	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       SKY_HW2_PSU_SET_TYPE_CMD,
-			       1, 1,
-			       sizeof(type), &type,
-			       sizeof(ret), &ret);
-	if (rc)
-		return rc;
-
-	if (ret) {
-		sky_err("SKY_HW2_PSU_SET_TYPE_CMD failed %d\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int hw2_sky_psu_set_voltage(struct skyloc_dev *dev, uint16_t mv)
-{
-	uint8_t ret;
-	int rc;
-
-	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       SKY_HW2_PSU_SET_VOLTAGE_CMD,
-			       1, 1,
-			       sizeof(mv), &mv,
-			       sizeof(ret), &ret);
-	if (rc)
-		return rc;
-
-	if (ret) {
-		sky_err("SKY_HW2_PSU_SET_VOLTAGE_CMD failed %d\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-static int hw2_sky_psu_set_current(struct skyloc_dev *dev, uint16_t ma)
-{
-	uint8_t ret;
-	int rc;
-
-	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
-			       SKY_HW2_PSU_SET_CURRENT_CMD,
-			       1, 1,
-			       sizeof(ma), &ma,
-			       sizeof(ret), &ret);
-
-	if (rc)
-		return rc;
-
-	if (ret) {
-		sky_err("SKY_HW2_PSU_SET_CURRENT_CMD failed %d\n", ret);
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int hw2_sky_reset(struct skyloc_dev *dev)
 {
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
@@ -821,9 +730,6 @@ static struct sky_hw_ops hw2_sky_ops = {
 	.get_params       = hw2_sky_get_params,
 	.set_params       = hw2_sky_set_params,
 	.get_state        = hw2_sky_get_state,
-	.psu_set_type     = hw2_sky_psu_set_type,
-	.psu_set_voltage  = hw2_sky_psu_set_voltage,
-	.psu_set_current  = hw2_sky_psu_set_current,
 	.reset            = hw2_sky_reset,
 	.scan             = hw2_sky_scan,
 };
@@ -1086,6 +992,7 @@ static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 	return get_hwops(dev_)->get_params(dev, params);
 }
 
+
 static int skyloc_paramsset(struct sky_dev *dev_,
 			    const struct sky_dev_params *params)
 {
@@ -1099,6 +1006,7 @@ static int skyloc_paramsset(struct sky_dev *dev_,
 
 	return get_hwops(dev_)->set_params(dev, params);
 }
+
 
 static int skyloc_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
@@ -1171,33 +1079,6 @@ static int skyloc_chargestop(struct sky_dev *dev_)
 {
 	/* Stop charging disabling autoscan */
 	return skyloc_autoscan(dev_, 0);
-}
-
-static int skyloc_psu_typeset(struct sky_dev *dev_, enum sky_psu_type psu_type)
-{
-	struct skyloc_dev *dev;
-
-	dev = container_of(dev_, struct skyloc_dev, dev);
-
-	return get_hwops(dev_)->psu_set_type(dev, psu_type);
-}
-
-static int skyloc_psu_voltageset(struct sky_dev *dev_, uint16_t mv)
-{
-	struct skyloc_dev *dev;
-
-	dev = container_of(dev_, struct skyloc_dev, dev);
-
-	return get_hwops(dev_)->psu_set_voltage(dev, mv);
-}
-
-static int skyloc_psu_currentset(struct sky_dev *dev_, uint16_t ma)
-{
-	struct skyloc_dev *dev;
-
-	dev = container_of(dev_, struct skyloc_dev, dev);
-
-	return get_hwops(dev_)->psu_set_current(dev, ma);
 }
 
 static int skyloc_droneport_open(struct sky_dev *dev)
@@ -1342,7 +1223,6 @@ static int skyloc_asyncfd(struct sky_async *async)
 static int skyloc_asyncreq_execute(struct sky_async *async,
 				   struct sky_async_req *req)
 {
-	uint16_t *pu16, psu_type, mv, ma;
 	int rc;
 
 	switch (req->type) {
@@ -1357,21 +1237,6 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_STOP_CHARGE_REQ:
 		rc = skyloc_chargestop(req->dev);
-		break;
-	case SKY_PSU_SET_TYPE_REQ:
-		pu16 = (typeof(pu16))req->in.storage;
-		psu_type = *pu16;
-		rc = skyloc_psu_typeset(req->dev, psu_type);
-		break;
-	case SKY_PSU_SET_VOLTAGE_REQ:
-		pu16 = (typeof(pu16))req->in.storage;
-		mv = *pu16;
-		rc = skyloc_psu_voltageset(req->dev, mv);
-		break;
-	case SKY_PSU_SET_CURRENT_REQ:
-		pu16 = (typeof(pu16))req->in.storage;
-		ma = *pu16;
-		rc = skyloc_psu_currentset(req->dev, ma);
 		break;
 	case SKY_OPEN_DRONEPORT_REQ:
 		rc = skyloc_droneport_open(req->dev);
