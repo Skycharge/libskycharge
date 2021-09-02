@@ -209,6 +209,22 @@ static void trim(char *s)
 	*new = *s;
 }
 
+static int parse_bool(const char *str, unsigned int *val)
+{
+	if (!strcasecmp(str, "false") ||
+	    !strcasecmp(str, "no") ||
+	    !strcasecmp(str, "0"))
+		*val = 0;
+	else if (!strcasecmp(str, "true") ||
+		 !strcasecmp(str, "yes") ||
+		 !strcasecmp(str, "1"))
+		*val = 1;
+	else
+		return -ENODATA;
+
+	return 0;
+}
+
 static int parse_line(char *line, struct sky_conf *cfg)
 {
 	char *str;
@@ -361,11 +377,67 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		if (rc != 1)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
-
 	}
 
 	/*
-	 * PSU config
+	 * MUX HW2 config
+	 */
+
+	else if ((str = strstr(line, "mux-hw2-psu-type="))) {
+		enum sky_psu_type psu_type;
+		unsigned p;
+
+		if (0 == strcasecmp(str + 17, "rsp-750-48") ||
+		    0 == strcasecmp(str + 17, "rsp750-48"))
+			psu_type = SKY_PSU_RSP_750_48;
+		else if (0 == strcasecmp(str + 9, "rsp-1600-48") ||
+			 0 == strcasecmp(str + 9, "rsp1600-48"))
+			psu_type = SKY_PSU_RSP_1600_48;
+		else
+			return -ENODATA;
+
+		p = SKY_HW2_PSU_TYPE;
+		cfg->mux_hw2_params.dev_params[p] = psu_type;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-nr-bad-heartbeats="))) {
+		unsigned p = SKY_HW2_NR_BAD_HEARTBEATS;
+		rc = sscanf(str + 26, "%u", &cfg->mux_hw2_params.dev_params[p]);
+		if (rc != 1)
+			return -ENODATA;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-ignore-inval-charging-settings="))) {
+		unsigned p = SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS;
+		rc = parse_bool(str + 39, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return rc;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-ignore-low-voltage="))) {
+		unsigned p = SKY_HW2_IGNORE_LOW_VOLTAGE;
+		rc = parse_bool(str + 27, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-error-indication-timeout-secs="))) {
+		unsigned p = SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS;
+		rc = sscanf(str + 38, "%u", &cfg->mux_hw2_params.dev_params[p]);
+		if (rc != 1)
+			return -ENODATA;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-keep-silence="))) {
+		unsigned p = SKY_HW2_KEEP_SILENCE;
+		rc = parse_bool(str + 21, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	}
+
+	/*
+	 * PSU HW1 config
 	 */
 
 	else if ((str = strstr(line, "psu-type="))) {
@@ -608,6 +680,18 @@ static const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
 static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 {
 	switch(param) {
+	case SKY_HW2_PSU_TYPE:
+		return "PSU_TYPE";
+	case SKY_HW2_NR_BAD_HEARTBEATS:
+		return "NR_BAD_HEARTBEATS";
+	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+		return "IGNORE_INVAL_CHARGING_SETTINGS";
+	case SKY_HW2_IGNORE_LOW_VOLTAGE:
+		return "IGNORE_LOW_VOLTAGE";
+	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
+		return "ERROR_INDICATION_TIMEOUT_SECS";
+	case SKY_HW2_KEEP_SILENCE:
+		return "KEEP_SILENCE";
 	default:
 		sky_err("unknown param: %d\n", param);
 		return "UNKNOWN_PARAM";
@@ -669,6 +753,24 @@ static int validate_conf(struct sky_conf *cfg)
 	} else if (!strlen(cfg->mux_dev)) {
 		sky_err("Config error: 'mux_dev' is not specified\n");
 		return -ENODATA;
+	}
+
+	if (cfg->mux_type == SKY_MUX_HW2) {
+		unsigned p;
+
+		if (cfg->psu.type != SKY_PSU_UNKNOWN ||
+		    cfg->psu.voltage ||
+		    cfg->psu.current ||
+		    cfg->psu.precharge_current_coef ||
+		    cfg->psu.precharge_secs) {
+			sky_err("Config error: The MUX type is HW2, but the PSU configuration parameters are present. Comment out all PSU related settings and only use HW2 specific settings.\n");
+			return -ENODATA;
+		}
+
+		/* Restore PSU type from HW2 params */
+		p = SKY_HW2_PSU_TYPE;
+		if (cfg->mux_hw2_params.dev_params_bits & 1<<p)
+			cfg->psu.type = cfg->mux_hw2_params.dev_params[p];
 	}
 
 	return 0;

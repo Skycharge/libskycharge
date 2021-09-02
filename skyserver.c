@@ -1687,6 +1687,7 @@ int main(int argc, char *argv[])
 			.interval_msecs = 1000,
 		};
 		struct sky_server_dev *servdev;
+		struct sky_dev_params *params;
 
 		servdev = &serv.devs[num];
 		servdev->serv = &serv;
@@ -1697,10 +1698,19 @@ int main(int argc, char *argv[])
 			sky_err("sky_devpopen(): %s\n", strerror(-rc));
 			goto close_devs;
 		}
+
 		if (conf->mux_type == SKY_MUX_HW1 &&
-		    conf->mux_hw1_params.dev_params_bits) {
-			/* Apply MUX hw1 params */
-			rc = sky_paramsset(servdev->dev, &conf->mux_hw1_params);
+		    conf->mux_hw1_params.dev_params_bits)
+			params = &conf->mux_hw1_params;
+		else if (conf->mux_type == SKY_MUX_HW2 &&
+			 conf->mux_hw2_params.dev_params_bits)
+			params = &conf->mux_hw2_params;
+		else
+			params = NULL;
+
+		if (params) {
+			/* Apply MUX params */
+			rc = sky_paramsset(servdev->dev, params);
 			if (rc) {
 				sky_err("sky_paramsset(): %s\n", strerror(-rc));
 				sky_devclose(servdev->dev);
