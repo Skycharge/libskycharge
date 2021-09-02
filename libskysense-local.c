@@ -62,6 +62,12 @@ struct sky_hw_ops {
 			 struct sky_charging_state *state);
 	int (*reset)(struct skyloc_dev *dev);
 	int (*scan)(struct skyloc_dev *dev, unsigned autoscan);
+	int (*get_sink_params)(struct skyloc_dev *dev,
+			       struct sky_dev_params *params);
+	int (*set_sink_params)(struct skyloc_dev *dev,
+			       const struct sky_dev_params *params);
+	int (*get_sink_info)(struct skyloc_dev *dev,
+			     struct sky_sink_info *info);
 };
 
 static inline int sprc_to_errno(enum sp_return sprc)
@@ -521,6 +527,24 @@ static int hw1_sky_scan(struct skyloc_dev *dev, unsigned autoscan)
 				 sizeof(ascan), &ascan);
 }
 
+static int hw1_sky_get_sink_params(struct skyloc_dev *dev,
+				   struct sky_dev_params *params)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_set_sink_params(struct skyloc_dev *dev,
+				   const struct sky_dev_params *params)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_get_sink_info(struct skyloc_dev *dev,
+				 struct sky_sink_info *info)
+{
+	return -EOPNOTSUPP;
+}
+
 static struct sky_hw_ops hw1_sky_ops = {
 	.get_hw_info      = hw1_sky_get_hw_info,
 	.get_params       = hw1_sky_get_params,
@@ -528,6 +552,9 @@ static struct sky_hw_ops hw1_sky_ops = {
 	.get_state        = hw1_sky_get_state,
 	.reset            = hw1_sky_reset,
 	.scan             = hw1_sky_scan,
+	.get_sink_params  = hw1_sky_get_sink_params,
+	.set_sink_params  = hw1_sky_set_sink_params,
+	.get_sink_info    = hw1_sky_get_sink_info,
 };
 
 /*
@@ -725,6 +752,200 @@ static int hw2_sky_scan(struct skyloc_dev *dev, unsigned do_resume)
 				 sizeof(ret),  &ret);
 }
 
+static int hw2_sky_get_sink_params(struct skyloc_dev *dev,
+				   struct sky_dev_params *params)
+{
+	struct sky_hw2_charging_settings chg_settings;
+	int p, rc;
+
+	memset(&chg_settings, 0, sizeof(chg_settings));
+	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
+			       SKY_HW2_GET_SINK_CHARGING_SETTINGS_CMD,
+			       0, 1,
+			       sizeof(chg_settings), &chg_settings);
+	if (rc)
+		return rc;
+
+	for (p = 0; p < SKY_SINK_NUM_DEVPARAM; p++) {
+		if (!(params->dev_params_bits & (1<<p)))
+			continue;
+
+		switch (p) {
+		case SKY_SINK_CAPABILITIES:
+			params->dev_params[p] =
+				chg_settings.capabilities;
+			break;
+		case SKY_SINK_BATT_TYPE:
+			params->dev_params[p] =
+				chg_settings.batt_type;
+			break;
+		case SKY_SINK_BATT_CAPACITY_MAH:
+			params->dev_params[p] =
+				chg_settings.batt_capacity_mAh;
+			break;
+		case SKY_SINK_BATT_MIN_VOLTAGE_MV:
+			params->dev_params[p] =
+				chg_settings.batt_min_voltage_mV;
+			break;
+		case SKY_SINK_BATT_MAX_VOLTAGE_MV:
+			params->dev_params[p] =
+				chg_settings.batt_max_voltage_mV;
+			break;
+		case SKY_SINK_CHARGING_MAX_CURRENT_MA:
+			params->dev_params[p] =
+				chg_settings.charging_max_current_mA;
+			break;
+		case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
+			params->dev_params[p] =
+				chg_settings.cutoff_min_current_mA;
+			break;
+		case SKY_SINK_CUTOFF_TIMEOUT_MS:
+			params->dev_params[p] =
+				chg_settings.cutoff_timeout_ms;
+			break;
+		case SKY_SINK_PRECHARGE_CURRENT_COEF:
+			params->dev_params[p] =
+				chg_settings.precharge_current_coef;
+			break;
+		case SKY_SINK_PRECHARGE_DELAY_SECS:
+			params->dev_params[p] =
+				chg_settings.precharge_delay_secs;
+			break;
+		case SKY_SINK_PRECHARGE_SECS:
+			params->dev_params[p] =
+				chg_settings.precharge_secs;
+			break;
+		case SKY_SINK_TOTAL_CHARGE_SECS:
+			params->dev_params[p] =
+				chg_settings.total_charge_secs;
+			break;
+		case SKY_SINK_USER_DATA1:
+			params->dev_params[p] =
+				((uint32_t *)chg_settings.user_data)[0];
+			break;
+		case SKY_SINK_USER_DATA2:
+			params->dev_params[p] =
+				((uint32_t *)chg_settings.user_data)[1];
+			break;
+		case SKY_SINK_USER_DATA3:
+			params->dev_params[p] =
+				((uint32_t *)chg_settings.user_data)[2];
+			break;
+		case SKY_SINK_USER_DATA4:
+			params->dev_params[p] =
+				((uint32_t *)chg_settings.user_data)[3];
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static int hw2_sky_set_sink_params(struct skyloc_dev *dev,
+				   const struct sky_dev_params *params)
+{
+	struct sky_hw2_charging_settings chg_settings;
+	int p, rc;
+
+	/* First retreive settings */
+	memset(&chg_settings, 0, sizeof(chg_settings));
+	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
+			       SKY_HW2_GET_SINK_CHARGING_SETTINGS_CMD,
+			       0, 1,
+			       sizeof(chg_settings), &chg_settings);
+	if (rc)
+		return rc;
+
+	for (p = 0; p < SKY_SINK_NUM_DEVPARAM; p++) {
+		if (!(params->dev_params_bits & (1<<p)))
+			continue;
+
+		switch (p) {
+		case SKY_SINK_CAPABILITIES:
+			chg_settings.capabilities =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_BATT_TYPE:
+			chg_settings.batt_type =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_BATT_CAPACITY_MAH:
+			chg_settings.batt_capacity_mAh =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_BATT_MIN_VOLTAGE_MV:
+			chg_settings.batt_min_voltage_mV =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_BATT_MAX_VOLTAGE_MV:
+			chg_settings.batt_max_voltage_mV =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_CHARGING_MAX_CURRENT_MA:
+			chg_settings.charging_max_current_mA =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
+			chg_settings.cutoff_min_current_mA =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_CUTOFF_TIMEOUT_MS:
+			chg_settings.cutoff_timeout_ms =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_PRECHARGE_CURRENT_COEF:
+			chg_settings.precharge_current_coef =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_PRECHARGE_DELAY_SECS:
+			chg_settings.precharge_delay_secs =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_PRECHARGE_SECS:
+			chg_settings.precharge_secs =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_TOTAL_CHARGE_SECS:
+			chg_settings.total_charge_secs =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_USER_DATA1:
+			((uint32_t *)chg_settings.user_data)[0] =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_USER_DATA2:
+			((uint32_t *)chg_settings.user_data)[1] =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_USER_DATA3:
+			((uint32_t *)chg_settings.user_data)[2] =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_USER_DATA4:
+			((uint32_t *)chg_settings.user_data)[3] =
+				params->dev_params[p];
+			break;
+		}
+	}
+
+	/* Commit changed settings */
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SET_SINK_CHARGING_SETTINGS_CMD,
+				 1, 0,
+				 sizeof(chg_settings), &chg_settings);
+}
+
+static int hw2_sky_get_sink_info(struct skyloc_dev *dev,
+				 struct sky_sink_info *info)
+{
+	/* First retreive settings */
+	memset(info, 0, sizeof(*info));
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_GET_SINK_INFO_CMD,
+				 0, 1,
+				 sizeof(*info), info);
+}
+
 static struct sky_hw_ops hw2_sky_ops = {
 	.get_hw_info      = hw2_sky_get_hw_info,
 	.get_params       = hw2_sky_get_params,
@@ -732,6 +953,9 @@ static struct sky_hw_ops hw2_sky_ops = {
 	.get_state        = hw2_sky_get_state,
 	.reset            = hw2_sky_reset,
 	.scan             = hw2_sky_scan,
+	.get_sink_params  = hw2_sky_get_sink_params,
+	.set_sink_params  = hw2_sky_set_sink_params,
+	.get_sink_info    = hw2_sky_get_sink_info,
 };
 
 /*
@@ -992,7 +1216,6 @@ static int skyloc_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 	return get_hwops(dev_)->get_params(dev, params);
 }
 
-
 static int skyloc_paramsset(struct sky_dev *dev_,
 			    const struct sky_dev_params *params)
 {
@@ -1006,7 +1229,6 @@ static int skyloc_paramsset(struct sky_dev *dev_,
 
 	return get_hwops(dev_)->set_params(dev, params);
 }
-
 
 static int skyloc_chargingstate(struct sky_dev *dev_,
 				struct sky_charging_state *state)
@@ -1171,6 +1393,43 @@ static int skyloc_dronedetect(struct sky_dev *dev_,
 	return 0;
 }
 
+static int skyloc_sink_infoget(struct sky_dev *dev_,
+			       struct sky_sink_info *info)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->get_sink_info(dev, info);
+}
+
+static int skyloc_sink_paramsget(struct sky_dev *dev_,
+				 struct sky_dev_params *params)
+{
+	struct skyloc_dev *dev;
+
+	if (params->dev_params_bits == 0)
+		return -EINVAL;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->get_sink_params(dev, params);
+}
+
+static int skyloc_sink_paramsset(struct sky_dev *dev_,
+				 const struct sky_dev_params *params)
+{
+	struct skyloc_dev *dev;
+
+	if (params->dev_params_bits == 0)
+		/* Nothing to set */
+		return 0;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->set_sink_params(dev, params);
+}
+
 static bool skyloc_asyncreq_cancel(struct sky_async *async,
 				   struct sky_async_req *req)
 {
@@ -1264,6 +1523,15 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_DRONEDETECT_REQ:
 		rc = skyloc_dronedetect(req->dev, req->out.ptr);
+		break;
+	case SKY_SINK_GET_DEV_PARAMS_REQ:
+		rc = skyloc_sink_paramsget(req->dev, req->out.ptr);
+		break;
+	case SKY_SINK_SET_DEV_PARAMS_REQ:
+		rc = skyloc_sink_paramsset(req->dev, req->in.ptr);
+		break;
+	case SKY_SINK_GET_INFO_REQ:
+		rc = skyloc_sink_infoget(req->dev, req->out.ptr);
 		break;
 	default:
 		/* Consider fatal */

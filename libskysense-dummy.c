@@ -470,6 +470,15 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 	case SKY_DRONEDETECT_REQ:
 		rc = skydum_dronedetect(req->dev, req->out.ptr);
 		break;
+	case SKY_SINK_GET_DEV_PARAMS_REQ:
+		rc = -EOPNOTSUPP;
+		break;
+	case SKY_SINK_SET_DEV_PARAMS_REQ:
+		rc = -EOPNOTSUPP;
+		break;
+	case SKY_SINK_GET_INFO_REQ:
+		rc = -EOPNOTSUPP;
+		break;
 	default:
 		/* Consider fatal */
 		sky_err("Unknown request: %d\n", req->type);

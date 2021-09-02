@@ -440,56 +440,94 @@ int main(int argc, char *argv[])
 		while (1)
 			/* Yeah, nothing to do here, simply die on Ctrl-C */
 			sleep(1);
-	} else if (cli.showdevparams) {
+	} else if (cli.showdevparams || cli.showsinkparams) {
 		struct sky_dev_params params;
 		unsigned nr_params;
 
-		if (devdesc->dev_type == SKY_MUX_HW1)
-			nr_params = SKY_HW1_NUM_DEVPARAM;
-		else
-			nr_params = SKY_HW2_NUM_DEVPARAM;
+		if (cli.showdevparams) {
+			if (devdesc->dev_type == SKY_MUX_HW1)
+				nr_params = SKY_HW1_NUM_DEVPARAM;
+			else
+				nr_params = SKY_HW2_NUM_DEVPARAM;
+		} else {
+			nr_params = SKY_SINK_NUM_DEVPARAM;
+		}
 
 		/* Get all params */
 		params.dev_params_bits = ~0;
-		rc = sky_paramsget(dev, &params);
+		if (cli.showdevparams)
+			rc = sky_paramsget(dev, &params);
+		else
+			rc = sky_sink_paramsget(dev, &params);
 		if (rc) {
-			sky_err("sky_paramsget(): %s\n", strerror(-rc));
+			if (cli.showdevparams)
+				sky_err("sky_paramsget(): %s\n", strerror(-rc));
+			else
+				sky_err("sky_sink_paramsget(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		printf("Device has the following parameters:\n");
+		printf("%s has the following parameters:\n",
+		       cli.showdevparams ? "MUX" : "Sink");
 		for (i = 0; i < nr_params; i++) {
-			printf("\t%-34s %u\n",
-			       sky_devparam_to_str(devdesc->dev_type, i),
-			       params.dev_params[i]);
+			const char *str;
+			char val[128];
+
+			str = cli.showdevparams ?
+				sky_devparam_to_str(devdesc->dev_type, i) :
+				sky_sinkparam_to_str(i);
+			cli.showdevparams ?
+				sky_devparam_value_to_str(devdesc->dev_type, i, &params,
+							  val, sizeof(val)) :
+				sky_sinkparam_value_to_str(i, &params,
+							   val, sizeof(val));
+
+			printf("\t%-34s %s\n", str, val);
 		}
-	} else if (cli.setdevparam) {
+	} else if (cli.setdevparam || cli.setsinkparam) {
 		struct sky_dev_params params;
 		unsigned nr_params;
+		const char *str;
 
-		if (devdesc->dev_type == SKY_MUX_HW1)
-			nr_params = SKY_HW1_NUM_DEVPARAM;
-		else
-			nr_params = SKY_HW2_NUM_DEVPARAM;
+		if (cli.setdevparam) {
+			if (devdesc->dev_type == SKY_MUX_HW1)
+				nr_params = SKY_HW1_NUM_DEVPARAM;
+			else
+				nr_params = SKY_HW2_NUM_DEVPARAM;
+		} else {
+			nr_params = SKY_SINK_NUM_DEVPARAM;
+		}
 
 		for (i = 0; i < nr_params; i++) {
-			if (!strcasecmp(sky_devparam_to_str(devdesc->dev_type, i), cli.key))
+			str = cli.setdevparam ?
+				sky_devparam_to_str(devdesc->dev_type, i) :
+				sky_sinkparam_to_str(i);
+			if (!strcasecmp(str, cli.key))
 				break;
 		}
 		if (i == nr_params) {
 			fprintf(stderr, "Incorrect parameter: %s\n", cli.key);
 			fprintf(stderr, "Please, use one of the following:\n");
 			for (i = 0; i < nr_params; i++) {
-				fprintf(stderr, "\t%s\n",
-						sky_devparam_to_str(devdesc->dev_type, i));
+				str = cli.setdevparam ?
+					sky_devparam_to_str(devdesc->dev_type, i) :
+					sky_sinkparam_to_str(i);
+
+				fprintf(stderr, "\t%s\n", str);
 			}
 			exit(-1);
 		}
 
 		params.dev_params_bits = (1 << i);
 		params.dev_params[i] = strtol(cli.value, NULL, 10);
-		rc = sky_paramsset(dev, &params);
+		if (cli.setdevparam)
+			rc = sky_paramsset(dev, &params);
+		else
+			rc = sky_sink_paramsset(dev, &params);
 		if (rc) {
-			sky_err("sky_paramsset(): %s\n", strerror(-rc));
+			if (cli.setdevparam)
+				sky_err("sky_paramsset(): %s\n", strerror(-rc));
+			else
+				sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 
@@ -573,14 +611,23 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (cli.devinfo) {
-		printf("%s, FW v%d.%d.%d, HW v%d.%d.%d\n",
-		       sky_devtype_to_str(devdesc->dev_type),
+		printf("MUX info:\n"
+		       "   FW:        v%d.%d.%d\n"
+		       "   HW:        v%d.%d.%d\n"
+		       "   PLC proto: v%d.%d.%d\n"
+		       "   UID:       %08x%08x%08x\n",
 		       version_major(devdesc->hw_info.fw_version),
 		       version_minor(devdesc->hw_info.fw_version),
 		       version_revis(devdesc->hw_info.fw_version),
 		       version_major(devdesc->hw_info.hw_version),
 		       version_minor(devdesc->hw_info.hw_version),
-		       version_revis(devdesc->hw_info.hw_version));
+		       version_revis(devdesc->hw_info.hw_version),
+		       version_major(devdesc->hw_info.plc_proto_version),
+		       version_minor(devdesc->hw_info.plc_proto_version),
+		       version_revis(devdesc->hw_info.plc_proto_version),
+		       devdesc->hw_info.uid.part1,
+		       devdesc->hw_info.uid.part2,
+		       devdesc->hw_info.uid.part3);
 	} else if (cli.gpsinfo) {
 		struct sky_gpsdata gpsdata;
 
@@ -591,6 +638,33 @@ int main(int argc, char *argv[])
 		}
 
 		sky_print_gpsdata(&cli, &gpsdata);
+	} else if (cli.sinkinfo) {
+		struct sky_sink_info info;
+
+		rc = sky_sink_infoget(dev, &info);
+		if (rc) {
+			sky_err("sky_sink_infoget(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+
+		printf("Sink info:\n"
+		       "   FW:        v%d.%d.%d\n"
+		       "   HW:        v%d.%d.%d\n"
+		       "   PLC proto: v%d.%d.%d\n"
+		       "   UID:       %08x%08x%08x\n",
+		       version_major(info.hw_info.fw_version),
+		       version_minor(info.hw_info.fw_version),
+		       version_revis(info.hw_info.fw_version),
+		       version_major(info.hw_info.hw_version),
+		       version_minor(info.hw_info.hw_version),
+		       version_revis(info.hw_info.hw_version),
+		       version_major(info.hw_info.plc_proto_version),
+		       version_minor(info.hw_info.plc_proto_version),
+		       version_revis(info.hw_info.plc_proto_version),
+		       info.hw_info.uid.part1,
+		       info.hw_info.uid.part2,
+		       info.hw_info.uid.part3);
+
 	} else
 		assert(0);
 

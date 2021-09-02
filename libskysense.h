@@ -38,6 +38,15 @@ enum sky_dev_type {
 };
 
 /**
+ * enum sky_batt_type - Battery type.
+ */
+enum sky_batt_type {
+	SKY_BATT_LIPO = 0,
+	SKY_BATT_LION,
+};
+
+
+/**
  * enum sky_dev_state - Hardware state of the device.
  */
 enum sky_dev_state {
@@ -87,7 +96,7 @@ enum sky_dev_state {
 };
 
 /**
- * enum sky_dev_param - Configuration device parameter.
+ * enum sky_dev_param - Configuration MUX device parameter.
  */
 enum sky_dev_param {
 	/* HW1 */
@@ -116,6 +125,38 @@ enum sky_dev_param {
 	SKY_HW2_KEEP_SILENCE                    = 5,
 
 	SKY_HW2_NUM_DEVPARAM, /* Should be the last for HW2 */
+};
+
+/**
+ * enum sky_sink_capabilities - Capabilties bits of the sink
+ *     @SKY_SINK_CAPABILITIES param
+ */
+enum sky_sink_capabilities {
+	SKY_CAP_PLC_WHILE_CHARGING   = 0,
+};
+
+/**
+ * enum sky_sink_param - Configuration sink device parameter.
+ */
+enum sky_sink_param {
+	SKY_SINK_CAPABILITIES                     = 0,
+	SKY_SINK_BATT_TYPE                        = 1,
+	SKY_SINK_BATT_CAPACITY_MAH                = 2,
+	SKY_SINK_BATT_MIN_VOLTAGE_MV              = 3,
+	SKY_SINK_BATT_MAX_VOLTAGE_MV              = 4,
+	SKY_SINK_CHARGING_MAX_CURRENT_MA          = 5,
+	SKY_SINK_CUTOFF_MIN_CURRENT_MA            = 6,
+	SKY_SINK_CUTOFF_TIMEOUT_MS                = 7,
+	SKY_SINK_PRECHARGE_CURRENT_COEF           = 8,
+	SKY_SINK_PRECHARGE_DELAY_SECS             = 9,
+	SKY_SINK_PRECHARGE_SECS                   = 10,
+	SKY_SINK_TOTAL_CHARGE_SECS                = 11,
+	SKY_SINK_USER_DATA1                       = 12,
+	SKY_SINK_USER_DATA2                       = 13,
+	SKY_SINK_USER_DATA3                       = 14,
+	SKY_SINK_USER_DATA4                       = 15,
+
+	SKY_SINK_NUM_DEVPARAM, /* Should be the last for sink */
 };
 
 /**
@@ -232,6 +273,13 @@ struct sky_dev_desc {
 	char                     portname[32];
 	uint16_t                 proto_version;
 	struct sky_hw_info       hw_info;
+};
+
+/**
+ * struct sky_sink_info - Sink device information
+ */
+struct sky_sink_info {
+	struct sky_hw_info hw_info;
 };
 
 #define make_version(min, maj, rev) (((maj) & 0xff) << 16 | ((min) & 0xff) << 8 | ((rev) & 0xff))
@@ -365,6 +413,7 @@ union sky_async_storage {
 	struct sky_droneport_state dp_state;
 	struct sky_gpsdata         gpsdata;
 	enum sky_drone_status      drone_status;
+	struct sky_sink_info       sink_info;
 };
 
 struct sky_async_req;
@@ -414,6 +463,28 @@ const char *sky_devstate_to_str(enum sky_dev_type dev_type,
  */
 const char *sky_devparam_to_str(enum sky_dev_type dev_type,
 				enum sky_dev_param param);
+
+/**
+ * Fill in the input buffer with a string representation of the device
+ * param value and returns length of a string.
+ */
+int sky_devparam_value_to_str(enum sky_dev_type dev_type,
+			      enum sky_dev_param param,
+			      const struct sky_dev_params *params,
+			      char *buf, size_t size);
+
+/**
+ * Returns string representation of the sink param.
+ */
+const char *sky_sinkparam_to_str(enum sky_sink_param param);
+
+/**
+ * Fill in the input buffer with a string representation of the sink
+ * param value and returns length of a string.
+ */
+int sky_sinkparam_value_to_str(enum sky_sink_param param,
+			       const struct sky_dev_params *params,
+			       char *buf, size_t size);
 
 /**
  * Returns string representation of the GPS status.
@@ -982,6 +1053,95 @@ int sky_asyncreq_dronedetect(struct sky_async *async,
 			     struct sky_dev *dev,
 			     enum sky_drone_status *status,
 			     struct sky_async_req *req);
+
+/**
+ * sky_sink_infoget() - Fetches sink device information.
+ * @dev:	Device context.
+ * @params:	Device params to be filled in.
+ *
+ * Accesses the hardware and fetches current parameters of a sink device.
+ * Required bits of a device parameter must be set in a bitfield
+ * @params->dev_params_bits.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_infoget(struct sky_dev *dev, struct sky_sink_info *info);
+
+/**
+ * sky_asyncreq_sink_infoget() - Inits and submits an asynchronous request to
+ *                               fetch sink device information.
+ *
+ * See synchronous sky_sink_infoget() variant for details.
+ */
+int sky_asyncreq_sink_infoget(struct sky_async *async,
+			      struct sky_dev *dev,
+			      struct sky_sink_info *info,
+			      struct sky_async_req *req);
+
+/**
+ * sky_sink_paramsget() - Fetches sink device configuration parameters.
+ * @dev:	Device context.
+ * @params:	Device params to be filled in.
+ *
+ * Accesses the hardware and fetches current parameters of a sink device.
+ * Required bits of a device parameter must be set in a bitfield
+ * @params->dev_params_bits.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_paramsget(struct sky_dev *dev, struct sky_dev_params *params);
+
+/**
+ * sky_asyncreq_sink_paramsget() - Inits and submits an asynchronous request to
+ *                                 fetch sink device configuration parameters.
+ *
+ * See synchronous sky_sink_paramsget() variant for details.
+ */
+int sky_asyncreq_sink_paramsget(struct sky_async *async,
+				struct sky_dev *dev,
+				struct sky_dev_params *params,
+				struct sky_async_req *req);
+
+/**
+ * sky_sink_paramsset() - Saves sink device configuration parameters.
+ * @dev:	Device context.
+ * @params:	Device params to be saved.
+ *
+ * Accesses the hardware and saves parameters of a sink device.
+ * Required bits of a device parameter must be set in a bitfield
+ * @params->dev_params_bits.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -EINVAL invalid parameter, e.g. @params->dev_params_bits were not set.
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_paramsset(struct sky_dev *dev, const struct sky_dev_params *params);
+
+/**
+ * sky_asyncreq_sink_paramsset() - Inits and submits an asynchronous request to
+ *                                 save device sink configuration parameters.
+ *
+ * See synchronous sky_sink_paramsset() variant for details.
+ */
+int sky_asyncreq_sink_paramsset(struct sky_async *async,
+				struct sky_dev *dev,
+				const struct sky_dev_params *params,
+				struct sky_async_req *req);
+
+
 
 #ifdef __cplusplus
 }
