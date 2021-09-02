@@ -769,6 +769,44 @@ complete_with_EPROTO:
 	goto complete;
 }
 
+static int skyrem_sinkinfo_parse(struct skyrem_async *async,
+				 struct sky_async_req *req,
+				 void *rsp_data, size_t rsp_len)
+{
+	struct sky_sink_info *info = req->out.ptr;
+	struct sky_sink_get_info_rsp *rsp = rsp_data;
+	int rc;
+
+	if (rsp_len < sizeof(*rsp))
+		/* Malformed response */
+		goto complete_with_EPROTO;
+
+	rc = -le16toh(rsp->hdr.error);
+	if (rc)
+		goto complete;
+
+	info->hw_info.fw_version =
+		le32toh(rsp->fw_version);
+	info->hw_info.hw_version =
+		le32toh(rsp->hw_version);
+	info->hw_info.plc_proto_version =
+		le32toh(rsp->plc_proto_version);
+	info->hw_info.uid.part1 =
+		le32toh(rsp->hw_uid.part1);
+	info->hw_info.uid.part2 =
+		le32toh(rsp->hw_uid.part2);
+	info->hw_info.uid.part2 =
+		le32toh(rsp->hw_uid.part3);
+
+complete:
+	skyrem_asyncreq_complete(async, req, rc);
+	return 0;
+
+complete_with_EPROTO:
+	rc = -EPROTO;
+	goto complete;
+}
+
 static int skyrem_asyncreq_send(struct skyrem_async *async)
 {
 	struct sky_async_req *req;
@@ -777,9 +815,11 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	req = sky_asyncreq_pop(&async->async);
 
 	switch (req->type) {
+	case SKY_SINK_GET_DEV_PARAMS_REQ:
 	case SKY_GET_DEV_PARAMS_REQ:
 		rc = skyrem_paramsget_send(async, req);
 		break;
+	case SKY_SINK_SET_DEV_PARAMS_REQ:
 	case SKY_SET_DEV_PARAMS_REQ:
 		rc = skyrem_paramsset_send(async, req);
 		break;
@@ -794,6 +834,7 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_PEERINFO_REQ:
 	case SKY_GPSDATA_REQ:
 	case SKY_DRONEDETECT_REQ:
+	case SKY_SINK_GET_INFO_REQ:
 		rc = skyrem_genericreq_send(async, req);
 		break;
 	default:
@@ -826,9 +867,11 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 	}
 
 	switch (req->type) {
+	case SKY_SINK_GET_DEV_PARAMS_REQ:
 	case SKY_GET_DEV_PARAMS_REQ:
 		rc = skyrem_paramsget_parse(async, req, rsp, rsp_len);
 		break;
+	case SKY_SINK_SET_DEV_PARAMS_REQ:
 	case SKY_SET_DEV_PARAMS_REQ:
 	case SKY_START_CHARGE_REQ:
 	case SKY_STOP_CHARGE_REQ:
@@ -854,6 +897,9 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 		break;
 	case SKY_DRONEDETECT_REQ:
 		rc = skyrem_dronedetect_parse(async, req, rsp, rsp_len);
+		break;
+	case SKY_SINK_GET_INFO_REQ:
+		rc = skyrem_sinkinfo_parse(async, req, rsp, rsp_len);
 		break;
 	default:
 		/* Consider fatal */

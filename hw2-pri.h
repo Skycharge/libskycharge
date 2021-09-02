@@ -33,4 +33,36 @@ struct sky_hw2_mux_settings {
 	float   current_sense_calibration;
 };
 
+/*
+ * Explicit set of charging settings which describe a battery
+ * and the charging voltage and current.
+ */
+struct sky_hw2_charging_settings {
+	uint8_t  capabilities;
+	uint8_t  batt_type;
+	uint16_t batt_capacity_mAh;
+	uint16_t batt_min_voltage_mV; /* Min voltage of a battery, error will pop up
+				       * on mux if voltage is detected below this
+				       * value */
+	uint16_t batt_max_voltage_mV; /* Max voltage of a battery we use for charging,
+				       * we also use min/max voltage of a battery to
+				       * calculate percentage of the charge and time
+				       * until battery is full */
+
+	uint16_t charging_max_current_mA; /* Max charging current */
+	uint16_t cutoff_min_current_mA; /* Min current threshold when we stop charging */
+	uint16_t cutoff_timeout_ms; /* For how long it is allowed to detect min current */
+	uint8_t  precharge_current_coef; /* Precharge current coef in percentage, so in
+					  * range [0 100]. Is used for slow current
+					  * increase while charging */
+	uint8_t  padding1;
+	uint16_t precharge_delay_secs; /* For how many seconds we delay the charging
+					* in order to cool down the battery */
+	uint16_t precharge_secs; /* How many seconds we slowly increase current on the
+				  * first phase */
+	uint16_t total_charge_secs; /* How many seconds do we charge in total, charging
+				     * stops when time elapses */
+	uint8_t  user_data[16];
+};
+
 #endif /* HW2_PRI_H */

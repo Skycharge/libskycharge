@@ -362,6 +362,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 	req_type = le16toh(req_hdr->type);
 
 	switch (req_type) {
+	case SKY_SINK_GET_DEV_PARAMS_REQ:
 	case SKY_GET_DEV_PARAMS_REQ: {
 		struct sky_get_dev_params_req *req = (void *)req_hdr;
 		struct sky_get_dev_params_rsp *rsp;
@@ -396,9 +397,13 @@ static void sky_execute_cmd(struct sky_server *serv,
 			rc = -ENOMEM;
 			goto emergency;
 		}
-		rc = sky_paramsget(dev, &params);
 
-		rsp->hdr.type  = htole16(SKY_GET_DEV_PARAMS_RSP);
+		if (req_type == SKY_GET_DEV_PARAMS_REQ)
+			rc = sky_paramsget(dev, &params);
+		else
+			rc = sky_sink_paramsget(dev, &params);
+
+		rsp->hdr.type  = htole16(req_type + 1);
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
 			for (i = 0, ind = 0; ind < num; i++) {
@@ -411,6 +416,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
+	case SKY_SINK_SET_DEV_PARAMS_REQ:
 	case SKY_SET_DEV_PARAMS_REQ: {
 		struct sky_set_dev_params_req *req = (void *)req_hdr;
 		struct sky_rsp_hdr *rsp;
@@ -458,9 +464,12 @@ static void sky_execute_cmd(struct sky_server *serv,
 			params.dev_params[i] = le32toh(req->dev_params[ind++]);
 		}
 
-		rc = sky_paramsset(dev, &params);
+		if (req_type == SKY_SET_DEV_PARAMS_REQ)
+			rc = sky_paramsset(dev, &params);
+		else
+			rc = sky_sink_paramsset(dev, &params);
 
-		rsp->type  = htole16(SKY_SET_DEV_PARAMS_RSP);
+		rsp->type  = htole16(req_type + 1);
 		rsp->error = htole16(-rc);
 
 		break;
@@ -744,6 +753,44 @@ static void sky_execute_cmd(struct sky_server *serv,
 			rsp->status = htole16(status);
 
 		break;
+	}
+	case SKY_SINK_GET_INFO_REQ: {
+		struct sky_sink_get_info_rsp *rsp;
+		struct sky_sink_info info;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rc = sky_sink_infoget(dev, &info);
+
+		rsp->hdr.type  = htole16(SKY_SINK_GET_INFO_RSP);
+		rsp->hdr.error = htole16(-rc);
+		if (!rc) {
+			rsp->fw_version =
+				htole32(info.hw_info.fw_version);
+			rsp->hw_version =
+				htole32(info.hw_info.hw_version);
+			rsp->plc_proto_version =
+				htole32(info.hw_info.plc_proto_version);
+			rsp->hw_uid.part1 =
+				htole32(info.hw_info.uid.part1);
+			rsp->hw_uid.part2 =
+				htole32(info.hw_info.uid.part2);
+			rsp->hw_uid.part3 =
+				htole32(info.hw_info.uid.part3);
+		}
+
+		break;
+
 	}
 	default:
 		sky_err("unknown request: %d\n", req_type);

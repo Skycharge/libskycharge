@@ -77,6 +77,15 @@ enum sky_proto_type {
 	SKY_DRONEPORT_STATE_REQ = 25,
 	SKY_DRONEPORT_STATE_RSP = 26,
 
+	SKY_SINK_GET_INFO_REQ = 27,
+	SKY_SINK_GET_INFO_RSP = 28,
+
+	SKY_SINK_GET_DEV_PARAMS_REQ = 29,
+	SKY_SINK_GET_DEV_PARAMS_RSP = 30,
+
+	SKY_SINK_SET_DEV_PARAMS_REQ = 31,
+	SKY_SINK_SET_DEV_PARAMS_RSP = 32,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -167,6 +176,18 @@ struct sky_dev_info {
 
 	le16         proto_version;
 	le16         padding;
+	le32         hw_version;
+	le32         plc_proto_version;
+	struct {
+		le32 part1;
+		le32 part2;
+		le32 part3;
+	}            hw_uid;
+};
+
+struct sky_sink_get_info_rsp {
+	struct sky_rsp_hdr   hdr;
+	le32         fw_version;
 	le32         hw_version;
 	le32         plc_proto_version;
 	struct {

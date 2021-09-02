@@ -17,6 +17,9 @@ Usage:
     skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli sink-info                     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-sink-params              [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli set-sink-param <key> <value>  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
 
 Options:
     --pretty - outputs charging status in pretty human readable format.

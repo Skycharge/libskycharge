@@ -677,6 +677,14 @@ static const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
 	}
 }
 
+static int
+sky_hw1_devparam_value_to_str(enum sky_dev_param param,
+			      const struct sky_dev_params *params,
+			      char *buf, size_t size)
+{
+	return snprintf(buf, size, "%u", params->dev_params[param]);
+}
+
 static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 {
 	switch(param) {
@@ -698,6 +706,35 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 	}
 }
 
+static int
+sky_hw2_devparam_value_to_str(enum sky_dev_param param,
+			      const struct sky_dev_params *params,
+			      char *buf, size_t size)
+{
+	uint32_t v = params->dev_params[param];
+
+	switch(param) {
+	case SKY_HW2_PSU_TYPE:
+		switch (v) {
+		case SKY_PSU_RSP_750_48:
+			return snprintf(buf, size, "0x%02x (RSP-750-48)", v);
+		case SKY_PSU_RSP_1600_48:
+			return snprintf(buf, size, "0x%02x (RSP-1600-48)", v);
+		default:
+			return snprintf(buf, size, "unknown PSU %d", v);
+		}
+	case SKY_HW2_NR_BAD_HEARTBEATS:
+	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
+		return snprintf(buf, size, "%u", v);
+	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+	case SKY_HW2_IGNORE_LOW_VOLTAGE:
+	case SKY_HW2_KEEP_SILENCE:
+		return snprintf(buf, size, v ? "true" : "false");
+	default:
+		return snprintf(buf, size, "unknown param %d", v);
+	}
+}
+
 const char *sky_devparam_to_str(enum sky_dev_type dev_type,
 				enum sky_dev_param param)
 {
@@ -705,6 +742,100 @@ const char *sky_devparam_to_str(enum sky_dev_type dev_type,
 		return sky_hw1_devparam_to_str(param);
 
 	return sky_hw2_devparam_to_str(param);
+}
+
+int sky_devparam_value_to_str(enum sky_dev_type dev_type,
+			      enum sky_dev_param param,
+			      const struct sky_dev_params *params,
+			      char *buf, size_t size)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devparam_value_to_str(param, params, buf, size);
+
+	return sky_hw2_devparam_value_to_str(param, params, buf, size);
+}
+
+const char *sky_sinkparam_to_str(enum sky_sink_param param)
+{
+	switch(param) {
+	case SKY_SINK_CAPABILITIES:
+		return "CAPABILITIES";
+	case SKY_SINK_BATT_TYPE:
+		return "BATT_TYPE";
+	case SKY_SINK_BATT_CAPACITY_MAH:
+		return "BATT_CAPACITY_MAH";
+	case SKY_SINK_BATT_MIN_VOLTAGE_MV:
+		return "BATT_MIN_VOLTAGE_MV";
+	case SKY_SINK_BATT_MAX_VOLTAGE_MV:
+		return "BATT_MAX_VOLTAGE_MV";
+	case SKY_SINK_CHARGING_MAX_CURRENT_MA:
+		return "CHARGING_MAX_CURRENT_MA";
+	case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
+		return "CHARGING_MIN_CURRENT_MA";
+	case SKY_SINK_CUTOFF_TIMEOUT_MS:
+		return "CUTOFF_TIMEOUT_MS";
+	case SKY_SINK_PRECHARGE_CURRENT_COEF:
+		return "PRECHARGE_CURRENT_COEF";
+	case SKY_SINK_PRECHARGE_DELAY_SECS:
+		return "PRECHARGE_DELAY_SECS";
+	case SKY_SINK_PRECHARGE_SECS:
+		return "PRECHARGE_SECS";
+	case SKY_SINK_TOTAL_CHARGE_SECS:
+		return "TOTAL_CHARGE_SECS";
+	case SKY_SINK_USER_DATA1:
+		return "USER_DATA1";
+	case SKY_SINK_USER_DATA2:
+		return "USER_DATA2";
+	case SKY_SINK_USER_DATA3:
+		return "USER_DATA3";
+	case SKY_SINK_USER_DATA4:
+		return "USER_DATA4";
+	default:
+		sky_err("unknown param: %d\n", param);
+		return "UNKNOWN_PARAM";
+	}
+}
+
+int sky_sinkparam_value_to_str(enum sky_sink_param param,
+			       const struct sky_dev_params *params,
+			       char *buf, size_t size)
+{
+	uint32_t v = params->dev_params[param];
+
+	switch(param) {
+	case SKY_SINK_CAPABILITIES:
+		return snprintf(buf, size, "0x%02x (%s)", v,
+				v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
+				"PLC_WHILE_CHARGING" : "NO BITS SET");
+	case SKY_SINK_BATT_TYPE:
+		switch (v) {
+		case SKY_BATT_LIPO:
+			return snprintf(buf, size, "0x%02x (Li-Po)", v);
+		case SKY_BATT_LION:
+			return snprintf(buf, size, "0x%0x (Li-Ion)", v);
+		default:
+			return snprintf(buf, size, "unknown batt %d", v);
+		}
+	case SKY_SINK_BATT_CAPACITY_MAH:
+	case SKY_SINK_BATT_MIN_VOLTAGE_MV:
+	case SKY_SINK_BATT_MAX_VOLTAGE_MV:
+	case SKY_SINK_CHARGING_MAX_CURRENT_MA:
+	case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
+	case SKY_SINK_CUTOFF_TIMEOUT_MS:
+	case SKY_SINK_PRECHARGE_DELAY_SECS:
+	case SKY_SINK_PRECHARGE_SECS:
+	case SKY_SINK_TOTAL_CHARGE_SECS:
+		return snprintf(buf, size, "%u", v);
+	case SKY_SINK_PRECHARGE_CURRENT_COEF:
+		return snprintf(buf, size, "%u%%", v);
+	case SKY_SINK_USER_DATA1:
+	case SKY_SINK_USER_DATA2:
+	case SKY_SINK_USER_DATA3:
+	case SKY_SINK_USER_DATA4:
+		return snprintf(buf, size, "0x%08x", v);
+	default:
+		return snprintf(buf, size, "unknown param %d", v);
+	}
 }
 
 const char *sky_gpsstatus_to_str(enum sky_gps_status status)
@@ -1005,6 +1136,42 @@ int sky_asyncreq_dronedetect(struct sky_async *async,
 	return 0;
 }
 
+int sky_asyncreq_sink_paramsget(struct sky_async *async,
+				struct sky_dev *dev,
+				struct sky_dev_params *params,
+				struct sky_async_req *req)
+{
+	if (!params->dev_params_bits)
+		return -EINVAL;
+
+	sky_asyncreq_init(SKY_SINK_GET_DEV_PARAMS_REQ, dev, params, params, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_paramsset(struct sky_async *async,
+				struct sky_dev *dev,
+				const struct sky_dev_params *params,
+				struct sky_async_req *req)
+{
+	if (!params->dev_params_bits)
+		return -EINVAL;
+
+	sky_asyncreq_init(SKY_SINK_SET_DEV_PARAMS_REQ, dev, params, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_infoget(struct sky_async *async,
+			      struct sky_dev *dev,
+			      struct sky_sink_info *info,
+			      struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_SINK_GET_INFO_REQ, dev, NULL, info, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
 static int sky_asyncexecute_on_stack(struct sky_async *async,
 				     struct sky_async_req *req)
 {
@@ -1230,6 +1397,54 @@ int sky_dronedetect(struct sky_dev *dev, enum sky_drone_status *status)
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
 		rc = sky_asyncreq_dronedetect(async, dev, status, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_paramsget(struct sky_dev *dev, struct sky_dev_params *params)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_paramsget(async, dev, params, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_paramsset(struct sky_dev *dev, const struct sky_dev_params *params)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_paramsset(async, dev, params, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_infoget(struct sky_dev *dev, struct sky_sink_info *info)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_infoget(async, dev, info, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);
