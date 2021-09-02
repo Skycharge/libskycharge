@@ -443,15 +443,6 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 	case SKY_STOP_CHARGE_REQ:
 		rc = skydum_chargestop(req->dev);
 		break;
-	case SKY_PSU_SET_TYPE_REQ:
-		rc = -EOPNOTSUPP;
-		break;
-	case SKY_PSU_SET_VOLTAGE_REQ:
-		rc = -EOPNOTSUPP;
-		break;
-	case SKY_PSU_SET_CURRENT_REQ:
-		rc = -EOPNOTSUPP;
-		break;
 	case SKY_OPEN_DRONEPORT_REQ:
 		rc = skydum_droneport_open(req->dev);
 		break;

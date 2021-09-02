@@ -77,15 +77,6 @@ enum sky_proto_type {
 	SKY_DRONEPORT_STATE_REQ = 25,
 	SKY_DRONEPORT_STATE_RSP = 26,
 
-	SKY_PSU_SET_TYPE_REQ    = 27,
-	SKY_PSU_SET_TYPE_RSP    = 28,
-
-	SKY_PSU_SET_VOLTAGE_REQ = 29,
-	SKY_PSU_SET_VOLTAGE_RSP = 30,
-
-	SKY_PSU_SET_CURRENT_REQ = 31,
-	SKY_PSU_SET_CURRENT_RSP = 32,
-
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -149,20 +140,6 @@ struct sky_set_dev_params_req {
 	struct sky_req_hdr hdr;
 	le32 dev_params_bits;
 	le32 dev_params[];
-};
-
-struct sky_psu_req {
-	struct sky_req_hdr hdr;
-	le16 data;
-	le16 notused1;
-	le16 notused2;
-};
-
-struct sky_psu_rsp {
-	struct sky_req_hdr hdr;
-	le16 data;
-	le16 notused1;
-	le16 notused2;
 };
 
 /*
