@@ -14,50 +14,13 @@
 #include "libskydp.h"
 #include "types.h"
 #include "crc8.h"
+#include "hw1-pri.h"
+#include "hw2-pri.h"
 
 /* XXX remove ASAP */
 #define SKY_HW2_PSU_SET_TYPE_CMD 0
 #define SKY_HW2_PSU_SET_VOLTAGE_CMD 0
 #define SKY_HW2_PSU_SET_CURRENT_CMD 0
-
-enum sky_hw1_serial_cmd {
-	SKY_HW1_RESET_CMD              = 0x01,
-	SKY_HW1_SAVE_DATA_TO_EEP_CMD   = 0x02,
-	SKY_HW1_READ_DATA_FROM_EEP_CMD = 0x03,
-	SKY_HW1_AUTOMATIC_SCAN_CMD     = 0x04,
-	SKY_HW1_SET_PARAMETER_CMD      = 0x05,
-	SKY_HW1_GET_PARAMETER_CMD      = 0x06,
-	SKY_HW1_GET_STATUS_CMD         = 0x07,
-	SKY_HW1_GET_CURRENT_CMD        = 0x08,
-	SKY_HW1_GET_VOLTAGE_CMD        = 0x09,
-	SKY_HW1_COUPLE_SCAN_CMD        = 0x0a,
-	SKY_HW1_COUPLE_ACTIVATE_CMD    = 0x0b,
-	SKY_HW1_COUPLE_DEACTIVATE_CMD  = 0x0c,
-	SKY_HW1_FIRMWARE_VERSION_CMD   = 0x0d,
-
-	SKY_HW1_ERROR                  = 0xfd,
-};
-
-enum sky_hw2_serial_cmd {
-	SKY_HW2_RESET_CMD                      = 0x00,
-	SKY_HW2_STOP_CMD                       = 0x01,
-	SKY_HW2_PASSTHRU_CMD                   = 0x02,
-	SKY_HW2_RESUME_CMD                     = 0x03,
-	SKY_HW2_SEND_PASSTHRU_DATA_CMD         = 0x04,
-	SKY_HW2_GET_CHARGING_STATE_CMD         = 0x05,
-	SKY_HW2_GET_MUX_INFO_CMD               = 0x06,
-	SKY_HW2_GET_MUX_SETTINGS_CMD           = 0x07,
-	SKY_HW2_SET_MUX_SETTINGS_CMD           = 0x08,
-	SKY_HW2_GET_SINK_INFO_CMD              = 0x09,
-	SKY_HW2_GET_SINK_CHARGING_SETTINGS_CMD = 0x0a,
-	SKY_HW2_SET_SINK_CHARGING_SETTINGS_CMD = 0x0b,
-
-	/*
-	 * Types of messages from mux
-	 */
-	SKY_HW2_SYNC_RESPONSE_CMD              = 0x80, /* response on each sync command */
-	SKY_HW2_ASYNC_PASSTHRU_DATA_CMD        = 0x81, /* async passthru data */
-};
 
 enum {
 	TO_BUF   = 0,
