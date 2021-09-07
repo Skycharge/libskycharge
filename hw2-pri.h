@@ -35,8 +35,12 @@ enum sky_hw2_serial_cmd {
 	/*
 	 * Types of messages from mux
 	 */
-	SKY_HW2_SYNC_RESPONSE_CMD              = 0x80, /* response on each sync command */
-	SKY_HW2_ASYNC_PASSTHRU_DATA_CMD        = 0x81, /* async passthru data */
+	SKY_HW2_SYNC_RESPONSE_CMD              = 0x00, /* response on each sync command */
+	SKY_HW2_ASYNC_PASSTHRU_DATA_CMD        = 0x01, /* async passthru data */
+
+	SKY_HW2_MAX_RESP_CMD                   = 0x10  /* Due to the fact that we have
+							* only 4 lsb for type, other
+							* 4 are used for errno. */
 };
 
 struct sky_hw2_mux_settings {
