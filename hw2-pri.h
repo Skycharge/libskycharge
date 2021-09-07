@@ -1,6 +1,23 @@
 #ifndef HW2_PRI_H
 #define HW2_PRI_H
 
+enum sky_hw2_errno {
+	SKY_HW2_SUCCESS    = 0,
+	SKY_HW2_EINVAL     = 1,
+	SKY_HW2_ETIMEDOUT  = 2,
+	SKY_HW2_EOPNOTSUPP = 3,
+	SKY_HW2_EPROTO     = 4,
+	SKY_HW2_EOVERFLOW  = 5,
+	SKY_HW2_ECRC       = 6,
+	SKY_HW2_EINTR      = 7,
+	SKY_HW2_EBUSY      = 8,
+	SKY_HW2_ENOLINK    = 9,
+
+
+	SKY_MAX_ERRNO  = 16 /* Due to the uart response type,
+			     * which embeds 4 bits for errno */
+};
+
 enum sky_hw2_serial_cmd {
 	SKY_HW2_RESET_CMD                      = 0x00,
 	SKY_HW2_STOP_CMD                       = 0x01,
@@ -64,5 +81,35 @@ struct sky_hw2_charging_settings {
 				     * stops when time elapses */
 	uint8_t  user_data[16];
 };
+
+
+static inline int skyerrno_to_errno(enum sky_hw2_errno err)
+{
+	switch (err) {
+	case SKY_HW2_SUCCESS:
+		return 0;
+	case SKY_HW2_EINVAL:
+		return EINVAL;
+	case SKY_HW2_ETIMEDOUT:
+		return ETIMEDOUT;
+	case SKY_HW2_EOPNOTSUPP:
+		return EOPNOTSUPP;
+	case SKY_HW2_EPROTO:
+		return EPROTO;
+	case SKY_HW2_EOVERFLOW:
+		return EOVERFLOW;
+	case SKY_HW2_ECRC:
+		return EILSEQ;
+	case SKY_HW2_EINTR:
+		return EINTR;
+	case SKY_HW2_EBUSY:
+		return EBUSY;
+	case SKY_HW2_ENOLINK:
+		return ENOLINK;
+	default:
+		sky_err("Unknown error %d\n", err);
+		return 0;
+	}
+}
 
 #endif /* HW2_PRI_H */
