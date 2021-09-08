@@ -48,7 +48,7 @@ struct skyserial_desc {
 	void (*fill_cmd_hdr)(uint8_t *cmd_buf, uint8_t len, uint8_t cmd);
 	bool (*is_valid_rsp_hdr)(const uint8_t *rsp_buf, uint8_t len, uint8_t cmd,
 				 bool only_magic, int *rc);
-	size_t (*get_rsp_len)(const uint8_t *rsp_buf);
+	uint8_t (*get_rsp_len)(const uint8_t *rsp_buf);
 	bool (*check_crc)(const uint8_t *rsp_buf);
 };
 
@@ -359,7 +359,7 @@ static bool hw1_sky_is_valid_rsp_hdr(const uint8_t *rsp_buf, uint8_t len,
 	return (rsp_buf[0] == 0x55 && rsp_buf[1] == len && rsp_buf[2] == cmd);
 }
 
-static size_t hw1_sky_get_rsp_len(const uint8_t *rsp_buf)
+static uint8_t hw1_sky_get_rsp_len(const uint8_t *rsp_buf)
 {
 	/* Without header */
 	return rsp_buf[1] - 4;
@@ -580,7 +580,7 @@ static bool hw2_sky_is_valid_rsp_hdr(const uint8_t *rsp_buf, uint8_t len,
 	return (rsp_buf[0] == 0x42 && type == SKY_HW2_SYNC_RESPONSE_CMD);
 }
 
-static size_t hw2_sky_get_rsp_len(const uint8_t *rsp_buf)
+static uint8_t hw2_sky_get_rsp_len(const uint8_t *rsp_buf)
 {
 	return rsp_buf[2];
 }
