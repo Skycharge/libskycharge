@@ -516,19 +516,32 @@ int main(int argc, char *argv[])
 			}
 			exit(-1);
 		}
-
-		params.dev_params_bits = (1 << i);
-		params.dev_params[i] = strtol(cli.value, NULL, 10);
-		if (cli.setdevparam)
+		if (cli.setdevparam) {
+			rc = sky_devparam_value_from_str(cli.value,
+							 devdesc->dev_type,
+							 i, &params);
+			if (rc) {
+				sky_err("Can't parse value '%s' for param %s\n",
+					cli.value, cli.key);
+				exit(-1);
+			}
 			rc = sky_paramsset(dev, &params);
-		else
-			rc = sky_sink_paramsset(dev, &params);
-		if (rc) {
-			if (cli.setdevparam)
+			if (rc) {
 				sky_err("sky_paramsset(): %s\n", strerror(-rc));
-			else
+				exit(-1);
+			}
+		} else {
+			rc = sky_sinkparam_value_from_str(cli.value, i, &params);
+			if (rc) {
+				sky_err("Can't parse value '%s' for param %s\n",
+					cli.value, cli.key);
+				exit(-1);
+			}
+			rc = sky_sink_paramsset(dev, &params);
+			if (rc) {
 				sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
-			exit(-1);
+				exit(-1);
+			}
 		}
 
 	} else if (cli.startcharge) {
