@@ -332,7 +332,7 @@ static enum sp_return bms_btle_request_peer(struct sp_port *port,
 	memset(data, 0, sizeof(*data));
 	data->charge_volt = be32toh(bms_btle_data.charge_volt);
 	data->charge_perc = be16toh(bms_btle_data.charge_perc);
-	data->charge_perc = min(data->charge_perc, 100);
+	data->charge_perc = min(data->charge_perc, (uint16_t)100);
 
 	return 1;
 }
