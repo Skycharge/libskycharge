@@ -1767,7 +1767,7 @@ static void *subscription_work(void *data)
 		rc = get_devops(dev)->subscription_work(dev, &state);
 		ms = msecs_epoch() - ms;
 
-		if (rc < 0 && dev->devdesc.conf.contype == SKY_LOCAL) {
+		if (rc == -EBADF && dev->devdesc.conf.contype == SKY_LOCAL) {
 			/*
 			 * We exit the loop only in case of a fatal error for the
 			 * local connection, i.e. when MUX returns an error ("bad file
