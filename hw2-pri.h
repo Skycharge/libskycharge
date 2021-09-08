@@ -43,15 +43,39 @@ enum sky_hw2_serial_cmd {
 							* 4 are used for errno. */
 };
 
+enum sky_hw2_mux_settings_bits {
+	SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS_BIT = 1<<0,
+	SKY_HW2_IGNORE_LOW_VOLTAGE_BIT             = 1<<1,
+	SKY_HW2_KEEP_SILENCE_BIT                   = 1<<2,
+	SKY_HW2_USE_FIXED_V_I_BIT                  = 1<<3,
+};
+
+struct calib_point {
+	uint16_t set;
+	uint16_t read;
+};
+
 struct sky_hw2_mux_settings {
-	uint8_t psu_type;
-	uint8_t nr_bad_heartbeats; /* 0 - ignore bad heartbeats */
-	uint8_t ignore_inval_charging_settings;
-	uint8_t ignore_low_voltage;
-	uint8_t error_indication_timeout_secs; /* 0 - don't indicate errors */
-	uint8_t keep_silence; /* don't beep, never ever! */
-	uint8_t padding[2];
-	float   current_sense_calibration;
+	struct {
+		struct calib_point voltage_p1_mV;
+		struct calib_point voltage_p2_mV;
+		struct calib_point current_p1_mA;
+		struct calib_point current_p2_mA;
+	}        sense_calib;
+	struct {
+		struct calib_point voltage_p1_mV;
+		struct calib_point voltage_p2_mV;
+		struct calib_point current_p1_mA;
+		struct calib_point current_p2_mA;
+	}        psu_calib;
+
+	uint16_t bool_settings;
+	uint16_t psu_fixed_voltage_mV;
+	uint16_t psu_fixed_current_mA;
+	uint8_t  psu_type;
+	uint8_t  nr_bad_heartbeats; /* 0 - ignore bad heartbeats */
+	uint8_t  error_indication_timeout_secs; /* 0 - don't indicate errors */
+	uint8_t  padding;
 };
 
 /*

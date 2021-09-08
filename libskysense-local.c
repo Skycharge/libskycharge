@@ -641,29 +641,81 @@ static int hw2_sky_get_params(struct skyloc_dev *dev,
 			continue;
 
 		switch (p) {
+		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+			params->dev_params[p] =
+				settings.bool_settings & SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS_BIT;
+			break;
+		case SKY_HW2_IGNORE_LOW_VOLTAGE:
+			params->dev_params[p] =
+				settings.bool_settings & SKY_HW2_IGNORE_LOW_VOLTAGE_BIT;
+			break;
+		case SKY_HW2_KEEP_SILENCE:
+			params->dev_params[p] =
+				settings.bool_settings & SKY_HW2_KEEP_SILENCE_BIT;
+			break;
+		case SKY_HW2_USE_FIXED_V_I:
+			params->dev_params[p] =
+				settings.bool_settings & SKY_HW2_USE_FIXED_V_I_BIT;
+			break;
 		case SKY_HW2_PSU_TYPE:
 			params->dev_params[p] =
 				settings.psu_type;
+			break;
+		case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
+			params->dev_params[p] =
+				settings.psu_fixed_voltage_mV;
+			break;
+		case SKY_HW2_PSU_FIXED_CURRENT_MA:
+			params->dev_params[p] =
+				settings.psu_fixed_current_mA;
 			break;
 		case SKY_HW2_NR_BAD_HEARTBEATS:
 			params->dev_params[p] =
 				settings.nr_bad_heartbeats;
 			break;
-		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
-			params->dev_params[p] =
-				settings.ignore_inval_charging_settings;
-			break;
-		case SKY_HW2_IGNORE_LOW_VOLTAGE:
-			params->dev_params[p] =
-				settings.ignore_low_voltage;
-			break;
 		case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 			params->dev_params[p] =
 				settings.error_indication_timeout_secs;
 			break;
-		case SKY_HW2_KEEP_SILENCE:
+		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 			params->dev_params[p] =
-				settings.keep_silence;
+				calib_point_to_uint32(settings.sense_calib.voltage_p1_mV.set,
+						      settings.sense_calib.voltage_p1_mV.read);
+			break;
+		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.sense_calib.voltage_p2_mV.set,
+						      settings.sense_calib.voltage_p2_mV.read);
+			break;
+		case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.sense_calib.current_p1_mA.set,
+						      settings.sense_calib.current_p1_mA.read);
+			break;
+		case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.sense_calib.current_p2_mA.set,
+						      settings.sense_calib.current_p2_mA.read);
+			break;
+		case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.psu_calib.voltage_p1_mV.set,
+						      settings.psu_calib.voltage_p1_mV.read);
+			break;
+		case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.psu_calib.voltage_p2_mV.set,
+						      settings.psu_calib.voltage_p2_mV.read);
+			break;
+		case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.psu_calib.current_p1_mA.set,
+						      settings.psu_calib.current_p1_mA.read);
+			break;
+		case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA:
+			params->dev_params[p] =
+				calib_point_to_uint32(settings.psu_calib.current_p2_mA.set,
+						      settings.psu_calib.current_p2_mA.read);
 			break;
 		}
 	}
@@ -675,6 +727,7 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 			      const struct sky_dev_params *params)
 {
 	struct sky_hw2_mux_settings settings;
+	enum sky_hw2_mux_settings_bits bit;
 	int p, rc;
 
 	/* First retreive settings */
@@ -691,29 +744,93 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 			continue;
 
 		switch (p) {
+		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+			bit = SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS_BIT;
+			if (params->dev_params[p])
+				settings.bool_settings |= bit;
+			else
+				settings.bool_settings &= ~bit;
+			break;
+		case SKY_HW2_IGNORE_LOW_VOLTAGE:
+			bit = SKY_HW2_IGNORE_LOW_VOLTAGE_BIT;
+			if (params->dev_params[p])
+				settings.bool_settings |= bit;
+			else
+				settings.bool_settings &= ~bit;
+			break;
+		case SKY_HW2_KEEP_SILENCE:
+			bit = SKY_HW2_KEEP_SILENCE_BIT;
+			if (params->dev_params[p])
+				settings.bool_settings |= bit;
+			else
+				settings.bool_settings &= ~bit;
+			break;
+		case SKY_HW2_USE_FIXED_V_I:
+			bit = SKY_HW2_USE_FIXED_V_I_BIT;
+			if (params->dev_params[p])
+				settings.bool_settings |= bit;
+			else
+				settings.bool_settings &= ~bit;
+			break;
 		case SKY_HW2_PSU_TYPE:
 			settings.psu_type =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
+			settings.psu_fixed_voltage_mV =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_PSU_FIXED_CURRENT_MA:
+			settings.psu_fixed_current_mA =
 				params->dev_params[p];
 			break;
 		case SKY_HW2_NR_BAD_HEARTBEATS:
 			settings.nr_bad_heartbeats =
 				params->dev_params[p];
 			break;
-		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
-			settings.ignore_inval_charging_settings =
-				params->dev_params[p];
-			break;
-		case SKY_HW2_IGNORE_LOW_VOLTAGE:
-			settings.ignore_low_voltage =
-				params->dev_params[p];
-			break;
 		case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 			settings.error_indication_timeout_secs =
 				params->dev_params[p];
 			break;
-		case SKY_HW2_KEEP_SILENCE:
-			settings.keep_silence =
-				params->dev_params[p];
+		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.sense_calib.voltage_p1_mV.set,
+					      &settings.sense_calib.voltage_p1_mV.read);
+			break;
+		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.sense_calib.voltage_p2_mV.set,
+					      &settings.sense_calib.voltage_p2_mV.read);
+			break;
+		case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.sense_calib.current_p1_mA.set,
+					      &settings.sense_calib.current_p1_mA.read);
+			break;
+		case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.sense_calib.current_p2_mA.set,
+					      &settings.sense_calib.current_p2_mA.read);
+			break;
+		case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.psu_calib.voltage_p1_mV.set,
+					      &settings.psu_calib.voltage_p1_mV.read);
+			break;
+		case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.psu_calib.voltage_p2_mV.set,
+					      &settings.psu_calib.voltage_p2_mV.read);
+			break;
+		case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.psu_calib.current_p1_mA.set,
+					      &settings.psu_calib.current_p1_mA.read);
+			break;
+		case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA:
+			uint32_to_calib_point(params->dev_params[p],
+					      &settings.psu_calib.current_p2_mA.set,
+					      &settings.psu_calib.current_p2_mA.read);
 			break;
 		}
 	}

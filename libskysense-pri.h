@@ -49,6 +49,19 @@ struct sky_async {
 
 extern void __sky_register_devops(struct sky_dev_ops *ops);
 
+static inline void
+uint32_to_calib_point(uint32_t v, uint16_t *set, uint16_t *read)
+{
+	*set  = (v >> 16);
+	*read = (v & 0xffff);
+}
+
+static inline uint32_t
+calib_point_to_uint32(uint16_t set, uint16_t read)
+{
+	return (uint32_t)set << 16 | read;
+}
+
 static inline unsigned long long msecs_epoch(void)
 {
 	struct timespec ts;

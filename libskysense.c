@@ -220,7 +220,65 @@ static int parse_bool(const char *str, unsigned int *val)
 		 !strcasecmp(str, "1"))
 		*val = 1;
 	else
-		return -ENODATA;
+		return -EINVAL;
+
+	return 0;
+}
+
+static int parse_integer(const char *str, unsigned int *val)
+{
+	int rc;
+
+	rc = sscanf(str, "0x%x", val);
+	if (rc == 0)
+		rc = sscanf(str, "%u", val);
+
+	return (rc == 0 ? -EINVAL : 0);
+}
+
+static int parse_psu_type(const char *str, enum sky_psu_type *psu_type)
+{
+	if (0 == strcasecmp(str, "rsp-750-48") ||
+	    0 == strcasecmp(str, "rsp750-48") ||
+	    0 == strcasecmp(str, "rsp-750") ||
+	    0 == strcasecmp(str, "rsp750"))
+		*psu_type = SKY_PSU_RSP_750_48;
+	else if (0 == strcasecmp(str, "rsp-1600-48") ||
+		 0 == strcasecmp(str, "rsp1600-48") ||
+		 0 == strcasecmp(str, "rsp-1600") ||
+		 0 == strcasecmp(str, "rsp1600"))
+		*psu_type = SKY_PSU_RSP_1600_48;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int parse_batt_type(const char *str, enum sky_batt_type *batt_type)
+{
+	if (0 == strcasecmp(str, "li-po") ||
+	    0 == strcasecmp(str, "lipo"))
+		*batt_type = SKY_BATT_LIPO;
+	else if (0 == strcasecmp(str, "li-ion") ||
+		 0 == strcasecmp(str, "liion") ||
+		 0 == strcasecmp(str, "lion"))
+		*batt_type = SKY_BATT_LION;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
+static int parse_calib_point(const char *str, uint32_t *v)
+{
+	uint16_t set, read;
+	int rc;
+
+	rc = sscanf(str, "%hu:%hu", &set, &read);
+	if (rc != 2)
+		return -EINVAL;
+
+	*v = calib_point_to_uint32(set, read);
 
 	return 0;
 }
@@ -387,13 +445,8 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		enum sky_psu_type psu_type;
 		unsigned p;
 
-		if (0 == strcasecmp(str + 17, "rsp-750-48") ||
-		    0 == strcasecmp(str + 17, "rsp750-48"))
-			psu_type = SKY_PSU_RSP_750_48;
-		else if (0 == strcasecmp(str + 9, "rsp-1600-48") ||
-			 0 == strcasecmp(str + 9, "rsp1600-48"))
-			psu_type = SKY_PSU_RSP_1600_48;
-		else
+		rc = parse_psu_type(str + 17, &psu_type);
+		if (rc)
 			return -ENODATA;
 
 		p = SKY_HW2_PSU_TYPE;
@@ -411,7 +464,7 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		unsigned p = SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS;
 		rc = parse_bool(str + 39, &cfg->mux_hw2_params.dev_params[p]);
 		if (rc)
-			return rc;
+			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
 	} else if ((str = strstr(line, "mux-hw2-ignore-low-voltage="))) {
@@ -441,14 +494,12 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	 */
 
 	else if ((str = strstr(line, "psu-type="))) {
-		if (0 == strcasecmp(str + 9, "rsp-750-48") ||
-		    0 == strcasecmp(str + 9, "rsp750-48"))
-			cfg->psu.type = SKY_PSU_RSP_750_48;
-		/* TODO not yet supported! */
-		/* else if (0 == strcasecmp(str + 9, "rsp-1600-48") || */
-		/* 	 0 == strcasecmp(str + 9, "rsp1600-48")) */
-		/* 	cfg->psu.type = SKY_PSU_RSP_1600_48; */
-		else
+		rc = parse_psu_type(str + 9, &cfg->psu.type);
+		if (rc)
+			return -ENODATA;
+
+		if (cfg->psu.type == SKY_PSU_RSP_1600_48)
+			/* Not supported */
 			return -ENODATA;
 
 	} else if ((str = strstr(line, "psu-voltage="))) {
@@ -682,7 +733,30 @@ sky_hw1_devparam_value_to_str(enum sky_dev_param param,
 			      const struct sky_dev_params *params,
 			      char *buf, size_t size)
 {
+	if (param >= SKY_HW1_NUM_DEVPARAM)
+		return -EINVAL;
+
 	return snprintf(buf, size, "%u", params->dev_params[param]);
+}
+
+static int sky_hw1_devparam_value_from_str(const char *str,
+					   enum sky_dev_param param,
+					   struct sky_dev_params *params)
+{
+	unsigned int v;
+	int rc;
+
+	if (param >= SKY_HW1_NUM_DEVPARAM)
+		return -EINVAL;
+
+	rc = parse_integer(str, &v);
+	if (rc)
+		return -EINVAL;
+
+	params->dev_params_bits = (1 << param);
+	params->dev_params[param] = v;
+
+	return 0;
 }
 
 static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
@@ -690,6 +764,10 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 	switch(param) {
 	case SKY_HW2_PSU_TYPE:
 		return "PSU_TYPE";
+	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
+		return "PSU_FIXED_VOLTAGE_MV";
+	case SKY_HW2_PSU_FIXED_CURRENT_MA:
+		return "PSU_FIXED_CURRENT_MA";
 	case SKY_HW2_NR_BAD_HEARTBEATS:
 		return "NR_BAD_HEARTBEATS";
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
@@ -700,6 +778,24 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 		return "ERROR_INDICATION_TIMEOUT_SECS";
 	case SKY_HW2_KEEP_SILENCE:
 		return "KEEP_SILENCE";
+	case SKY_HW2_USE_FIXED_V_I:
+		return "PSU_USE_FIXED_V_I";
+	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
+		return "SENSE_VOLTAGE_CALIB_POINT1_MV";
+	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
+		return "SENSE_VOLTAGE_CALIB_POINT2_MV";
+	case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
+		return "SENSE_CURRENT_CALIB_POINT1_MA";
+	case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
+		return "SENSE_CURRENT_CALIB_POINT2_MA";
+	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
+		return "PSU_VOLTAGE_CALIB_POINT1_MV";
+	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
+		return "PSU_VOLTAGE_CALIB_POINT2_MV";
+	case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
+		return "PSU_CURRENT_CALIB_POINT1_MA";
+	case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA:
+		return "PSU_CURRENT_CALIB_POINT2_MA";
 	default:
 		sky_err("unknown param: %d\n", param);
 		return "UNKNOWN_PARAM";
@@ -711,8 +807,12 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 			      const struct sky_dev_params *params,
 			      char *buf, size_t size)
 {
-	uint32_t v = params->dev_params[param];
+	uint32_t v;
 
+	if (param >= SKY_HW2_NUM_DEVPARAM)
+		return -EINVAL;
+
+	v = params->dev_params[param];
 	switch(param) {
 	case SKY_HW2_PSU_TYPE:
 		switch (v) {
@@ -725,14 +825,91 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 		}
 	case SKY_HW2_NR_BAD_HEARTBEATS:
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
+	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
+	case SKY_HW2_PSU_FIXED_CURRENT_MA:
 		return snprintf(buf, size, "%u", v);
+	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
+	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
+	case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
+	case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
+	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
+	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
+	case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
+	case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA: {
+		uint16_t set, read;
+
+		uint32_to_calib_point(v, &set, &read);
+		return snprintf(buf, size, "%5u:%u", set, read);
+	}
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
 	case SKY_HW2_IGNORE_LOW_VOLTAGE:
 	case SKY_HW2_KEEP_SILENCE:
+	case SKY_HW2_USE_FIXED_V_I:
 		return snprintf(buf, size, v ? "true" : "false");
 	default:
 		return snprintf(buf, size, "unknown param %d", v);
 	}
+}
+
+static int sky_hw2_devparam_value_from_str(const char *str,
+					   enum sky_dev_param param,
+					   struct sky_dev_params *params)
+{
+	unsigned int v = 0;
+	int rc = 0;
+
+	if (param >= SKY_HW2_NUM_DEVPARAM)
+		return -EINVAL;
+
+	switch(param) {
+	case SKY_HW2_PSU_TYPE: {
+		enum sky_psu_type psu_type;
+
+		if (parse_psu_type(str, &psu_type)) {
+			if (parse_integer(str, &v))
+				return -EINVAL;
+			if (v != SKY_PSU_RSP_750_48 &&
+			    v != SKY_PSU_RSP_1600_48)
+				return -EINVAL;
+		} else {
+			v = psu_type;
+		}
+		break;
+	}
+	case SKY_HW2_NR_BAD_HEARTBEATS:
+	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
+	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
+	case SKY_HW2_PSU_FIXED_CURRENT_MA:
+		rc = parse_integer(str, &v);
+		break;
+	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
+	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
+	case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
+	case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
+	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
+	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
+	case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
+	case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA: {
+		rc = parse_calib_point(str, &v);
+		break;
+	}
+	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
+	case SKY_HW2_IGNORE_LOW_VOLTAGE:
+	case SKY_HW2_KEEP_SILENCE:
+	case SKY_HW2_USE_FIXED_V_I:
+		rc = parse_bool(str, &v);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (rc)
+		return -EINVAL;
+
+	params->dev_params_bits = (1 << param);
+	params->dev_params[param] = v;
+
+	return 0;
 }
 
 const char *sky_devparam_to_str(enum sky_dev_type dev_type,
@@ -753,6 +930,17 @@ int sky_devparam_value_to_str(enum sky_dev_type dev_type,
 		return sky_hw1_devparam_value_to_str(param, params, buf, size);
 
 	return sky_hw2_devparam_value_to_str(param, params, buf, size);
+}
+
+int sky_devparam_value_from_str(const char *str,
+				enum sky_dev_type dev_type,
+				enum sky_dev_param param,
+				struct sky_dev_params *params)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devparam_value_from_str(str, param, params);
+
+	return sky_hw2_devparam_value_from_str(str, param, params);
 }
 
 const char *sky_sinkparam_to_str(enum sky_sink_param param)
@@ -800,8 +988,12 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 			       const struct sky_dev_params *params,
 			       char *buf, size_t size)
 {
-	uint32_t v = params->dev_params[param];
+	uint32_t v;
 
+	if (param >= SKY_SINK_NUM_DEVPARAM)
+		return -EINVAL;
+
+	v = params->dev_params[param];
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
 		return snprintf(buf, size, "0x%02x (%s)", v,
@@ -836,6 +1028,74 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	default:
 		return snprintf(buf, size, "unknown param %d", v);
 	}
+}
+
+int sky_sinkparam_value_from_str(const char *str,
+				 enum sky_sink_param param,
+				 struct sky_dev_params *params)
+{
+	unsigned int v = 0;
+	int rc = 0;
+
+	if (param >= SKY_SINK_NUM_DEVPARAM)
+		return -EINVAL;
+
+	switch(param) {
+	case SKY_SINK_CAPABILITIES:
+		if (0 == strcasecmp(str, "PLC_WHILE_CHARGING")) {
+			v |= (1 << SKY_CAP_PLC_WHILE_CHARGING);
+		} else {
+			if (parse_integer(str, &v))
+				return -EINVAL;
+			if (v & ~(1 << SKY_CAP_PLC_WHILE_CHARGING))
+				return -EINVAL;
+		}
+		break;
+	case SKY_SINK_BATT_TYPE: {
+		enum sky_batt_type batt_type;
+
+		if (parse_batt_type(str, &batt_type)) {
+			if (parse_integer(str, &v))
+				return -EINVAL;
+			if (v != SKY_BATT_LIPO &&
+			    v != SKY_BATT_LION)
+				return -EINVAL;
+		} else {
+			v = batt_type;
+		}
+		break;
+	}
+	case SKY_SINK_BATT_CAPACITY_MAH:
+	case SKY_SINK_BATT_MIN_VOLTAGE_MV:
+	case SKY_SINK_BATT_MAX_VOLTAGE_MV:
+	case SKY_SINK_CHARGING_MAX_CURRENT_MA:
+	case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
+	case SKY_SINK_CUTOFF_TIMEOUT_MS:
+	case SKY_SINK_PRECHARGE_DELAY_SECS:
+	case SKY_SINK_PRECHARGE_SECS:
+	case SKY_SINK_TOTAL_CHARGE_SECS:
+	case SKY_SINK_USER_DATA1:
+	case SKY_SINK_USER_DATA2:
+	case SKY_SINK_USER_DATA3:
+	case SKY_SINK_USER_DATA4:
+		rc = parse_integer(str, &v);
+		break;
+	case SKY_SINK_PRECHARGE_CURRENT_COEF:
+		rc = parse_integer(str, &v);
+		if (!rc)
+			v = clamp_val(v, 0, 100);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (rc)
+		return -EINVAL;
+
+	params->dev_params_bits = (1 << param);
+	params->dev_params[param] = v;
+
+	return 0;
 }
 
 const char *sky_gpsstatus_to_str(enum sky_gps_status status)

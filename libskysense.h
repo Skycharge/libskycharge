@@ -117,12 +117,24 @@ enum sky_dev_param {
 	SKY_HW1_NUM_DEVPARAM, /* Should be the last for HW1 */
 
 	/* HW2 */
-	SKY_HW2_PSU_TYPE                        = 0,
-	SKY_HW2_NR_BAD_HEARTBEATS               = 1,
-	SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS  = 2,
-	SKY_HW2_IGNORE_LOW_VOLTAGE              = 3,
-	SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS   = 4,
-	SKY_HW2_KEEP_SILENCE                    = 5,
+	SKY_HW2_PSU_TYPE                         = 0,
+	SKY_HW2_PSU_FIXED_VOLTAGE_MV             = 1,
+	SKY_HW2_PSU_FIXED_CURRENT_MA             = 2,
+	SKY_HW2_NR_BAD_HEARTBEATS                = 3,
+	SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS   = 4,
+	SKY_HW2_IGNORE_LOW_VOLTAGE               = 5,
+	SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS    = 6,
+	SKY_HW2_KEEP_SILENCE                     = 7,
+	SKY_HW2_USE_FIXED_V_I                    = 8,
+
+	SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV    = 9,
+	SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV    = 10,
+	SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA    = 11,
+	SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA    = 12,
+	SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV      = 13,
+	SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV      = 14,
+	SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA      = 15,
+	SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA      = 16,
 
 	SKY_HW2_NUM_DEVPARAM, /* Should be the last for HW2 */
 };
@@ -474,6 +486,14 @@ int sky_devparam_value_to_str(enum sky_dev_type dev_type,
 			      char *buf, size_t size);
 
 /**
+ * Fill in the param with the value parsed from a string.
+ */
+int sky_devparam_value_from_str(const char *str,
+				enum sky_dev_type dev_type,
+				enum sky_dev_param param,
+				struct sky_dev_params *params);
+
+/**
  * Returns string representation of the sink param.
  */
 const char *sky_sinkparam_to_str(enum sky_sink_param param);
@@ -485,6 +505,13 @@ const char *sky_sinkparam_to_str(enum sky_sink_param param);
 int sky_sinkparam_value_to_str(enum sky_sink_param param,
 			       const struct sky_dev_params *params,
 			       char *buf, size_t size);
+
+/**
+ * Fill in the param with the value parsed from a string.
+ */
+int sky_sinkparam_value_from_str(const char *str,
+				 enum sky_sink_param param,
+				 struct sky_dev_params *params);
 
 /**
  * Returns string representation of the GPS status.
