@@ -453,6 +453,30 @@ static int parse_line(char *line, struct sky_conf *cfg)
 		cfg->mux_hw2_params.dev_params[p] = psu_type;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
 
+	} else if ((str = strstr(line, "mux-hw2-psu-fixed-voltage="))) {
+		float voltage;
+		unsigned p;
+
+		rc = sscanf(str + 26, "%f", &voltage);
+		if (rc != 1)
+			return -ENODATA;
+
+		p = SKY_HW2_PSU_FIXED_VOLTAGE_MV;
+		cfg->mux_hw2_params.dev_params[p] = voltage * 1e3f;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-psu-fixed-current="))) {
+		float current;
+		unsigned p;
+
+		rc = sscanf(str + 26, "%f", &current);
+		if (rc != 1)
+			return -ENODATA;
+
+		p = SKY_HW2_PSU_FIXED_CURRENT_MA;
+		cfg->mux_hw2_params.dev_params[p] = current * 1e3f;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
 	} else if ((str = strstr(line, "mux-hw2-nr-bad-heartbeats="))) {
 		unsigned p = SKY_HW2_NR_BAD_HEARTBEATS;
 		rc = sscanf(str + 26, "%u", &cfg->mux_hw2_params.dev_params[p]);
@@ -484,6 +508,69 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	} else if ((str = strstr(line, "mux-hw2-keep-silence="))) {
 		unsigned p = SKY_HW2_KEEP_SILENCE;
 		rc = parse_bool(str + 21, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-use-fixed-v-i="))) {
+		unsigned p = SKY_HW2_USE_FIXED_V_I;
+		rc = parse_bool(str + 22, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-sense-voltage-calib-point1-mv="))) {
+		unsigned p = SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV;
+		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-sense-voltage-calib-point2-mv="))) {
+		unsigned p = SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV;
+		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-sense-current-calib-point1-ma="))) {
+		unsigned p = SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA;
+		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-sense-current-calib-point2-ma="))) {
+		unsigned p = SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA;
+		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-psu-voltage-calib-point1-mv="))) {
+		unsigned p = SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV;
+		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-psu-voltage-calib-point2-mv="))) {
+		unsigned p = SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV;
+		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-psu-current-calib-point1-ma="))) {
+		unsigned p = SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA;
+		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-psu-current-calib-point2-ma="))) {
+		unsigned p = SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA;
+		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
 		if (rc)
 			return -ENODATA;
 		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
