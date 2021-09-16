@@ -491,8 +491,8 @@ static int parse_line(char *line, struct sky_conf *cfg)
 			return -ENODATA;
 		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
 
-	} else if ((str = strstr(line, "mux-hw2-ignore-low-voltage="))) {
-		unsigned p = SKY_HW2_IGNORE_LOW_VOLTAGE;
+	} else if ((str = strstr(line, "mux-hw2-ignore-low-batt-voltage="))) {
+		unsigned p = SKY_HW2_IGNORE_LOW_BATT_VOLTAGE;
 		rc = parse_bool(str + 27, &cfg->mux_hw2_params.dev_params[p]);
 		if (rc)
 			return -ENODATA;
@@ -515,6 +515,13 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	} else if ((str = strstr(line, "mux-hw2-use-fixed-v-i="))) {
 		unsigned p = SKY_HW2_USE_FIXED_V_I;
 		rc = parse_bool(str + 22, &cfg->mux_hw2_params.dev_params[p]);
+		if (rc)
+			return -ENODATA;
+		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+
+	} else if ((str = strstr(line, "mux-hw2-ignore-reverse-current="))) {
+		unsigned p = SKY_HW2_IGNORE_REVERSE_CURRENT;
+		rc = parse_bool(str + 27, &cfg->mux_hw2_params.dev_params[p]);
 		if (rc)
 			return -ENODATA;
 		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
@@ -763,8 +770,12 @@ static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
 		return "ERR_INVAL_CHARGING_SETTINGS";
 	case SKY_HW2_ERR_BAD_LINK:
 		return "ERR_BAD_LINK";
-	case SKY_HW2_ERR_LOW_VOLTAGE:
-		return "ERR_LOW_VOLTAGE";
+	case SKY_HW2_ERR_LOW_BATT_VOLTAGE:
+		return "ERR_LOW_BATT_VOLTAGE";
+	case SKY_HW2_ERR_LOW_MUX_VOLTAGE:
+		return "ERR_LOW_MUX_VOLTAGE";
+	case SKY_HW2_ERR_REVERSE_CURRENT:
+		return "ERR_REVERSE_CURRENT";
 	default:
 		sky_err("unknown state: %d\n", state);
 		return "UNKNOWN";
@@ -859,14 +870,16 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 		return "NR_BAD_HEARTBEATS";
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
 		return "IGNORE_INVAL_CHARGING_SETTINGS";
-	case SKY_HW2_IGNORE_LOW_VOLTAGE:
-		return "IGNORE_LOW_VOLTAGE";
+	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
+		return "IGNORE_LOW_BATT_VOLTAGE";
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 		return "ERROR_INDICATION_TIMEOUT_SECS";
 	case SKY_HW2_KEEP_SILENCE:
 		return "KEEP_SILENCE";
 	case SKY_HW2_USE_FIXED_V_I:
 		return "PSU_USE_FIXED_V_I";
+	case SKY_HW2_IGNORE_REVERSE_CURRENT:
+		return "IGNORE_REVERSE_CURRENT";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 		return "SENSE_VOLTAGE_CALIB_POINT1_MV";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
@@ -929,7 +942,8 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 		return snprintf(buf, size, "%5u:%u", set, read);
 	}
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
-	case SKY_HW2_IGNORE_LOW_VOLTAGE:
+	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
+	case SKY_HW2_IGNORE_REVERSE_CURRENT:
 	case SKY_HW2_KEEP_SILENCE:
 	case SKY_HW2_USE_FIXED_V_I:
 		return snprintf(buf, size, v ? "true" : "false");
@@ -981,7 +995,8 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 		break;
 	}
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
-	case SKY_HW2_IGNORE_LOW_VOLTAGE:
+	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
+	case SKY_HW2_IGNORE_REVERSE_CURRENT:
 	case SKY_HW2_KEEP_SILENCE:
 	case SKY_HW2_USE_FIXED_V_I:
 		rc = parse_bool(str, &v);
