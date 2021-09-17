@@ -681,6 +681,14 @@ static int hw2_sky_get_params(struct skyloc_dev *dev,
 			params->dev_params[p] =
 				settings.error_indication_timeout_secs;
 			break;
+		case SKY_HW2_MIN_SENSE_CURRENT_MA:
+			params->dev_params[p] =
+				settings.min_sense_current_mA;
+			break;
+		case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
+			params->dev_params[p] =
+				settings.repeat_charge_after_mins;
+			break;
 		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 			params->dev_params[p] =
 				calib_point_to_uint32(settings.sense_calib.voltage_p1_mV.set,
@@ -801,6 +809,14 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 			break;
 		case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 			settings.error_indication_timeout_secs =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_MIN_SENSE_CURRENT_MA:
+			settings.min_sense_current_mA =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
+			settings.repeat_charge_after_mins =
 				params->dev_params[p];
 			break;
 		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:

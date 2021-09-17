@@ -469,6 +469,12 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT,
 				  &cfg->mux_hw2_params, parse_bool, &ret)) {
 
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_MIN_SENSE_CURRENT_MA,
+				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
+
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_REPEAT_CHARGE_AFTER_MINS,
+				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
+
 	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV,
 				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
@@ -791,6 +797,10 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 		return "PSU_USE_FIXED_V_I";
 	case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
 		return "IGNORE_VOLTAGE_ON_OUTPUT";
+	case SKY_HW2_MIN_SENSE_CURRENT_MA:
+		return "MIN_SENSE_CURRENT_MA";
+	case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
+		return "REPEAT_CHARGE_AFTER_MINS";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 		return "SENSE_VOLTAGE_CALIB_POINT1_MV";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
@@ -838,6 +848,8 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
 	case SKY_HW2_PSU_FIXED_CURRENT_MA:
+	case SKY_HW2_MIN_SENSE_CURRENT_MA:
+	case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
 		return snprintf(buf, size, "%u", v);
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
@@ -892,6 +904,8 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
 	case SKY_HW2_PSU_FIXED_CURRENT_MA:
+	case SKY_HW2_MIN_SENSE_CURRENT_MA:
+	case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
 		rc = parse_unsigned(str, &v);
 		break;
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:

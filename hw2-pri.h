@@ -76,7 +76,8 @@ struct sky_hw2_mux_settings {
 	uint8_t  psu_type;
 	uint8_t  nr_bad_heartbeats; /* 0 - ignore bad heartbeats */
 	uint8_t  error_indication_timeout_secs; /* 0 - don't indicate errors */
-	uint8_t  padding;
+	uint8_t  min_sense_current_mA;
+	uint16_t repeat_charge_after_mins; /* 0 - never */
 };
 
 /*
