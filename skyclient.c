@@ -187,7 +187,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 
 	if (!cli->pretty) {
 		if (dev_type == SKY_MUX_HW2) {
-			printf("%s\t%-30s\t%.2fV\t%.2fA\t%.2fW\t%.2fWh\t%.2fAh\t%us\t%us\t%u%%",
+			printf("%s\t%-30s\t%.3fV\t%.3fA\t%.3fW\t%.3fWh\t%.3fAh\t%us\t%us\t%u%%",
 			       timestr,
 			       sky_devstate_to_str(dev_type, state->dev_hw_state),
 			       state->voltage_mV / 1000.0f,
@@ -213,7 +213,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 			}
 			printf("\n");
 		} else {
-			printf("%s\t%-30s\t%.2fV\t%.2fA\t%.2fW\n",
+			printf("%s\t%-30s\t%.3fV\t%.3fA\t%.3fW\n",
 			       timestr,
 			       sky_devstate_to_str(dev_type, state->dev_hw_state),
 			       state->voltage_mV / 1000.0f,
@@ -226,17 +226,17 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		printf("Timestamp:       %s\n", timestr);
 		printf("Dev state:       %s\n",
 		       sky_devstate_to_str(dev_type, state->dev_hw_state));
-		printf("Voltage:         %.2fV\n", state->voltage_mV / 1000.0f);
-		printf("Current:         %.2fA\n", state->current_mA / 1000.0f);
-		printf("Power:           %.2fW\n",
+		printf("Voltage:         %.3fV\n", state->voltage_mV / 1000.0f);
+		printf("Current:         %.3fA\n", state->current_mA / 1000.0f);
+		printf("Power:           %.3fW\n",
 		       (float)state->voltage_mV * state->current_mA / 1000000.0f);
 		if (dev_type == SKY_MUX_HW2) {
 			printf("MUX temp:        %dC\n", state->mux_temperature_C);
 			printf("Sink temp:       %dC\n", state->sink_temperature_C);
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
 			printf("Charging:        %02uh:%02um:%02us\n", hours, mins, secs);
-			printf("Energy:          %.2fWh\n", state->energy_mWh / 1000.0f);
-			printf("Charge:          %.2fAh\n", state->charge_mAh / 1000.0f);
+			printf("Energy:          %.3fWh\n", state->energy_mWh / 1000.0f);
+			printf("Charge:          %.3fAh\n", state->charge_mAh / 1000.0f);
 			seconds_to_hms(state->until_full_secs, &hours, &mins, &secs);
 			printf("State of charge: %u%% ~ %02uh:%02um\n",
 			       state->state_of_charge, hours, mins);
