@@ -225,7 +225,7 @@ static int parse_bool(const char *str, unsigned int *val)
 	return 0;
 }
 
-static int parse_integer(const char *str, unsigned int *val)
+static int parse_unsigned(const char *str, unsigned int *val)
 {
 	int rc;
 
@@ -283,10 +283,60 @@ static int parse_calib_point(const char *str, uint32_t *v)
 	return 0;
 }
 
+static char *devparam_to_config_str(enum sky_dev_type dev_type,
+				    enum sky_dev_param param,
+				    char *buf, size_t len)
+{
+	const char *str;
+	int i, ret;
+
+	str = sky_devparam_to_str(dev_type, param);
+	ret = snprintf(buf, len, "mux-hw%d-%s=", dev_type + 1, str);
+	if (ret < 0)
+		return NULL;
+
+	for (i = 0; i <= ret; i++) {
+		if (buf[i] == '_')
+			buf[i] = '-';
+		else
+			buf[i] = tolower((unsigned char) buf[i]);
+	}
+
+	return buf;
+}
+
+typedef int (parse_fn_t)(const char *line, uint32_t *param_value);
+
+static bool parse_devparam(const char *line,
+			   enum sky_dev_type dev_type,
+			   enum sky_dev_param param,
+			   struct sky_dev_params *params,
+			   parse_fn_t *parse_fn,
+			   int *ret)
+{
+	const char *configstr;
+	char buf[256];
+	int rc;
+
+	configstr = devparam_to_config_str(dev_type, param, buf, sizeof(buf));
+	if (!configstr)
+		return false;
+	if (!strcasestr(line, configstr))
+		return false;
+
+	rc = parse_fn(line + strlen(configstr), &params->dev_params[param]);
+	if (!rc)
+		params->dev_params_bits |= 1<<param;
+
+	*ret = rc;
+
+	return true;
+}
+
 static int parse_line(char *line, struct sky_conf *cfg)
 {
 	char *str;
-	int rc;
+	int rc, ret = 0;
 
 	trim(line);
 	*(strchrnul(line, '#')) = '\0';
@@ -345,242 +395,103 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	 * MUX HW1 config
 	 */
 
-	} else if ((str = strstr(line, "mux-hw1-eeprom-inited="))) {
-		unsigned p = SKY_HW1_EEPROM_INITED;
-		rc = sscanf(str + 22, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_EEPROM_INITED,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-scanning-interval="))) {
-		unsigned p = SKY_HW1_SCANNING_INTERVAL;
-		rc = sscanf(str + 26, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_SCANNING_INTERVAL,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-precharging-interval="))) {
-		unsigned p = SKY_HW1_PRECHARGING_INTERVAL;
-		rc = sscanf(str + 29, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_PRECHARGING_INTERVAL,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-precharging-counter="))) {
-		unsigned p = SKY_HW1_PRECHARGING_COUNTER;
-		rc = sscanf(str + 28, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_PRECHARGING_COUNTER,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-postcharging-interval="))) {
-		unsigned p = SKY_HW1_POSTCHARGING_INTERVAL;
-		rc = sscanf(str + 30, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_POSTCHARGING_INTERVAL,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-postcharging-delay="))) {
-		unsigned p = SKY_HW1_POSTCHARGING_DELAY;
-		rc = sscanf(str + 27, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_POSTCHARGING_DELAY,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-wet-delay="))) {
-		unsigned p = SKY_HW1_WET_DELAY;
-		rc = sscanf(str + 18, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_WET_DELAY,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-shortcirc-delay="))) {
-		unsigned p = SKY_HW1_SHORTCIRC_DELAY;
-		rc = sscanf(str + 24, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_SHORTCIRC_DELAY,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-thresh-finish-charging="))) {
-		unsigned p = SKY_HW1_THRESH_FINISH_CHARGING;
-		rc = sscanf(str + 31, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_THRESH_FINISH_CHARGING,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-thresh-nocharger-present="))) {
-		unsigned p = SKY_HW1_THRESH_NOCHARGER_PRESENT;
-		rc = sscanf(str + 33, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_THRESH_NOCHARGER_PRESENT,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-thresh-shortcirc="))) {
-		unsigned p = SKY_HW1_THRESH_SHORTCIRC;
-		rc = sscanf(str + 25, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_THRESH_SHORTCIRC,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-current-mon-interval="))) {
-		unsigned p = SKY_HW1_CURRENT_MON_INTERVAL;
-		rc = sscanf(str + 29, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_CURRENT_MON_INTERVAL,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw1-wait-start-charging-sec="))) {
-		unsigned p = SKY_HW1_WAIT_START_CHARGING_SEC;
-		rc = sscanf(str + 32, "%u", &cfg->mux_hw1_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw1_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW1, SKY_HW1_WAIT_START_CHARGING_SEC,
+				  &cfg->mux_hw1_params, parse_unsigned, &ret)) {
 	}
 
 	/*
 	 * MUX HW2 config
 	 */
 
-	else if ((str = strstr(line, "mux-hw2-psu-type="))) {
-		enum sky_psu_type psu_type;
-		unsigned p;
+	else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_TYPE,
+				&cfg->mux_hw2_params, parse_psu_type, &ret)) {
 
-		rc = parse_psu_type(str + 17, &psu_type);
-		if (rc)
-			return -ENODATA;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_FIXED_VOLTAGE_MV,
+				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
 
-		p = SKY_HW2_PSU_TYPE;
-		cfg->mux_hw2_params.dev_params[p] = psu_type;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_FIXED_CURRENT_MA,
+				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-psu-fixed-voltage="))) {
-		float voltage;
-		unsigned p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_NR_BAD_HEARTBEATS,
+				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
 
-		rc = sscanf(str + 26, "%f", &voltage);
-		if (rc != 1)
-			return -ENODATA;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS,
+				  &cfg->mux_hw2_params, parse_bool, &ret)) {
 
-		p = SKY_HW2_PSU_FIXED_VOLTAGE_MV;
-		cfg->mux_hw2_params.dev_params[p] = voltage * 1e3f;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_IGNORE_LOW_BATT_VOLTAGE,
+				  &cfg->mux_hw2_params, parse_bool, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-psu-fixed-current="))) {
-		float current;
-		unsigned p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS,
+				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
 
-		rc = sscanf(str + 26, "%f", &current);
-		if (rc != 1)
-			return -ENODATA;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_KEEP_SILENCE,
+				  &cfg->mux_hw2_params, parse_bool, &ret)) {
 
-		p = SKY_HW2_PSU_FIXED_CURRENT_MA;
-		cfg->mux_hw2_params.dev_params[p] = current * 1e3f;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_USE_FIXED_V_I,
+				  &cfg->mux_hw2_params, parse_bool, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-nr-bad-heartbeats="))) {
-		unsigned p = SKY_HW2_NR_BAD_HEARTBEATS;
-		rc = sscanf(str + 26, "%u", &cfg->mux_hw2_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT,
+				  &cfg->mux_hw2_params, parse_bool, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-ignore-inval-charging-settings="))) {
-		unsigned p = SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS;
-		rc = parse_bool(str + 39, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-ignore-low-batt-voltage="))) {
-		unsigned p = SKY_HW2_IGNORE_LOW_BATT_VOLTAGE;
-		rc = parse_bool(str + 27, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-error-indication-timeout-secs="))) {
-		unsigned p = SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS;
-		rc = sscanf(str + 38, "%u", &cfg->mux_hw2_params.dev_params[p]);
-		if (rc != 1)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-keep-silence="))) {
-		unsigned p = SKY_HW2_KEEP_SILENCE;
-		rc = parse_bool(str + 21, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-use-fixed-v-i="))) {
-		unsigned p = SKY_HW2_USE_FIXED_V_I;
-		rc = parse_bool(str + 22, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-ignore-voltage-on-output="))) {
-		unsigned p = SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT;
-		rc = parse_bool(str + 33, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-sense-voltage-calib-point1-mv="))) {
-		unsigned p = SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV;
-		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 
-	} else if ((str = strstr(line, "mux-hw2-sense-voltage-calib-point2-mv="))) {
-		unsigned p = SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV;
-		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
-
-	} else if ((str = strstr(line, "mux-hw2-sense-current-calib-point1-ma="))) {
-		unsigned p = SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA;
-		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
-
-	} else if ((str = strstr(line, "mux-hw2-sense-current-calib-point2-ma="))) {
-		unsigned p = SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA;
-		rc = parse_calib_point(str + 35, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
-
-	} else if ((str = strstr(line, "mux-hw2-psu-voltage-calib-point1-mv="))) {
-		unsigned p = SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV;
-		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
-
-	} else if ((str = strstr(line, "mux-hw2-psu-voltage-calib-point2-mv="))) {
-		unsigned p = SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV;
-		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
-
-	} else if ((str = strstr(line, "mux-hw2-psu-current-calib-point1-ma="))) {
-		unsigned p = SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA;
-		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
-
-	} else if ((str = strstr(line, "mux-hw2-psu-current-calib-point2-ma="))) {
-		unsigned p = SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA;
-		rc = parse_calib_point(str + 33, &cfg->mux_hw2_params.dev_params[p]);
-		if (rc)
-			return -ENODATA;
-		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA,
+				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
 	}
 
 	/*
@@ -681,7 +592,7 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	 * No else: ignore unknown parameters
 	 */
 
-	return 0;
+	return ret;
 }
 
 static const char *sky_hw1_devstate_to_str(enum sky_dev_state state)
@@ -847,7 +758,7 @@ static int sky_hw1_devparam_value_from_str(const char *str,
 	if (param >= SKY_HW1_NUM_DEVPARAM)
 		return -EINVAL;
 
-	rc = parse_integer(str, &v);
+	rc = parse_unsigned(str, &v);
 	if (rc)
 		return -EINVAL;
 
@@ -967,7 +878,7 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 		enum sky_psu_type psu_type;
 
 		if (parse_psu_type(str, &psu_type)) {
-			if (parse_integer(str, &v))
+			if (parse_unsigned(str, &v))
 				return -EINVAL;
 			if (v != SKY_PSU_RSP_750_48 &&
 			    v != SKY_PSU_RSP_1600_48)
@@ -981,7 +892,7 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
 	case SKY_HW2_PSU_FIXED_CURRENT_MA:
-		rc = parse_integer(str, &v);
+		rc = parse_unsigned(str, &v);
 		break;
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
@@ -1147,7 +1058,7 @@ int sky_sinkparam_value_from_str(const char *str,
 		if (0 == strcasecmp(str, "PLC_WHILE_CHARGING")) {
 			v |= (1 << SKY_CAP_PLC_WHILE_CHARGING);
 		} else {
-			if (parse_integer(str, &v))
+			if (parse_unsigned(str, &v))
 				return -EINVAL;
 			if (v & ~(1 << SKY_CAP_PLC_WHILE_CHARGING))
 				return -EINVAL;
@@ -1157,7 +1068,7 @@ int sky_sinkparam_value_from_str(const char *str,
 		enum sky_batt_type batt_type;
 
 		if (parse_batt_type(str, &batt_type)) {
-			if (parse_integer(str, &v))
+			if (parse_unsigned(str, &v))
 				return -EINVAL;
 			if (v != SKY_BATT_LIPO &&
 			    v != SKY_BATT_LION)
@@ -1180,10 +1091,10 @@ int sky_sinkparam_value_from_str(const char *str,
 	case SKY_SINK_USER_DATA2:
 	case SKY_SINK_USER_DATA3:
 	case SKY_SINK_USER_DATA4:
-		rc = parse_integer(str, &v);
+		rc = parse_unsigned(str, &v);
 		break;
 	case SKY_SINK_PRECHARGE_CURRENT_COEF:
-		rc = parse_integer(str, &v);
+		rc = parse_unsigned(str, &v);
 		if (!rc)
 			v = clamp_val(v, 0, 100);
 		break;
