@@ -657,9 +657,9 @@ static int hw2_sky_get_params(struct skyloc_dev *dev,
 			params->dev_params[p] =
 				settings.bool_settings & SKY_HW2_USE_FIXED_V_I_BIT;
 			break;
-		case SKY_HW2_IGNORE_REVERSE_CURRENT:
+		case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
 			params->dev_params[p] =
-				settings.bool_settings & SKY_HW2_IGNORE_REVERSE_CURRENT_BIT;
+				settings.bool_settings & SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT_BIT;
 			break;
 		case SKY_HW2_PSU_TYPE:
 			params->dev_params[p] =
@@ -776,8 +776,8 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 			else
 				settings.bool_settings &= ~bit;
 			break;
-		case SKY_HW2_IGNORE_REVERSE_CURRENT:
-			bit = SKY_HW2_IGNORE_REVERSE_CURRENT_BIT;
+		case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
+			bit = SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT_BIT;
 			if (params->dev_params[p])
 				settings.bool_settings |= bit;
 			else

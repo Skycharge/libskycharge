@@ -48,7 +48,7 @@ enum sky_hw2_mux_settings_bits {
 	SKY_HW2_IGNORE_LOW_BATT_VOLTAGE_BIT        = 1<<1,
 	SKY_HW2_KEEP_SILENCE_BIT                   = 1<<2,
 	SKY_HW2_USE_FIXED_V_I_BIT                  = 1<<3,
-	SKY_HW2_IGNORE_REVERSE_CURRENT_BIT         = 1<<4,
+	SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT_BIT       = 1<<4,
 };
 
 struct calib_point {

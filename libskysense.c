@@ -519,9 +519,9 @@ static int parse_line(char *line, struct sky_conf *cfg)
 			return -ENODATA;
 		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
 
-	} else if ((str = strstr(line, "mux-hw2-ignore-reverse-current="))) {
-		unsigned p = SKY_HW2_IGNORE_REVERSE_CURRENT;
-		rc = parse_bool(str + 27, &cfg->mux_hw2_params.dev_params[p]);
+	} else if ((str = strstr(line, "mux-hw2-ignore-voltage-on-output="))) {
+		unsigned p = SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT;
+		rc = parse_bool(str + 33, &cfg->mux_hw2_params.dev_params[p]);
 		if (rc)
 			return -ENODATA;
 		cfg->mux_hw2_params.dev_params_bits |= 1<<p;
@@ -774,8 +774,8 @@ static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
 		return "ERR_LOW_BATT_VOLTAGE";
 	case SKY_HW2_ERR_LOW_MUX_VOLTAGE:
 		return "ERR_LOW_MUX_VOLTAGE";
-	case SKY_HW2_ERR_REVERSE_CURRENT:
-		return "ERR_REVERSE_CURRENT";
+	case SKY_HW2_ERR_VOLTAGE_ON_OUTPUT:
+		return "ERR_VOLTAGE_ON_OUTPUT";
 	default:
 		sky_err("unknown state: %d\n", state);
 		return "UNKNOWN";
@@ -878,8 +878,8 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 		return "KEEP_SILENCE";
 	case SKY_HW2_USE_FIXED_V_I:
 		return "PSU_USE_FIXED_V_I";
-	case SKY_HW2_IGNORE_REVERSE_CURRENT:
-		return "IGNORE_REVERSE_CURRENT";
+	case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
+		return "IGNORE_VOLTAGE_ON_OUTPUT";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 		return "SENSE_VOLTAGE_CALIB_POINT1_MV";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
@@ -943,7 +943,7 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 	}
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
 	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
-	case SKY_HW2_IGNORE_REVERSE_CURRENT:
+	case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
 	case SKY_HW2_KEEP_SILENCE:
 	case SKY_HW2_USE_FIXED_V_I:
 		return snprintf(buf, size, v ? "true" : "false");
@@ -996,7 +996,7 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 	}
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
 	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
-	case SKY_HW2_IGNORE_REVERSE_CURRENT:
+	case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
 	case SKY_HW2_KEEP_SILENCE:
 	case SKY_HW2_USE_FIXED_V_I:
 		rc = parse_bool(str, &v);
