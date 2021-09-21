@@ -678,6 +678,18 @@ int main(int argc, char *argv[])
 		       info.hw_info.uid.part2,
 		       info.hw_info.uid.part3);
 
+	} else if (cli.sinkstartcharge) {
+		rc = sky_sink_chargestart(dev);
+		if (rc) {
+			sky_err("sky_sink_chargestart(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	} else if (cli.sinkstopcharge) {
+		rc = sky_sink_chargestop(dev);
+		if (rc) {
+			sky_err("sky_sink_chargestop(): %s\n", strerror(-rc));
+			exit(-1);
+		}
 	} else
 		assert(0);
 

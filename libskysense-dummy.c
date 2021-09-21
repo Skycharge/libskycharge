@@ -479,6 +479,12 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 	case SKY_SINK_GET_INFO_REQ:
 		rc = -EOPNOTSUPP;
 		break;
+	case SKY_SINK_START_CHARGE_REQ:
+		rc = -EOPNOTSUPP;
+		break;
+	case SKY_SINK_STOP_CHARGE_REQ:
+		rc = -EOPNOTSUPP;
+		break;
 	default:
 		/* Consider fatal */
 		sky_err("Unknown request: %d\n", req->type);

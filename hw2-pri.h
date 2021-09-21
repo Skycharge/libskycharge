@@ -31,6 +31,8 @@ enum sky_hw2_serial_cmd {
 	SKY_HW2_GET_SINK_INFO_CMD              = 0x09,
 	SKY_HW2_GET_SINK_CHARGING_SETTINGS_CMD = 0x0a,
 	SKY_HW2_SET_SINK_CHARGING_SETTINGS_CMD = 0x0b,
+	SKY_HW2_SINK_START_CHARGE_CMD          = 0x0c,
+	SKY_HW2_SINK_STOP_CHARGE_CMD           = 0x0d,
 
 	/*
 	 * Types of messages from mux

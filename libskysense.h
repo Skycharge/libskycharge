@@ -1172,7 +1172,50 @@ int sky_asyncreq_sink_paramsset(struct sky_async *async,
 				const struct sky_dev_params *params,
 				struct sky_async_req *req);
 
+/**
+ * sky_sink_chargestart() - Starts charge on a sink.
+ * @dev:	Device context.
+ *
+ * Accesses the hardware and starts charge on a sink.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_chargestart(struct sky_dev *dev);
 
+/**
+ * sky_asyncreq_sink_chargestart() - Start charge on a sink.
+ *
+ * See synchronous sky_sink_chargestart() variant for details.
+ */
+int sky_asyncreq_sink_chargestart(struct sky_async *async,
+				  struct sky_dev *dev,
+				  struct sky_async_req *req);
+/**
+ * sky_sink_chargestop() - Stops charge on a sink.
+ * @dev:	Device context.
+ *
+ * Accesses the hardware and stops charge on a sink.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_chargestop(struct sky_dev *dev);
+
+/**
+ * sky_asyncreq_sink_chargestop() - Stop charge on a sink.
+ *
+ * See synchronous sky_sink_chargestop() variant for details.
+ */
+int sky_asyncreq_sink_chargestop(struct sky_async *async,
+				  struct sky_dev *dev,
+				  struct sky_async_req *req);
 
 #ifdef __cplusplus
 }

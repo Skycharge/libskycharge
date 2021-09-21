@@ -835,6 +835,8 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_GPSDATA_REQ:
 	case SKY_DRONEDETECT_REQ:
 	case SKY_SINK_GET_INFO_REQ:
+	case SKY_SINK_START_CHARGE_REQ:
+	case SKY_SINK_STOP_CHARGE_REQ:
 		rc = skyrem_genericreq_send(async, req);
 		break;
 	default:

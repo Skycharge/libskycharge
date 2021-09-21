@@ -792,6 +792,32 @@ static void sky_execute_cmd(struct sky_server *serv,
 		break;
 
 	}
+	case SKY_SINK_START_CHARGE_REQ:
+	case SKY_SINK_STOP_CHARGE_REQ: {
+		struct sky_rsp_hdr *rsp;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		if (req_type == SKY_SINK_START_CHARGE_REQ)
+			rc = sky_sink_chargestart(dev);
+		else
+			rc = sky_sink_chargestop(dev);
+
+		rsp->type  = htole16(req_type + 1);
+		rsp->error = htole16(-rc);
+
+		break;
+	}
 	default:
 		sky_err("unknown request: %d\n", req_type);
 		rc = -EINVAL;

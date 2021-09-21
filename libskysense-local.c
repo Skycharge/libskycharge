@@ -68,6 +68,8 @@ struct sky_hw_ops {
 			       const struct sky_dev_params *params);
 	int (*get_sink_info)(struct skyloc_dev *dev,
 			     struct sky_sink_info *info);
+	int (*sink_start_charge)(struct skyloc_dev *dev);
+	int (*sink_stop_charge)(struct skyloc_dev *dev);
 };
 
 static inline int sprc_to_errno(enum sp_return sprc)
@@ -545,16 +547,28 @@ static int hw1_sky_get_sink_info(struct skyloc_dev *dev,
 	return -EOPNOTSUPP;
 }
 
+static int hw1_sky_sink_start_charge(struct skyloc_dev *dev)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_sink_stop_charge(struct skyloc_dev *dev)
+{
+	return -EOPNOTSUPP;
+}
+
 static struct sky_hw_ops hw1_sky_ops = {
-	.get_hw_info      = hw1_sky_get_hw_info,
-	.get_params       = hw1_sky_get_params,
-	.set_params       = hw1_sky_set_params,
-	.get_state        = hw1_sky_get_state,
-	.reset            = hw1_sky_reset,
-	.scan             = hw1_sky_scan,
-	.get_sink_params  = hw1_sky_get_sink_params,
-	.set_sink_params  = hw1_sky_set_sink_params,
-	.get_sink_info    = hw1_sky_get_sink_info,
+	.get_hw_info       = hw1_sky_get_hw_info,
+	.get_params        = hw1_sky_get_params,
+	.set_params        = hw1_sky_set_params,
+	.get_state         = hw1_sky_get_state,
+	.reset             = hw1_sky_reset,
+	.scan              = hw1_sky_scan,
+	.get_sink_params   = hw1_sky_get_sink_params,
+	.set_sink_params   = hw1_sky_set_sink_params,
+	.get_sink_info     = hw1_sky_get_sink_info,
+	.sink_start_charge = hw1_sky_sink_start_charge,
+	.sink_stop_charge  = hw1_sky_sink_stop_charge,
 };
 
 /*
@@ -1090,16 +1104,32 @@ static int hw2_sky_get_sink_info(struct skyloc_dev *dev,
 				 sizeof(*info), info);
 }
 
+static int hw2_sky_sink_start_charge(struct skyloc_dev *dev)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_START_CHARGE_CMD,
+				 0, 0);
+}
+
+static int hw2_sky_sink_stop_charge(struct skyloc_dev *dev)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_STOP_CHARGE_CMD,
+				 0, 0);
+}
+
 static struct sky_hw_ops hw2_sky_ops = {
-	.get_hw_info      = hw2_sky_get_hw_info,
-	.get_params       = hw2_sky_get_params,
-	.set_params       = hw2_sky_set_params,
-	.get_state        = hw2_sky_get_state,
-	.reset            = hw2_sky_reset,
-	.scan             = hw2_sky_scan,
-	.get_sink_params  = hw2_sky_get_sink_params,
-	.set_sink_params  = hw2_sky_set_sink_params,
-	.get_sink_info    = hw2_sky_get_sink_info,
+	.get_hw_info       = hw2_sky_get_hw_info,
+	.get_params        = hw2_sky_get_params,
+	.set_params        = hw2_sky_set_params,
+	.get_state         = hw2_sky_get_state,
+	.reset             = hw2_sky_reset,
+	.scan              = hw2_sky_scan,
+	.get_sink_params   = hw2_sky_get_sink_params,
+	.set_sink_params   = hw2_sky_set_sink_params,
+	.get_sink_info     = hw2_sky_get_sink_info,
+	.sink_start_charge = hw2_sky_sink_start_charge,
+	.sink_stop_charge  = hw2_sky_sink_stop_charge,
 };
 
 /*
@@ -1574,6 +1604,24 @@ static int skyloc_sink_paramsset(struct sky_dev *dev_,
 	return get_hwops(dev_)->set_sink_params(dev, params);
 }
 
+static int skyloc_sink_chargestart(struct sky_dev *dev_)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_start_charge(dev);
+}
+
+static int skyloc_sink_chargestop(struct sky_dev *dev_)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_stop_charge(dev);
+}
+
 static bool skyloc_asyncreq_cancel(struct sky_async *async,
 				   struct sky_async_req *req)
 {
@@ -1676,6 +1724,12 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_SINK_GET_INFO_REQ:
 		rc = skyloc_sink_infoget(req->dev, req->out.ptr);
+		break;
+	case SKY_SINK_START_CHARGE_REQ:
+		rc = skyloc_sink_chargestart(req->dev);
+		break;
+	case SKY_SINK_STOP_CHARGE_REQ:
+		rc = skyloc_sink_chargestop(req->dev);
 		break;
 	default:
 		/* Consider fatal */
