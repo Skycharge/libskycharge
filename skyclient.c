@@ -497,13 +497,9 @@ int main(int argc, char *argv[])
 			nr_params = SKY_SINK_NUM_DEVPARAM;
 		}
 
-		for (i = 0; i < nr_params; i++) {
-			str = cli.setdevparam ?
-				sky_devparam_to_str(devdesc->dev_type, i) :
-				sky_sinkparam_to_str(i);
-			if (!strcasecmp(str, cli.key))
-				break;
-		}
+		i = cli.setdevparam ?
+			sky_devparam_from_str(devdesc->dev_type, cli.key) :
+			sky_sinkparam_from_str(cli.key);
 		if (i == nr_params) {
 			fprintf(stderr, "Incorrect parameter: %s\n", cli.key);
 			fprintf(stderr, "Please, use one of the following:\n");

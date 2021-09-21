@@ -481,6 +481,13 @@ const char *sky_devparam_to_str(enum sky_dev_type dev_type,
 				enum sky_dev_param param);
 
 /**
+ * Returns device param if string is recognized. If string can't
+ * be parsed number of device params is returned.
+ */
+enum sky_dev_param sky_devparam_from_str(enum sky_dev_type dev_type,
+					 const char *str);
+
+/**
  * Fill in the input buffer with a string representation of the device
  * param value and returns length of a string.
  */
@@ -501,6 +508,12 @@ int sky_devparam_value_from_str(const char *str,
  * Returns string representation of the sink param.
  */
 const char *sky_sinkparam_to_str(enum sky_sink_param param);
+
+/**
+ * Returns sink param if string is recognized. If string can't
+ * be parsed number of device params is returned.
+ */
+enum sky_sink_param sky_sinkparam_from_str(const char *str);
 
 /**
  * Fill in the input buffer with a string representation of the sink

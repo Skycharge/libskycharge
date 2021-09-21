@@ -209,6 +209,27 @@ static void trim(char *s)
 	*new = *s;
 }
 
+static bool is_dash_or_low_dash(unsigned char ch)
+{
+	return (ch == '-' || ch == '_');
+}
+
+static int strcasecmp_ignore_dashes(const char *s1, const char *s2)
+{
+	unsigned char ch1, ch2;
+
+	do {
+		ch1 = tolower(*s1++);
+		ch2 = tolower(*s2++);
+
+		if (is_dash_or_low_dash(ch1) && is_dash_or_low_dash(ch2))
+			ch1 = ch2;
+
+	} while (ch1 == ch2 && ch1 != 0);
+
+	return ch1 - ch2;
+}
+
 static int parse_bool(const char *str, unsigned int *val)
 {
 	if (!strcasecmp(str, "false") ||
@@ -712,35 +733,51 @@ static const char *sky_hw1_devparam_to_str(enum sky_dev_param param)
 {
 	switch(param) {
 	case SKY_HW1_EEPROM_INITED:
-		return "EEPROM_INITED";
+		return "eeprom-inited";
 	case SKY_HW1_SCANNING_INTERVAL:
-		return "SCANNING_INTERVAL";
+		return "scanning-interval";
 	case SKY_HW1_PRECHARGING_INTERVAL:
-		return "PRECHARGING_INTERVAL";
+		return "precharging-interval";
 	case SKY_HW1_PRECHARGING_COUNTER:
-		return "PRECHARGING_COUNTER";
+		return "precharging-counter";
 	case SKY_HW1_POSTCHARGING_INTERVAL:
-		return "POSTCHARGING_INTERVAL";
+		return "postcharging-interval";
 	case SKY_HW1_POSTCHARGING_DELAY:
-		return "POSTCHARGING_DELAY";
+		return "postcharging-delay";
 	case SKY_HW1_WET_DELAY:
-		return "WET_DELAY";
+		return "wet-delay";
 	case SKY_HW1_SHORTCIRC_DELAY:
-		return "SHORTCIRC_DELAY";
+		return "shortcirc-delay";
 	case SKY_HW1_THRESH_FINISH_CHARGING:
-		return "THRESH_FINISH_CHARGING";
+		return "thresh-finish-charging";
 	case SKY_HW1_THRESH_NOCHARGER_PRESENT:
-		return "THRESH_NOCHARGER_PRESENT";
+		return "thresh-nocharger-present";
 	case SKY_HW1_THRESH_SHORTCIRC:
-		return "THRESH_SHORTCIRC";
+		return "thresh-shortcirc";
 	case SKY_HW1_CURRENT_MON_INTERVAL:
-		return "CURRENT_MON_INTERVAL";
+		return "current-mon-interval";
 	case SKY_HW1_WAIT_START_CHARGING_SEC:
-		return "WAIT_START_CHARGING_SEC";
+		return "wait-start-charging-sec";
 	default:
 		sky_err("unknown param: %d\n", param);
-		return "UNKNOWN_PARAM";
+		return "unknown-param";
 	}
+}
+
+static enum sky_dev_param sky_hw1_devparam_from_str(const char *str)
+{
+	const char *paramstr;
+	int p;
+
+	for (p = 0; p < SKY_HW1_NUM_DEVPARAM; p++) {
+		paramstr = sky_hw1_devparam_to_str(p);
+
+		if (!strcasecmp_ignore_dashes(paramstr, str))
+			return p;
+	}
+
+	/* No luck */
+	return SKY_HW1_NUM_DEVPARAM;
 }
 
 static int
@@ -778,49 +815,65 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 {
 	switch(param) {
 	case SKY_HW2_PSU_TYPE:
-		return "PSU_TYPE";
+		return "psu-type";
 	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
-		return "PSU_FIXED_VOLTAGE_MV";
+		return "psu-fixed-voltage-mv";
 	case SKY_HW2_PSU_FIXED_CURRENT_MA:
-		return "PSU_FIXED_CURRENT_MA";
+		return "psu-fixed-current-ma";
 	case SKY_HW2_NR_BAD_HEARTBEATS:
-		return "NR_BAD_HEARTBEATS";
+		return "nr-bad-heartbeats";
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
-		return "IGNORE_INVAL_CHARGING_SETTINGS";
+		return "ignore-inval-charging-settings";
 	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
-		return "IGNORE_LOW_BATT_VOLTAGE";
+		return "ignore-low-batt-voltage";
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
-		return "ERROR_INDICATION_TIMEOUT_SECS";
+		return "error-indication-timeout-secs";
 	case SKY_HW2_KEEP_SILENCE:
-		return "KEEP_SILENCE";
+		return "keep-silence";
 	case SKY_HW2_USE_FIXED_V_I:
-		return "PSU_USE_FIXED_V_I";
+		return "psu-use-fixed-v-i";
 	case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
-		return "IGNORE_VOLTAGE_ON_OUTPUT";
+		return "ignore-voltage-on-output";
 	case SKY_HW2_MIN_SENSE_CURRENT_MA:
-		return "MIN_SENSE_CURRENT_MA";
+		return "min-sense-current-ma";
 	case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
-		return "REPEAT_CHARGE_AFTER_MINS";
+		return "repeat-charge-after-mins";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
-		return "SENSE_VOLTAGE_CALIB_POINT1_MV";
+		return "sense-voltage-calib-point1-mv";
 	case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
-		return "SENSE_VOLTAGE_CALIB_POINT2_MV";
+		return "sense-voltage-calib-point2-mv";
 	case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
-		return "SENSE_CURRENT_CALIB_POINT1_MA";
+		return "sense-current-calib-point1-ma";
 	case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
-		return "SENSE_CURRENT_CALIB_POINT2_MA";
+		return "sense-current-calib-point2-ma";
 	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
-		return "PSU_VOLTAGE_CALIB_POINT1_MV";
+		return "psu-voltage-calib-point1-mv";
 	case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
-		return "PSU_VOLTAGE_CALIB_POINT2_MV";
+		return "psu-voltage-calib-point2-mv";
 	case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
-		return "PSU_CURRENT_CALIB_POINT1_MA";
+		return "psu-current-calib-point1-ma";
 	case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA:
-		return "PSU_CURRENT_CALIB_POINT2_MA";
+		return "psu-current-calib-point2-ma";
 	default:
 		sky_err("unknown param: %d\n", param);
-		return "UNKNOWN_PARAM";
+		return "unknown-param";
 	}
+}
+
+static enum sky_dev_param sky_hw2_devparam_from_str(const char *str)
+{
+	const char *paramstr;
+	int p;
+
+	for (p = 0; p < SKY_HW2_NUM_DEVPARAM; p++) {
+		paramstr = sky_hw2_devparam_to_str(p);
+
+		if (!strcasecmp_ignore_dashes(paramstr, str))
+			return p;
+	}
+
+	/* No luck */
+	return SKY_HW2_NUM_DEVPARAM;
 }
 
 static int
@@ -948,6 +1001,15 @@ const char *sky_devparam_to_str(enum sky_dev_type dev_type,
 	return sky_hw2_devparam_to_str(param);
 }
 
+enum sky_dev_param sky_devparam_from_str(enum sky_dev_type dev_type,
+					 const char *str)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devparam_from_str(str);
+
+	return sky_hw2_devparam_from_str(str);
+}
+
 int sky_devparam_value_to_str(enum sky_dev_type dev_type,
 			      enum sky_dev_param param,
 			      const struct sky_dev_params *params,
@@ -974,41 +1036,57 @@ const char *sky_sinkparam_to_str(enum sky_sink_param param)
 {
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
-		return "CAPABILITIES";
+		return "capabilties";
 	case SKY_SINK_BATT_TYPE:
-		return "BATT_TYPE";
+		return "batt-type";
 	case SKY_SINK_BATT_CAPACITY_MAH:
-		return "BATT_CAPACITY_MAH";
+		return "batt-capacity-mah";
 	case SKY_SINK_BATT_MIN_VOLTAGE_MV:
-		return "BATT_MIN_VOLTAGE_MV";
+		return "batt-min-voltage-mv";
 	case SKY_SINK_BATT_MAX_VOLTAGE_MV:
-		return "BATT_MAX_VOLTAGE_MV";
+		return "batt-max-voltage-mv";
 	case SKY_SINK_CHARGING_MAX_CURRENT_MA:
-		return "CHARGING_MAX_CURRENT_MA";
+		return "charging-max-current-ma";
 	case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
-		return "CHARGING_MIN_CURRENT_MA";
+		return "charging-min-current-ma";
 	case SKY_SINK_CUTOFF_TIMEOUT_MS:
-		return "CUTOFF_TIMEOUT_MS";
+		return "cutoff-timeout-ms";
 	case SKY_SINK_PRECHARGE_CURRENT_COEF:
-		return "PRECHARGE_CURRENT_COEF";
+		return "precharge-current-coef";
 	case SKY_SINK_PRECHARGE_DELAY_SECS:
-		return "PRECHARGE_DELAY_SECS";
+		return "precharge-delay-secs";
 	case SKY_SINK_PRECHARGE_SECS:
-		return "PRECHARGE_SECS";
+		return "precharge-secs";
 	case SKY_SINK_TOTAL_CHARGE_SECS:
-		return "TOTAL_CHARGE_SECS";
+		return "total-charge-secs";
 	case SKY_SINK_USER_DATA1:
-		return "USER_DATA1";
+		return "user-data1";
 	case SKY_SINK_USER_DATA2:
-		return "USER_DATA2";
+		return "user-data2";
 	case SKY_SINK_USER_DATA3:
-		return "USER_DATA3";
+		return "user-data3";
 	case SKY_SINK_USER_DATA4:
-		return "USER_DATA4";
+		return "user-data4";
 	default:
 		sky_err("unknown param: %d\n", param);
-		return "UNKNOWN_PARAM";
+		return "unknown-param";
 	}
+}
+
+enum sky_sink_param sky_sinkparam_from_str(const char *str)
+{
+	const char *paramstr;
+	int p;
+
+	for (p = 0; p < SKY_SINK_NUM_DEVPARAM; p++) {
+		paramstr = sky_sinkparam_to_str(p);
+
+		if (!strcasecmp_ignore_dashes(paramstr, str))
+			return p;
+	}
+
+	/* No luck */
+	return SKY_SINK_NUM_DEVPARAM;
 }
 
 int sky_sinkparam_value_to_str(enum sky_sink_param param,
