@@ -886,14 +886,12 @@ static int hw2_sky_reset(struct skyloc_dev *dev)
 
 static int hw2_sky_scan(struct skyloc_dev *dev, unsigned do_resume)
 {
-	uint8_t cmd, ret;
+	uint8_t cmd;
 
 	cmd = do_resume ? SKY_HW2_RESUME_CMD : SKY_HW2_STOP_CMD;
 
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
-				 cmd,
-				 0, 1,
-				 sizeof(ret),  &ret);
+				 cmd, 0, 0);
 }
 
 static int hw2_sky_get_sink_params(struct skyloc_dev *dev,
