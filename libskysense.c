@@ -690,8 +690,6 @@ static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
 	switch(state) {
 	case SKY_HW2_STOPPED:
 		return "STOPPED";
-	case SKY_HW2_PASSTHRU:
-		return "PASSTHRU";
 	case SKY_HW2_SCANNING:
 		return "SCANNING";
 	case SKY_HW2_LINK_ESTABLISHED:
