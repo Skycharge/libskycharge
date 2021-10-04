@@ -290,6 +290,20 @@ static int parse_batt_type(const char *str, enum sky_batt_type *batt_type)
 	return 0;
 }
 
+static int parse_detect_mode(const char *str, enum sky_detect_mode *detect_mode)
+{
+	if (0 == strcasecmp(str, "plc"))
+		*detect_mode = SKY_DETECT_PLC;
+	else if (0 == strcasecmp(str, "resistance"))
+		*detect_mode = SKY_DETECT_RESISTANCE;
+	else if (0 == strcasecmp(str, "capacity"))
+		*detect_mode = SKY_DETECT_CAPACITY;
+	else
+		return -EINVAL;
+
+	return 0;
+}
+
 static int parse_calib_point(const char *str, uint32_t *v)
 {
 	uint16_t set, read;
@@ -462,6 +476,9 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 	else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_TYPE,
 				&cfg->mux_hw2_params, parse_psu_type, &ret)) {
+
+	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_DETECT_MODE,
+				  &cfg->mux_hw2_params, parse_detect_mode, &ret)) {
 
 	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_FIXED_VOLTAGE_MV,
 				  &cfg->mux_hw2_params, parse_unsigned, &ret)) {
@@ -814,6 +831,8 @@ static const char *sky_hw2_devparam_to_str(enum sky_dev_param param)
 	switch(param) {
 	case SKY_HW2_PSU_TYPE:
 		return "psu-type";
+	case SKY_HW2_DETECT_MODE:
+		return "detect-mode";
 	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
 		return "psu-fixed-voltage-mv";
 	case SKY_HW2_PSU_FIXED_CURRENT_MA:
@@ -895,6 +914,17 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 		default:
 			return snprintf(buf, size, "unknown PSU %d", v);
 		}
+	case SKY_HW2_DETECT_MODE:
+		switch (v) {
+		case SKY_DETECT_PLC:
+			return snprintf(buf, size, "0x%02x (PLC)", v);
+		case SKY_DETECT_RESISTANCE:
+			return snprintf(buf, size, "0x%02x (RESISTANCE)", v);
+		case SKY_DETECT_CAPACITY:
+			return snprintf(buf, size, "0x%02x (CAPACITY)", v);
+		default:
+			return snprintf(buf, size, "unknown detect mode %d", v);
+		}
 	case SKY_HW2_NR_BAD_HEARTBEATS:
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
 	case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
@@ -948,6 +978,21 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 				return -EINVAL;
 		} else {
 			v = psu_type;
+		}
+		break;
+	}
+	case SKY_HW2_DETECT_MODE: {
+		enum sky_detect_mode detect_mode;
+
+		if (parse_detect_mode(str, &detect_mode)) {
+			if (parse_unsigned(str, &v))
+				return -EINVAL;
+			if (v != SKY_DETECT_PLC &&
+			    v != SKY_DETECT_RESISTANCE &&
+			    v != SKY_DETECT_CAPACITY)
+				return -EINVAL;
+		} else {
+			v = detect_mode;
 		}
 		break;
 	}

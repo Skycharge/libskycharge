@@ -679,6 +679,10 @@ static int hw2_sky_get_params(struct skyloc_dev *dev,
 			params->dev_params[p] =
 				settings.psu_type;
 			break;
+		case SKY_HW2_DETECT_MODE:
+			params->dev_params[p] =
+				settings.detect_mode;
+			break;
 		case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
 			params->dev_params[p] =
 				settings.psu_fixed_voltage_mV;
@@ -807,6 +811,10 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 			break;
 		case SKY_HW2_PSU_TYPE:
 			settings.psu_type =
+				params->dev_params[p];
+			break;
+		case SKY_HW2_DETECT_MODE:
+			settings.detect_mode =
 				params->dev_params[p];
 			break;
 		case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
