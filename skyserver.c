@@ -1722,7 +1722,8 @@ int main(int argc, char *argv[])
 			.interval_msecs = 1000,
 		};
 		struct sky_server_dev *servdev;
-		struct sky_dev_params *params;
+		struct sky_dev_params *mux_params = NULL;
+		struct sky_dev_params *sink_params = NULL;
 
 		servdev = &serv.devs[num];
 		servdev->serv = &serv;
@@ -1735,19 +1736,29 @@ int main(int argc, char *argv[])
 		}
 
 		if (conf->mux_type == SKY_MUX_HW1 &&
-		    conf->mux_hw1_params.dev_params_bits)
-			params = &conf->mux_hw1_params;
-		else if (conf->mux_type == SKY_MUX_HW2 &&
-			 conf->mux_hw2_params.dev_params_bits)
-			params = &conf->mux_hw2_params;
-		else
-			params = NULL;
+		    conf->mux_hw1_params.dev_params_bits) {
+			mux_params = &conf->mux_hw1_params;
+		} else if (conf->mux_type == SKY_MUX_HW2 &&
+			   conf->mux_hw2_params.dev_params_bits) {
+			mux_params = &conf->mux_hw2_params;
+			sink_params = &conf->sink_params;
+		}
 
-		if (params) {
+		if (mux_params && mux_params->dev_params_bits) {
 			/* Apply MUX params */
-			rc = sky_paramsset(servdev->dev, params);
+			rc = sky_paramsset(servdev->dev, mux_params);
 			if (rc) {
 				sky_err("sky_paramsset(): %s\n", strerror(-rc));
+				sky_devclose(servdev->dev);
+				servdev->dev = NULL;
+				goto close_devs;
+			}
+		}
+		if (sink_params && sink_params->dev_params_bits) {
+			/* Apply sink params */
+			rc = sky_sink_paramsset(servdev->dev, sink_params);
+			if (rc) {
+				sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
 				sky_devclose(servdev->dev);
 				servdev->dev = NULL;
 				goto close_devs;

@@ -340,6 +340,27 @@ static char *devparam_to_config_str(enum sky_dev_type dev_type,
 	return buf;
 }
 
+static char *sinkparam_to_config_str(enum sky_dev_param param,
+				     char *buf, size_t len)
+{
+	const char *str;
+	int i, ret;
+
+	str = sky_sinkparam_to_str(param);
+	ret = snprintf(buf, len, "sink-%s=", str);
+	if (ret < 0)
+		return NULL;
+
+	for (i = 0; i <= ret; i++) {
+		if (buf[i] == '_')
+			buf[i] = '-';
+		else
+			buf[i] = tolower((unsigned char) buf[i]);
+	}
+
+	return buf;
+}
+
 typedef int (parse_fn_t)(const char *line, uint32_t *param_value);
 
 static bool parse_devparam(const char *line,
@@ -354,6 +375,31 @@ static bool parse_devparam(const char *line,
 	int rc;
 
 	configstr = devparam_to_config_str(dev_type, param, buf, sizeof(buf));
+	if (!configstr)
+		return false;
+	if (!strcasestr(line, configstr))
+		return false;
+
+	rc = parse_fn(line + strlen(configstr), &params->dev_params[param]);
+	if (!rc)
+		params->dev_params_bits |= 1<<param;
+
+	*ret = rc;
+
+	return true;
+}
+
+static bool parse_sinkparam(const char *line,
+			   enum sky_dev_param param,
+			   struct sky_dev_params *params,
+			   parse_fn_t *parse_fn,
+			   int *ret)
+{
+	const char *configstr;
+	char buf[256];
+	int rc;
+
+	configstr = sinkparam_to_config_str(param, buf, sizeof(buf));
 	if (!configstr)
 		return false;
 	if (!strcasestr(line, configstr))
@@ -536,6 +582,48 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 	} else if (parse_devparam(line, SKY_MUX_HW2, SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA,
 				  &cfg->mux_hw2_params, parse_calib_point, &ret)) {
+	}
+
+	/*
+	 * MUX HW2 sink config (makes sense only for RESISTANCE/CAPACITY
+	 * detection modes)
+	 */
+
+	else if (parse_sinkparam(line, SKY_SINK_BATT_TYPE,
+				 &cfg->sink_params, parse_batt_type, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_BATT_CAPACITY_MAH,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_BATT_MIN_VOLTAGE_MV,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_BATT_MAX_VOLTAGE_MV,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_CHARGING_MAX_CURRENT_MA,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_CUTOFF_MIN_CURRENT_MA,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_CUTOFF_TIMEOUT_MS,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_CURRENT_COEF,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_DELAY_SECS,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_SECS,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_SECS,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_TOTAL_CHARGE_SECS,
+				   &cfg->sink_params, parse_unsigned, &ret)) {
 	}
 
 	/*

@@ -235,6 +235,7 @@ struct sky_conf {
 	char                  mux_dev[32];
 	struct sky_dev_params mux_hw1_params;
 	struct sky_dev_params mux_hw2_params;
+	struct sky_dev_params sink_params;
 
 	struct {
 		enum sky_psu_type type;
