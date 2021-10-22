@@ -231,14 +231,14 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		printf("Power:           %.3fW\n",
 		       (float)state->voltage_mV * state->current_mA / 1000000.0f);
 		if (dev_type == SKY_MUX_HW2) {
+			printf("Energy:          %.3fWh\n", state->energy_mWh / 1000.0f);
+			printf("Charge:          %.3fAh\n", state->charge_mAh / 1000.0f);
 			printf("MUX temp:        %dC\n", state->mux_temperature_C);
 			printf("Sink temp:       %dC\n", state->sink_temperature_C);
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
 			printf("Charging:        %02uh:%02um:%02us\n", hours, mins, secs);
-			printf("Energy:          %.3fWh\n", state->energy_mWh / 1000.0f);
-			printf("Charge:          %.3fAh\n", state->charge_mAh / 1000.0f);
 			seconds_to_hms(state->until_full_secs, &hours, &mins, &secs);
-			printf("State of charge: %u%% ~ %02uh:%02um\n",
+			printf("SoC:             %u%% ~ %02uh:%02um\n",
 			       state->state_of_charge, hours, mins);
 			if (cli->linkstat) {
 				printf("Link quality:    %u%%\n"
