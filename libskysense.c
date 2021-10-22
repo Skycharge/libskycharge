@@ -996,22 +996,22 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 	case SKY_HW2_PSU_TYPE:
 		switch (v) {
 		case SKY_PSU_RSP_750_48:
-			return snprintf(buf, size, "0x%02x (RSP-750-48)", v);
+			return snprintf(buf, size, "RSP-750-48 (0x%02x)", v);
 		case SKY_PSU_RSP_1600_48:
-			return snprintf(buf, size, "0x%02x (RSP-1600-48)", v);
+			return snprintf(buf, size, "RSP-1600-48 (0x%02x)", v);
 		default:
-			return snprintf(buf, size, "unknown PSU %d", v);
+			return snprintf(buf, size, "unknown PSU (0x%02x)", v);
 		}
 	case SKY_HW2_DETECT_MODE:
 		switch (v) {
 		case SKY_DETECT_PLC:
-			return snprintf(buf, size, "0x%02x (PLC)", v);
+			return snprintf(buf, size, "PLC (0x%02x)", v);
 		case SKY_DETECT_RESISTANCE:
-			return snprintf(buf, size, "0x%02x (RESISTANCE)", v);
+			return snprintf(buf, size, "RESISTANCE (0x%02x)", v);
 		case SKY_DETECT_CAPACITY:
-			return snprintf(buf, size, "0x%02x (CAPACITY)", v);
+			return snprintf(buf, size, "CAPACITY (0x%02x)", v);
 		default:
-			return snprintf(buf, size, "unknown detect mode %d", v);
+			return snprintf(buf, size, "unknown mode (0x%02x)", v);
 		}
 	case SKY_HW2_NR_BAD_HEARTBEATS:
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
@@ -1232,17 +1232,18 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	v = params->dev_params[param];
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
-		return snprintf(buf, size, "0x%02x (%s)", v,
+		return snprintf(buf, size, "%s (0x%02x)",
 				v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
-				"PLC_WHILE_CHARGING" : "NO BITS SET");
+				"PLC_WHILE_CHARGING" : "NO BITS SET",
+				v);
 	case SKY_SINK_BATT_TYPE:
 		switch (v) {
 		case SKY_BATT_LIPO:
-			return snprintf(buf, size, "0x%02x (Li-Po)", v);
+			return snprintf(buf, size, "Li-Po (0x%02x)", v);
 		case SKY_BATT_LION:
-			return snprintf(buf, size, "0x%0x (Li-Ion)", v);
+			return snprintf(buf, size, "Li-Ion (0x%02x)", v);
 		default:
-			return snprintf(buf, size, "unknown batt %d", v);
+			return snprintf(buf, size, "unknown type (0x%02x)", v);
 		}
 	case SKY_SINK_BATT_CAPACITY_MAH:
 	case SKY_SINK_BATT_MIN_VOLTAGE_MV:
@@ -1262,7 +1263,7 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	case SKY_SINK_USER_DATA4:
 		return snprintf(buf, size, "0x%08x", v);
 	default:
-		return snprintf(buf, size, "unknown param %d", v);
+		return snprintf(buf, size, "unknown param (0x%02x)", v);
 	}
 }
 
