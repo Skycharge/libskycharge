@@ -4,8 +4,8 @@ Usage:
     skysense-cli discover-broker               [<timeout-secs>]
     skysense-cli peer-info                       <addr> <port> --conffile <conff>
     skysense-cli list-devs                     [(<addr> <port>)]  [(--conffile <conff>)]
-    skysense-cli monitor [--pretty] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-dev-params               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli monitor [(--pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-dev-params [--json]      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli stop-charge                   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
@@ -13,18 +13,21 @@ Usage:
     skysense-cli close-droneport               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli show-droneport-state          [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli drone-detect                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-charging-state [--no-pretty] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-charging-state [(--no-pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli sink-info                     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-sink-params              [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli show-sink-params [--json]     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli set-sink-param <key> <value>  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli sink-start-charge             [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli sink-stop-charge              [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
 
 Options:
-    --pretty - outputs charging status in pretty human readable format.
+    --pretty    - outputs in pretty human readable format.
+    --no-pretty - the opposite of 'pretty', when 'pretty' is default.
+    --json      - outputs in json format.
+    --link-stat - includes data link statistics in the output.
 
 Description:
     Skysense console client communicates with local and remote devices.

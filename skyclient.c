@@ -185,7 +185,55 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 	snprintf(timestr + len, sizeof(timestr) - len,
 		 ".%03ld", tv.tv_usec/1000);
 
-	if (!cli->pretty) {
+	if (cli->json) {
+		unsigned hours, mins, secs;
+
+		printf("{\n");
+		printf("\t\"timestamp\": \"%s\",\n", timestr);
+		printf("\t\"state\": \"%s\",\n",
+		       sky_devstate_to_str(dev_type, state->dev_hw_state));
+		printf("\t\"voltage\": \"%.3f\",\n", state->voltage_mV / 1000.0f);
+		printf("\t\"current\": \"%.3f\",\n", state->current_mA / 1000.0f);
+		printf("\t\"power\": \"%.3f\"%s\n",
+		       (float)state->voltage_mV * state->current_mA / 1000000.0f,
+		       dev_type == SKY_MUX_HW2 ? "," : "");
+		if (dev_type == SKY_MUX_HW2) {
+			printf("\t\"energy\": \"%.3f\",\n", state->energy_mWh / 1000.0f);
+			printf("\t\"charge\": \"%.3f\",\n", state->charge_mAh / 1000.0f);
+			printf("\t\"mux-temperature\": \"%d\",\n", state->mux_temperature_C);
+			printf("\t\"sink-temperature\": \"%d\",\n", state->sink_temperature_C);
+			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
+			printf("\t\"charging\": \"%02uh:%02um:%02us\",\n", hours, mins, secs);
+			seconds_to_hms(state->until_full_secs, &hours, &mins, &secs);
+			printf("\t\"soc\":  \"%u%% ~ %02uh:%02um\"%s\n",
+			       state->state_of_charge, hours, mins,
+			       cli->linkstat ? "," : "");
+			if (cli->linkstat) {
+				printf("\t\"link-stat\" : {\n");
+				printf("\t\t\"link-quality\": \"%u\",\n"
+				       "\t\t\"tx-bytes\": \"%u\",\n"
+				       "\t\t\"tx-packets\": \"%u\",\n"
+				       "\t\t\"tx-err-bytes\": \"%u\",\n"
+				       "\t\t\"tx-err-packets\": \"%u\",\n"
+				       "\t\t\"rx-bytes\": \"%u\",\n"
+				       "\t\t\"rx-packets\": \"%u\",\n"
+				       "\t\t\"rx-err-bytes\": \"%u\",\n"
+				       "\t\t\"rx-err-packets\": \"%u\"\n",
+				       state->link_quality_factor,
+				       state->tx.bytes,
+				       state->tx.packets,
+				       state->tx.err_bytes,
+				       state->tx.err_packets,
+				       state->rx.bytes,
+				       state->rx.packets,
+				       state->rx.err_bytes,
+				       state->rx.err_packets);
+				printf("\t}\n");
+			}
+		}
+		printf("}\n");
+
+	} else if (!cli->pretty) {
 		if (dev_type == SKY_MUX_HW2) {
 			printf("%s\t%-30s\t%.3fV\t%.3fA\t%.3fW\t%.3fWh\t%.3fAh\t%us\t%us\t%u%%",
 			       timestr,
@@ -466,9 +514,17 @@ int main(int argc, char *argv[])
 				sky_err("sky_sink_paramsget(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-		printf("%s has the following parameters:\n",
-		       cli.showdevparams ? "MUX" : "Sink");
+
+		if (cli.json)
+			printf("{\n");
+		else
+			printf("%s has the following parameters:\n",
+			       cli.showdevparams ? "MUX" : "Sink");
+
 		for (i = 0; i < nr_params; i++) {
+			enum sky_param_value_format value_format = cli.json ?
+				SKY_PARAM_VALUE_TEXT :
+				SKY_PARAM_VALUE_TEXT_AND_NUMERIC;
 			const char *str;
 			char val[128];
 
@@ -477,14 +533,21 @@ int main(int argc, char *argv[])
 				sky_sinkparam_to_str(i);
 			cli.showdevparams ?
 				sky_devparam_value_to_str(devdesc->dev_type, i, &params,
-							  SKY_PARAM_VALUE_TEXT_AND_NUMERIC,
+							  value_format,
 							  val, sizeof(val)) :
 				sky_sinkparam_value_to_str(i, &params,
-							   SKY_PARAM_VALUE_TEXT_AND_NUMERIC,
+							   value_format,
 							   val, sizeof(val));
 
-			printf("\t%-34s %s\n", str, val);
+			if (cli.json)
+				printf("\t\"%s\" : \"%s\"%s\n", str, val,
+				       i < nr_params - 1 ? "," : "");
+			else
+				printf("\t%-34s %s\n", str, val);
 		}
+		if (cli.json)
+			printf("}\n");
+
 	} else if (cli.setdevparam || cli.setsinkparam) {
 		struct sky_dev_params params;
 		unsigned nr_params;
