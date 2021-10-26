@@ -911,7 +911,7 @@ static int sky_hw1_devparam_value_from_str(const char *str,
 	if (rc)
 		return -EINVAL;
 
-	params->dev_params_bits = (1 << param);
+	params->dev_params_bits |= (1 << param);
 	params->dev_params[param] = v;
 
 	return 0;
@@ -1148,7 +1148,7 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 	if (rc)
 		return -EINVAL;
 
-	params->dev_params_bits = (1 << param);
+	params->dev_params_bits |= (1 << param);
 	params->dev_params[param] = v;
 
 	return 0;
@@ -1382,7 +1382,7 @@ int sky_sinkparam_value_from_str(const char *str,
 	if (rc)
 		return -EINVAL;
 
-	params->dev_params_bits = (1 << param);
+	params->dev_params_bits |= (1 << param);
 	params->dev_params[param] = v;
 
 	return 0;
