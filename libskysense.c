@@ -886,8 +886,11 @@ static enum sky_dev_param sky_hw1_devparam_from_str(const char *str)
 static int
 sky_hw1_devparam_value_to_str(enum sky_dev_param param,
 			      const struct sky_dev_params *params,
+			      enum sky_param_value_format value_format,
 			      char *buf, size_t size)
 {
+	(void)value_format;
+
 	if (param >= SKY_HW1_NUM_DEVPARAM)
 		return -EINVAL;
 
@@ -984,6 +987,7 @@ static enum sky_dev_param sky_hw2_devparam_from_str(const char *str)
 static int
 sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 			      const struct sky_dev_params *params,
+			      enum sky_param_value_format value_format,
 			      char *buf, size_t size)
 {
 	uint32_t v;
@@ -996,22 +1000,43 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 	case SKY_HW2_PSU_TYPE:
 		switch (v) {
 		case SKY_PSU_RSP_750_48:
-			return snprintf(buf, size, "RSP-750-48 (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "RSP-750-48 (0x%02x)", v);
+			else
+				return snprintf(buf, size, "RSP-750-48");
 		case SKY_PSU_RSP_1600_48:
-			return snprintf(buf, size, "RSP-1600-48 (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "RSP-1600-48 (0x%02x)", v);
+			else
+				return snprintf(buf, size, "RSP-1600-48");
 		default:
-			return snprintf(buf, size, "unknown PSU (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "unknown psu (0x%02x)", v);
+			else
+				return snprintf(buf, size, "unknown psu");
 		}
 	case SKY_HW2_DETECT_MODE:
 		switch (v) {
 		case SKY_DETECT_PLC:
-			return snprintf(buf, size, "PLC (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "PLC (0x%02x)", v);
+			else
+				return snprintf(buf, size, "PLC");
 		case SKY_DETECT_RESISTANCE:
-			return snprintf(buf, size, "RESISTANCE (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "RESISTANCE (0x%02x)", v);
+			else
+				return snprintf(buf, size, "RESISTANCE");
 		case SKY_DETECT_CAPACITY:
-			return snprintf(buf, size, "CAPACITY (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "CAPACITY (0x%02x)", v);
+			else
+				return snprintf(buf, size, "CAPACITY");
 		default:
-			return snprintf(buf, size, "unknown mode (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "unknown mode (0x%02x)", v);
+			else
+				return snprintf(buf, size, "unknown mode");
 		}
 	case SKY_HW2_NR_BAD_HEARTBEATS:
 	case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
@@ -1031,7 +1056,10 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 		uint16_t set, read;
 
 		uint32_to_calib_point(v, &set, &read);
-		return snprintf(buf, size, "%5u:%u", set, read);
+		if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+			return snprintf(buf, size, "%5u:%u", set, read);
+		else
+			return snprintf(buf, size, "%u:%u", set, read);
 	}
 	case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
 	case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
@@ -1040,7 +1068,10 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 	case SKY_HW2_USE_FIXED_V_I:
 		return snprintf(buf, size, v ? "true" : "false");
 	default:
-		return snprintf(buf, size, "unknown param %d", v);
+		if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+			return snprintf(buf, size, "unknown param (0x%02x)", v);
+		else
+			return snprintf(buf, size, "unknown param");
 	}
 }
 
@@ -1144,12 +1175,15 @@ enum sky_dev_param sky_devparam_from_str(enum sky_dev_type dev_type,
 int sky_devparam_value_to_str(enum sky_dev_type dev_type,
 			      enum sky_dev_param param,
 			      const struct sky_dev_params *params,
+			      enum sky_param_value_format value_format,
 			      char *buf, size_t size)
 {
 	if (dev_type == SKY_MUX_HW1)
-		return sky_hw1_devparam_value_to_str(param, params, buf, size);
+		return sky_hw1_devparam_value_to_str(param, params, value_format,
+						     buf, size);
 
-	return sky_hw2_devparam_value_to_str(param, params, buf, size);
+	return sky_hw2_devparam_value_to_str(param, params, value_format,
+					     buf, size);
 }
 
 int sky_devparam_value_from_str(const char *str,
@@ -1222,6 +1256,7 @@ enum sky_sink_param sky_sinkparam_from_str(const char *str)
 
 int sky_sinkparam_value_to_str(enum sky_sink_param param,
 			       const struct sky_dev_params *params,
+			       enum sky_param_value_format value_format,
 			       char *buf, size_t size)
 {
 	uint32_t v;
@@ -1232,18 +1267,31 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	v = params->dev_params[param];
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
-		return snprintf(buf, size, "%s (0x%02x)",
-				v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
-				"PLC_WHILE_CHARGING" : "NO BITS SET",
-				v);
+		if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+			return snprintf(buf, size, "%s (0x%02x)",
+					v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
+					"PLC_WHILE_CHARGING" : "NIL", v);
+		else
+			return snprintf(buf, size, "%s",
+					v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
+					"PLC_WHILE_CHARGING" : "NIL");
 	case SKY_SINK_BATT_TYPE:
 		switch (v) {
 		case SKY_BATT_LIPO:
-			return snprintf(buf, size, "Li-Po (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "Li-Po (0x%02x)", v);
+			else
+				return snprintf(buf, size, "Li-Po");
 		case SKY_BATT_LION:
-			return snprintf(buf, size, "Li-Ion (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "Li-Ion (0x%02x)", v);
+			else
+				return snprintf(buf, size, "Li-Ion");
 		default:
-			return snprintf(buf, size, "unknown type (0x%02x)", v);
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "unknown type (0x%02x)", v);
+			else
+				return snprintf(buf, size, "unknown type");
 		}
 	case SKY_SINK_BATT_CAPACITY_MAH:
 	case SKY_SINK_BATT_MIN_VOLTAGE_MV:
@@ -1263,7 +1311,10 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	case SKY_SINK_USER_DATA4:
 		return snprintf(buf, size, "0x%08x", v);
 	default:
-		return snprintf(buf, size, "unknown param (0x%02x)", v);
+		if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+			return snprintf(buf, size, "unknown param (0x%02x)", v);
+		else
+			return snprintf(buf, size, "unknown param");
 	}
 }
 
@@ -1281,6 +1332,8 @@ int sky_sinkparam_value_from_str(const char *str,
 	case SKY_SINK_CAPABILITIES:
 		if (0 == strcasecmp(str, "PLC_WHILE_CHARGING")) {
 			v |= (1 << SKY_CAP_PLC_WHILE_CHARGING);
+		} else if (0 == strcasecmp(str, "NIL")) {
+			v = 0;
 		} else {
 			if (parse_unsigned(str, &v))
 				return -EINVAL;

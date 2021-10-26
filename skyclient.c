@@ -477,8 +477,10 @@ int main(int argc, char *argv[])
 				sky_sinkparam_to_str(i);
 			cli.showdevparams ?
 				sky_devparam_value_to_str(devdesc->dev_type, i, &params,
+							  SKY_PARAM_VALUE_TEXT_AND_NUMERIC,
 							  val, sizeof(val)) :
 				sky_sinkparam_value_to_str(i, &params,
+							   SKY_PARAM_VALUE_TEXT_AND_NUMERIC,
 							   val, sizeof(val));
 
 			printf("\t%-34s %s\n", str, val);

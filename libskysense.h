@@ -46,6 +46,15 @@ enum sky_batt_type {
 };
 
 /**
+ * enum sky_param_value_format - Specifies how parameter value should
+ *                               be reprensented.
+ */
+enum sky_param_value_format {
+	SKY_PARAM_VALUE_TEXT = 0,
+	SKY_PARAM_VALUE_TEXT_AND_NUMERIC,
+};
+
+/**
  * enum sky_detect_mode - Detect mode.
  */
 enum sky_detect_mode {
@@ -503,6 +512,7 @@ enum sky_dev_param sky_devparam_from_str(enum sky_dev_type dev_type,
 int sky_devparam_value_to_str(enum sky_dev_type dev_type,
 			      enum sky_dev_param param,
 			      const struct sky_dev_params *params,
+			      enum sky_param_value_format value_format,
 			      char *buf, size_t size);
 
 /**
@@ -530,6 +540,7 @@ enum sky_sink_param sky_sinkparam_from_str(const char *str);
  */
 int sky_sinkparam_value_to_str(enum sky_sink_param param,
 			       const struct sky_dev_params *params,
+			       enum sky_param_value_format value_format,
 			       char *buf, size_t size);
 
 /**
