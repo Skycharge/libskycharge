@@ -7,6 +7,7 @@ Usage:
     skysense-cli monitor [(--pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli show-dev-params [--json]      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli set-dev-params <key-value-pairs-string> [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli stop-charge                   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli open-droneport                [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
@@ -20,6 +21,7 @@ Usage:
     skysense-cli sink-info                     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli show-sink-params [--json]     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli set-sink-param <key> <value>  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skysense-cli set-sink-params <key-value-pairs-string> [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli sink-start-charge             [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
     skysense-cli sink-stop-charge              [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
 

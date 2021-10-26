@@ -355,6 +355,116 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	sky_print_charging_state(arg->devdesc->dev_type, arg->cli, state);
 }
 
+static void
+parse_key_value_params(bool is_dev_params, struct sky_dev_desc *devdesc,
+		       struct sky_dev_params *params,
+		       const char *param, const char *value)
+{
+	unsigned nr_params, i;
+	int rc;
+
+	if (is_dev_params) {
+		if (devdesc->dev_type == SKY_MUX_HW1)
+			nr_params = SKY_HW1_NUM_DEVPARAM;
+		else
+			nr_params = SKY_HW2_NUM_DEVPARAM;
+	} else {
+		nr_params = SKY_SINK_NUM_DEVPARAM;
+	}
+
+	i = is_dev_params ?
+		sky_devparam_from_str(devdesc->dev_type, param) :
+		sky_sinkparam_from_str(param);
+	if (i == nr_params) {
+		fprintf(stderr, "Incorrect parameter: %s\n", param);
+		fprintf(stderr, "Please, use one of the following:\n");
+		for (i = 0; i < nr_params; i++) {
+			const char *str;
+
+			str = is_dev_params ?
+				sky_devparam_to_str(devdesc->dev_type, i) :
+				sky_sinkparam_to_str(i);
+
+			fprintf(stderr, "\t%s\n", str);
+		}
+		exit(-1);
+	}
+	if (is_dev_params) {
+		rc = sky_devparam_value_from_str(value,
+						 devdesc->dev_type,
+						 i, params);
+		if (rc) {
+			sky_err("Can't parse value '%s' for param %s\n",
+				value, param);
+			exit(-1);
+		}
+	} else {
+		rc = sky_sinkparam_value_from_str(value, i, params);
+		if (rc) {
+			sky_err("Can't parse value '%s' for param %s\n",
+				value, param);
+			exit(-1);
+		}
+	}
+
+}
+
+static void parse_and_set_params(struct cli *cli, struct sky_dev *dev,
+				 struct sky_dev_desc *devdesc)
+{
+	const char params_delims[] = ";, ";
+	const char kv_delims[] = "=:";
+	char *tmp1, *tmp2, *kv;
+	char *param, *value;
+	char *params_str;
+	bool is_dev_params;
+
+	struct sky_dev_params params;
+	int rc;
+
+	memset(&params, 0, sizeof(params));
+	is_dev_params = cli->setdevparam || cli->setdevparams;
+
+	if (cli->setdevparam || cli->setsinkparam) {
+		size_t len = strlen(cli->key) + strlen(cli->value) + 2;
+		params_str = alloca(len);
+		snprintf(params_str, len, "%s:%s", cli->key, cli->value);
+	} else if (cli->setdevparams || cli->setsinkparams) {
+		params_str = strdupa(cli->keyvaluepairsstring);
+	} else {
+		sky_err("Neither sink, neither dev params are going to be set\n");
+		exit(-1);
+	}
+
+	while ((kv = strtok_r(params_str, params_delims, &tmp1))) {
+		params_str = NULL;
+
+		param = strtok_r(kv, kv_delims, &tmp2);
+		value = tmp2;
+
+		if (!strlen(value)) {
+			sky_err("Value is not specified in key-value pair\n");
+			exit(-1);
+		}
+
+		parse_key_value_params(is_dev_params, devdesc, &params, param, value);
+	}
+
+	if (is_dev_params) {
+		rc = sky_paramsset(dev, &params);
+		if (rc) {
+			sky_err("sky_paramsset(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	} else {
+		rc = sky_sink_paramsset(dev, &params);
+		if (rc) {
+			sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_dev_desc *devdescs = NULL;
@@ -548,62 +658,9 @@ int main(int argc, char *argv[])
 		if (cli.json)
 			printf("}\n");
 
-	} else if (cli.setdevparam || cli.setsinkparam) {
-		struct sky_dev_params params;
-		unsigned nr_params;
-		const char *str;
-
-		if (cli.setdevparam) {
-			if (devdesc->dev_type == SKY_MUX_HW1)
-				nr_params = SKY_HW1_NUM_DEVPARAM;
-			else
-				nr_params = SKY_HW2_NUM_DEVPARAM;
-		} else {
-			nr_params = SKY_SINK_NUM_DEVPARAM;
-		}
-
-		i = cli.setdevparam ?
-			sky_devparam_from_str(devdesc->dev_type, cli.key) :
-			sky_sinkparam_from_str(cli.key);
-		if (i == nr_params) {
-			fprintf(stderr, "Incorrect parameter: %s\n", cli.key);
-			fprintf(stderr, "Please, use one of the following:\n");
-			for (i = 0; i < nr_params; i++) {
-				str = cli.setdevparam ?
-					sky_devparam_to_str(devdesc->dev_type, i) :
-					sky_sinkparam_to_str(i);
-
-				fprintf(stderr, "\t%s\n", str);
-			}
-			exit(-1);
-		}
-		if (cli.setdevparam) {
-			rc = sky_devparam_value_from_str(cli.value,
-							 devdesc->dev_type,
-							 i, &params);
-			if (rc) {
-				sky_err("Can't parse value '%s' for param %s\n",
-					cli.value, cli.key);
-				exit(-1);
-			}
-			rc = sky_paramsset(dev, &params);
-			if (rc) {
-				sky_err("sky_paramsset(): %s\n", strerror(-rc));
-				exit(-1);
-			}
-		} else {
-			rc = sky_sinkparam_value_from_str(cli.value, i, &params);
-			if (rc) {
-				sky_err("Can't parse value '%s' for param %s\n",
-					cli.value, cli.key);
-				exit(-1);
-			}
-			rc = sky_sink_paramsset(dev, &params);
-			if (rc) {
-				sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
-				exit(-1);
-			}
-		}
+	} else if (cli.setdevparam || cli.setsinkparam ||
+		   cli.setdevparams || cli.setsinkparams) {
+		parse_and_set_params(&cli, dev, devdesc);
 
 	} else if (cli.startcharge) {
 		rc = sky_chargestart(dev);
