@@ -12,8 +12,8 @@
 #include <libserialport.h>
 
 #include "skyuartd-cmd.h"
-#include "libskysense.h"
-#include "libskysense-pri.h"
+#include "libskycharge.h"
+#include "libskycharge-pri.h"
 #include "types.h"
 #include "daemon.h"
 #include "skyproto.h"
@@ -106,7 +106,7 @@ out:
 }
 
 /*
- * FIXME: duplicate in libskysense-local.c
+ * FIXME: duplicate in libskycharge-local.c
  */
 static inline int sprc_to_errno(enum sp_return sprc)
 {

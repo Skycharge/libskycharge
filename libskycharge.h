@@ -1,5 +1,5 @@
-#ifndef LIBSKYSENSE_H
-#define LIBSKYSENSE_H
+#ifndef LIBSKYCHARGE_H
+#define LIBSKYCHARGE_H
 
 #include <stdlib.h>
 #include <stdbool.h>
@@ -583,7 +583,7 @@ static inline int sky_hw_is_charging(enum sky_dev_type mux_type,
 void sky_confinit(struct sky_conf *cfg);
 
 /**
- * sky_confparse() - Parse generic skysense configuration.
+ * sky_confparse() - Parse generic skycharge configuration.
  * @path:       Path to config.
  * @cfg:        Conf structure to be filled in.
  *
@@ -1254,4 +1254,4 @@ int sky_asyncreq_sink_chargestop(struct sky_async *async,
 }
 #endif
 
-#endif /* LIBSKYSENSE_H */
+#endif /* LIBSKYCHARGE_H */

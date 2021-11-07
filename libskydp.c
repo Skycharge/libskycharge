@@ -3,7 +3,7 @@
 #include <string.h>
 
 #include "libskydp.h"
-#include "libskysense-pri.h"
+#include "libskycharge-pri.h"
 #include "gpio.h"
 
 static int dp_is_ready(struct sky_conf *conf)

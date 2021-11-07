@@ -1,11 +1,11 @@
-#ifndef LIBSKYSENSE_PRI_H
-#define LIBSKYSENSE_PRI_H
+#ifndef LIBSKYCHARGE_PRI_H
+#define LIBSKYCHARGE_PRI_H
 
 #include <search.h>
 #include <assert.h>
 #include <time.h>
 
-#include "libskysense.h"
+#include "libskycharge.h"
 #include "skyproto.h"
 #include "types.h"
 
@@ -171,4 +171,4 @@ static inline const struct sky_hw_ops *get_hwops(struct sky_dev *dev)
 	return dev->devdesc.hw_ops;
 }
 
-#endif /* LIBSKYSENSE_PRI_H */
+#endif /* LIBSKYCHARGE_PRI_H */

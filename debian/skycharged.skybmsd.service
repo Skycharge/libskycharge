@@ -1,5 +1,5 @@
 [Unit]
-Description=Skysense BMS service
+Description=Skycharge BMS service
 BindsTo=dev-skybmsUSB.device
 After=dev-skybmsUSB.device
 

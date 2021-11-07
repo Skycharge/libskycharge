@@ -9,7 +9,7 @@
 #include <zmq.h>
 #include <czmq.h>
 
-#include "libskysense-pri.h"
+#include "libskycharge-pri.h"
 #include "types.h"
 #include "skyproto.h"
 #include "rbtree.h"

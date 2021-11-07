@@ -1,9 +1,9 @@
-Skysense broker.
+Skycharge broker.
 
 Usage:
     skybroker <addr> --servers-port <srv-port> --clients-port <cli-port> [(--daemon (--pidfile <pidf>))]
 
 Options:
-    Skysense broker which accepts connections from pads and clients,
+    Skycharge broker which accepts connections from pads and clients,
     which acts as a router and accepts many pads and clients and orchestrates
     requests between them.

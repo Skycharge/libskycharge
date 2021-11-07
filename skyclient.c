@@ -12,12 +12,12 @@
 #include <math.h>
 #include <regex.h>
 
-#include "libskysense.h"
+#include "libskycharge.h"
 #include "skyclient-cmd.h"
 #include "version.h"
 #include "types.h"
 
-#define CONFFILE "/etc/skysense.conf"
+#define CONFFILE "/etc/skycharge.conf"
 
 static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
 {

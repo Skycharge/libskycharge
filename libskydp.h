@@ -1,7 +1,7 @@
 #ifndef LIBSKYDP_H
 #define LIBSKYDP_H
 
-#include "libskysense.h"
+#include "libskycharge.h"
 
 int dp_configure(const struct sky_dev_desc *desc);
 int dp_open(struct sky_dev *dev);

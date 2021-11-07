@@ -2,7 +2,7 @@
 #define LIBSKYPSU_H
 
 #include "libi2c/i2c.h"
-#include "libskysense.h"
+#include "libskycharge.h"
 #include "types.h"
 
 struct sky_psu {

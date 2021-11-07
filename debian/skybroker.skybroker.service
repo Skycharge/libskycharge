@@ -1,5 +1,5 @@
 [Unit]
-Description=Skysense broker
+Description=Skycharge broker
 After=network-online.target
 Wants=network-online.target
 

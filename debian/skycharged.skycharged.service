@@ -1,0 +1,13 @@
+[Unit]
+Description=Skycharge server
+After=skyuart-config.service
+
+[Service]
+Type=forking
+User=root
+Restart=always
+PIDFile=/var/run/skycharged.pid
+ExecStart=/usr/bin/skycharged 0.0.0.0 5555 --conffile /etc/skycharge.conf --daemon --pidfile /var/run/skycharged.pid
+
+[Install]
+WantedBy=multi-user.target

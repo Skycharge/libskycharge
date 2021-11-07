@@ -16,7 +16,7 @@
 #include <czmq.h>
 
 #include "skyserver-cmd.h"
-#include "libskysense.h"
+#include "libskycharge.h"
 #include "libskypsu.h"
 #include "daemon.h"
 #include "avahi.h"

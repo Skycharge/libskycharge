@@ -7,7 +7,7 @@
 
 #include <gps.h>
 
-#include "libskysense-pri.h"
+#include "libskycharge-pri.h"
 #include "libskybms.h"
 #include "types.h"
 

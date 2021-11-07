@@ -13,8 +13,8 @@
 #include <microhttpd.h>
 
 #include "skyhttpd-cmd.h"
-#include "libskysense.h"
-#include "libskysense-pri.h"
+#include "libskycharge.h"
+#include "libskycharge-pri.h"
 #include "types.h"
 #include "rbtree.h"
 #include "hash.h"

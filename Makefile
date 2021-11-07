@@ -14,10 +14,10 @@ REV = $(shell echo "$(VER)" | cut -d . -f 3)
 
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
-BINS := skybroker skysensed skybmsd skypsu skyhttpd skyuartd skysense-cli
+BINS := skybroker skycharged skybmsd skypsu skyhttpd skyuartd skycharge-cli
 
-LIBSKYCHARGE-SRCS := libskysense.o libskysense-local.o libskysense-remote.o \
-		     libskysense-dummy.o libskybms.o libskydp.o bms-btle.o \
+LIBSKYCHARGE-SRCS := libskycharge.o libskycharge-local.o libskycharge-remote.o \
+		     libskycharge-dummy.o libskybms.o libskydp.o bms-btle.o \
 		     libskypsu.o libi2c/i2c.o gpio.o
 LIBSKYCHARGE-LIBS := -lpthread -lserialport -lczmq -lzmq -luuid -lgps -lz
 
@@ -134,11 +134,11 @@ endif
 	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lczmq -lzmq -lpthread
 
 ##
-## skyserver (skysensed)
+## skyserver (skycharged)
 ##
 skyserver.o: skyserver-cmd.h version.h
 
-skysensed: skyserver.o avahi.o $(LIBSKYCHARGE-SRCS) \
+skycharged: skyserver.o avahi.o $(LIBSKYCHARGE-SRCS) \
 	   skyserver-cmd.tab.o skyserver-cmd.lex.o
 ifneq ($(VERBOSE),1)
 	@echo "  LD $@"
@@ -146,7 +146,7 @@ endif
 	$(Q)$(CC) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS) -lavahi-client -lavahi-common
 
 ##
-## skybmsd (skysensed)
+## skybmsd (skycharged)
 ##
 skybms.o: skybms-cmd.h version.h
 
@@ -157,7 +157,7 @@ endif
 	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lserialport
 
 ##
-## skypsu (skysensed)
+## skypsu (skycharged)
 ##
 skypsu.o: libskypsu.h
 
@@ -169,11 +169,11 @@ endif
 
 
 ##
-## skyclient (skysense-cli)
+## skyclient (skycharge-cli)
 ##
 skyclient.o: skyclient-cmd.h version.h
 
-skysense-cli: skyclient.o $(LIBSKYCHARGE-SRCS) \
+skycharge-cli: skyclient.o $(LIBSKYCHARGE-SRCS) \
 	      skyclient-cmd.tab.o skyclient-cmd.lex.o
 ifneq ($(VERBOSE),1)
 	@echo "  LD $@"

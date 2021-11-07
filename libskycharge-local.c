@@ -9,7 +9,7 @@
 #include <libserialport.h>
 #include <gps.h>
 
-#include "libskysense-pri.h"
+#include "libskycharge-pri.h"
 #include "libskybms.h"
 #include "libskydp.h"
 #include "types.h"

@@ -1,7 +1,7 @@
-Source: skysense
+Source: skycharge
 Section: admin
 Priority: optional
-Maintainer: Skysense <skysense@skysense.com>
+Maintainer: Skycharge Support <support@skycharge.de>
 Build-Depends: autotools-dev,
                debhelper,
                dh-autoreconf,
@@ -18,22 +18,22 @@ Build-Depends: autotools-dev,
                libmicrohttpd-dev,
 Standards-Version: 3.9.5
 
-Package: skysense-conf
+Package: skycharge-conf
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
          sed,
          uuid-runtime,
          gpw,
-Description: Any common files for skysense, e.g. skysense.conf.
-  Contains any common files for skysense, mainly skysense.conf
-  which is shared between other skysense packages.
+Description: Any common files for skycharge, e.g. skycharge.conf.
+  Contains any common files for skycharge, mainly skycharge.conf
+  which is shared between other skycharge packages.
 
-Package: skysense-cli
+Package: skycharge-cli
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
-         skysense-conf (>= ${binary:Version}),
+         skycharge-conf (>= ${binary:Version}),
          libuuid1,
          zlib1g,
          libzmq5,
@@ -41,13 +41,13 @@ Depends: ${misc:Depends},
          libserialport0,
          libgps22
 Description: command line utility to control charging pad
- This package contains Skysense command line utility
+ This package contains Skycharge command line utility
 
-Package: skysensed
+Package: skycharged
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
-         skysense-conf (>= ${binary:Version}),
+         skycharge-conf (>= ${binary:Version}),
          libuuid1,
          libzmq5,
          libczmq4,
@@ -55,7 +55,7 @@ Depends: ${misc:Depends},
          libgps22,
          libavahi-client3,
 Description: server to control charging pad
- This package contains Skysense server
+ This package contains Skycharge server
 
 Package: skybroker
 Architecture: any
@@ -64,7 +64,7 @@ Depends: ${misc:Depends},
          libzmq5,
          libczmq4,
 Description: broker which accepts connections from pads and clients
- This package contains Skysense broker, which acts as a router and
+ This package contains Skycharge broker, which acts as a router and
  accepts many pads and clients and orchestrates requests between them.
 
 Package: skyhttpd
@@ -85,20 +85,10 @@ Package: skyuartd
 Architecture: any
 Depends: ${misc:Depends},
          ${shlibs:Depends},
-         skysensed (>= ${binary:Version}),
+         skycharged (>= ${binary:Version}),
          libuuid1,
          libzmq5,
          libczmq4,
          libserialport0,
          libgps22,
 Description: Skycharge UART server for serving UART requests.
-
-Package: skysense-dbg
-Architecture: any
-Section: debug
-Priority: extra
-Depends: skysense-cli (= ${binary:Version}),
-         skysensed (= ${binary:Version}),
-         ${misc:Depends}
-Description: debugging symbols for Skysense utils and server
- This package contains debugging symbols for Skysense utils and server

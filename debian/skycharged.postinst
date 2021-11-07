@@ -6,7 +6,7 @@ case "$1" in
 	configure)
 		#
 		# Trigger udev rules and if USB devices (MUX or BTLE dongle) are
-		# plugged in - skysensed and skybmsd daemons will be started
+		# plugged in - skycharged and skybmsd daemons will be started
 		#
 
 		# Can be that we run from env where udevd is stopped,
@@ -17,7 +17,7 @@ case "$1" in
 		udevadm settle || true
 
 		if [ -e /dev/skysenseUSB ]; then
-		   systemctl start skysensed.service
+		   systemctl start skycharged.service
 		fi
 
 		if [ -e /dev/skybmsUSB ]; then

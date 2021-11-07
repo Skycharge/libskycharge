@@ -1,29 +1,29 @@
-Skysense charging pad command line tool.
+Skycharge charging pad command line tool.
 
 Usage:
-    skysense-cli discover-broker               [<timeout-secs>]
-    skysense-cli peer-info                       <addr> <port> --conffile <conff>
-    skysense-cli list-devs                     [(<addr> <port>)]  [(--conffile <conff>)]
-    skysense-cli monitor [(--pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-dev-params [--json]      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli set-dev-params <key-value-pairs-string> [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli stop-charge                   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli open-droneport                [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli close-droneport               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-droneport-state          [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli drone-detect                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-charging-state [(--no-pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli sink-info                     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli show-sink-params [--json]     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli set-sink-param <key> <value>  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli set-sink-params <key-value-pairs-string> [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli sink-start-charge             [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
-    skysense-cli sink-stop-charge              [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli discover-broker               [<timeout-secs>]
+    skycharge-cli peer-info                       <addr> <port> --conffile <conff>
+    skycharge-cli list-devs                     [(<addr> <port>)]  [(--conffile <conff>)]
+    skycharge-cli monitor [(--pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli show-dev-params [--json]      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli set-dev-param <key> <value>   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli set-dev-params <key-value-pairs-string> [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli start-charge                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli stop-charge                   [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli open-droneport                [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli close-droneport               [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli show-droneport-state          [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli drone-detect                  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli show-charging-state [(--no-pretty | --json)] [--link-stat] [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli reset                         [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli dev-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli gps-info                      [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli sink-info                     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli show-sink-params [--json]     [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli set-sink-param <key> <value>  [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli set-sink-params <key-value-pairs-string> [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli sink-start-charge             [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli sink-stop-charge              [(<addr> <port>)]  [(--id <dev-id>)] [(--conffile <conff>)]
 
 Options:
     --pretty    - outputs in pretty human readable format.
@@ -32,7 +32,7 @@ Options:
     --link-stat - includes data link statistics in the output.
 
 Description:
-    Skysense console client communicates with local and remote devices.
+    Skycharge console client communicates with local and remote devices.
     Almost each command has non obligatory <addr> and <port> to execute
     command remotely on a server.  If <addr> and <port> are not specified
     local devices will be used.

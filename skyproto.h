@@ -4,7 +4,7 @@
 #include "types.h"
 
 /**
- * enum sky_proto_type - skysense protocol request/responses
+ * enum sky_proto_type - skycharge protocol request/responses
  *
  * BEWARE:
  *    1. keep requests/responses sequential, one by one.
@@ -112,7 +112,7 @@ enum {
 	SKY_DISCOVERY_MS   = 500, /* wait if no broadcasting */
 };
 
-#define	SKY_DISCOVERY_MAGIC "SKYSENSE-BROCKER"
+#define	SKY_DISCOVERY_MAGIC "SKYBROCKER"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic warning "-Wpadded"
