@@ -18,6 +18,34 @@ Build-Depends: autotools-dev,
                libmicrohttpd-dev,
 Standards-Version: 3.9.5
 
+
+Package: skysense-conf
+Depends: skycharge-conf, ${misc:Depends}
+Architecture: all
+Priority: optional
+Section: oldlibs
+Description: transitional package
+  This is a transitional Skycharge package. It can safely be removed.
+
+
+Package: skysense-cli
+Depends: skycharge-cli, ${misc:Depends}
+Architecture: all
+Priority: optional
+Section: oldlibs
+Description: transitional package
+  This is a transitional Skycharge package. It can safely be removed.
+
+
+Package: skysensed
+Depends: skycharged, ${misc:Depends}
+Architecture: all
+Priority: optional
+Section: oldlibs
+Description: transitional package
+  This is a transitional Skycharge package. It can safely be removed.
+
+
 Package: skycharge-conf
 Architecture: any
 Depends: ${misc:Depends},
@@ -25,9 +53,11 @@ Depends: ${misc:Depends},
          sed,
          uuid-runtime,
          gpw,
-Description: Any common files for skycharge, e.g. skycharge.conf.
-  Contains any common files for skycharge, mainly skycharge.conf
-  which is shared between other skycharge packages.
+Replaces: skysense-conf (<< 2.0.0)
+Breaks: skysense-conf (<< 2.0.0)
+Description: Any common files for Skycharge, e.g. skycharge.conf.
+  Contains any common files for Skycharge, mainly skycharge.conf
+  which is shared between other Skycharge packages.
 
 Package: skycharge-cli
 Architecture: any
@@ -40,6 +70,8 @@ Depends: ${misc:Depends},
          libczmq4,
          libserialport0,
          libgps22
+Replaces: skysense-cli (<< 2.0.0)
+Breaks: skysense-cli (<< 2.0.0)
 Description: command line utility to control charging pad
  This package contains Skycharge command line utility
 
@@ -54,6 +86,8 @@ Depends: ${misc:Depends},
          libserialport0,
          libgps22,
          libavahi-client3,
+Replaces: skysensed (<< 2.0.0)
+Breaks: skysensed (<< 2.0.0)
 Description: server to control charging pad
  This package contains Skycharge server
 
