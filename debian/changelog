@@ -1,3 +1,11 @@
+skycharge (2.0.0~rc1) stretch; urgency=low
+  * Rename skysense to skycharge
+  * debian: flowless migration to new name: skysense -> skycharge
+  * Include 3-Clause BSD license in each C source and header
+  * Update README
+
+ -- Roman Pen <r.penyaev@gmail.com>  Mon, 8 Nov 2021 11:00:00 +0200
+
 skysense (1.5.0) stretch; urgency=low
   * skyhttpd: compilation fix for MHD version >= 0x0009701
   * skyuartd: daemonize before creating zmq socket
