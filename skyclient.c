@@ -232,7 +232,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		if (dev_type == SKY_MUX_HW2) {
 			printf("\t\"energy\": \"%.3f\",\n", state->energy_mWh / 1000.0f);
 			printf("\t\"charge\": \"%.3f\",\n", state->charge_mAh / 1000.0f);
-			printf("\t\"mux-temperature\": \"%d\",\n", state->mux_temperature_C);
+			printf("\t\"source-temperature\": \"%d\",\n", state->mux_temperature_C);
 			printf("\t\"sink-temperature\": \"%d\",\n", state->sink_temperature_C);
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
 			printf("\t\"charging\": \"%02uh:%02um:%02us\",\n", hours, mins, secs);
@@ -264,7 +264,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 
 	} else if (!cli->pretty) {
 		if (dev_type == SKY_MUX_HW2) {
-			printf("%s\t%-30s\t%.3fV\t%.3fA\t%.3fW\t%.3fWh\t%.3fAh\t%us\t%us\t%u%%",
+			printf("%s\t%-30s\t%.3fV\t%.3fA\t%.3fW\t%.3fWh\t%.3fAh\t%us\t%us\t",
 			       timestr,
 			       sky_devstate_to_str(dev_type, state->dev_hw_state),
 			       state->voltage_mV / 1000.0f,
@@ -273,8 +273,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 			       state->energy_mWh / 1000.0f,
 			       state->charge_mAh / 1000.0f,
 			       state->charging_secs,
-			       state->until_full_secs,
-			       state->state_of_charge);
+			       state->until_full_secs);
 
 			if (cli->linkstat) {
 				printf("\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u\t%u%%\n",
@@ -310,7 +309,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		if (dev_type == SKY_MUX_HW2) {
 			printf("Energy:          %.3fWh\n", state->energy_mWh / 1000.0f);
 			printf("Charge:          %.3fAh\n", state->charge_mAh / 1000.0f);
-			printf("MUX temp:        %dC\n", state->mux_temperature_C);
+			printf("Source temp:     %dC\n", state->mux_temperature_C);
 			printf("Sink temp:       %dC\n", state->sink_temperature_C);
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
 			printf("Charging:        %02uh:%02um:%02us\n", hours, mins, secs);
@@ -656,7 +655,7 @@ int main(int argc, char *argv[])
 			printf("{\n");
 		else
 			printf("%s has the following parameters:\n",
-			       cli.showdevparams ? "MUX" : "Sink");
+			       cli.showdevparams ? "Source" : "Sink");
 
 		for (i = 0; i < nr_params; i++) {
 			enum sky_param_value_format value_format = cli.json ?
@@ -769,7 +768,7 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (cli.devinfo) {
-		printf("MUX info:\n"
+		printf("Source info:\n"
 		       "   FW:        v%d.%d.%d\n"
 		       "   HW:        v%d.%d.%d\n"
 		       "   PLC proto: v%d.%d.%d\n"

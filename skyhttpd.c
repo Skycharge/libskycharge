@@ -638,7 +638,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 				      "\t\t\t\"charging-time-sec\": %d,\n"
 				      "\t\t\t\"state-of-charge-perc\": %d,\n"
 				      "\t\t\t\"until-full-charge-time-sec\": %d,\n"
-				      "\t\t\t\"mux-temperature-C\": %d,\n"
+				      "\t\t\t\"source-temperature-C\": %d,\n"
 				      "\t\t\t\"sink-temperature-C\": %d,\n"
 				      "\t\t\t\"energy-mWh\": %d,\n"
 				      "\t\t\t\"charge-mAh\": %d,\n"
