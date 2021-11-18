@@ -651,9 +651,6 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_SECS,
 				   &cfg->sink_params, parse_unsigned, &ret)) {
 
-	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_SECS,
-				   &cfg->sink_params, parse_unsigned, &ret)) {
-
 	} else if (parse_sinkparam(line, SKY_SINK_TOTAL_CHARGE_SECS,
 				   &cfg->sink_params, parse_unsigned, &ret)) {
 	}
