@@ -7,6 +7,7 @@ case "$1" in
 		if [ -e /etc/skysense.conf ]; then
 			mv /etc/skysense.conf /etc/skycharge.conf
 		else
+			sed -i s/%USRUUID%/`uuidgen`/ /etc/skycharge.conf
 			sed -i s/%DEVUUID%/`uuidgen`/ /etc/skycharge.conf
 			sed -i s/%DEVNAME%/`gpw 1`/ /etc/skycharge.conf
 		fi
