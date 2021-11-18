@@ -1,3 +1,12 @@
+skycharge (2.0.1) stretch; urgency=low
+  * skycharge.conf: always generate user-uuid and make config hw2 friendly
+  * libskycharge: remove duplicated if statement
+  * skyclient: remove SoC from the client output
+  * skyclient,skyhttpd: rename "MUX" to "Source" in representation
+  * libskycharge,skycharge.conf: rename charging-min-current-ma to cutoff-min-current-ma
+
+ -- Roman Pen <r.penyaev@gmail.com>  Thu, 19 Nov 2021 12:30:00 +0200
+
 skycharge (2.0.0) stretch; urgency=low
   * Rename skysense to skycharge
   * debian: flowless migration to new name: skysense -> skycharge
