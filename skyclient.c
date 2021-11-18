@@ -237,9 +237,6 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
 			printf("\t\"charging\": \"%02uh:%02um:%02us\",\n", hours, mins, secs);
 			seconds_to_hms(state->until_full_secs, &hours, &mins, &secs);
-			printf("\t\"soc\":  \"%u%% ~ %02uh:%02um\"%s\n",
-			       state->state_of_charge, hours, mins,
-			       cli->linkstat ? "," : "");
 			if (cli->linkstat) {
 				printf("\t\"link-stat\" : {\n");
 				printf("\t\t\"link-quality\": \"%u\",\n"
@@ -318,8 +315,6 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
 			printf("Charging:        %02uh:%02um:%02us\n", hours, mins, secs);
 			seconds_to_hms(state->until_full_secs, &hours, &mins, &secs);
-			printf("SoC:             %u%% ~ %02uh:%02um\n",
-			       state->state_of_charge, hours, mins);
 			if (cli->linkstat) {
 				printf("Link quality:    %u%%\n"
 				       "TX stat:\n"
