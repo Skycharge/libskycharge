@@ -1242,7 +1242,7 @@ const char *sky_sinkparam_to_str(enum sky_sink_param param)
 	case SKY_SINK_CHARGING_MAX_CURRENT_MA:
 		return "charging-max-current-ma";
 	case SKY_SINK_CUTOFF_MIN_CURRENT_MA:
-		return "charging-min-current-ma";
+		return "cutoff-min-current-ma";
 	case SKY_SINK_CUTOFF_TIMEOUT_MS:
 		return "cutoff-timeout-ms";
 	case SKY_SINK_PRECHARGE_CURRENT_COEF:
