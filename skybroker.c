@@ -314,8 +314,10 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		for (i = 0, data = zmsg_first(msg); data;
 		     data = zmsg_next(msg), i++) {
 			/* Skip two ident frames: IDENT+0 */
-			if (i >= 2)
+			if (i >= 2) {
 				zmsg_remove(msg, data);
+				zframe_destroy(&data);
+			}
 		}
 
 		rc = zhashx_insert(srvs_hash, peer->ident_frame, peer);
