@@ -1458,7 +1458,6 @@ static int validate_conf(struct sky_conf *cfg)
 {
 	if (cfg->mux_type == SKY_MUX_HW1 && !strlen(cfg->mux_dev)) {
 		/* A bit of compatibility */
-		sky_err("Config warning: 'mux_dev' is not specified, assume /dev/skysenseUSB\n");
 		strcpy(cfg->mux_dev, "/dev/skysenseUSB");
 	} else if (!strlen(cfg->mux_dev)) {
 		sky_err("Config error: 'mux_dev' is not specified\n");
