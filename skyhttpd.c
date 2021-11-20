@@ -507,7 +507,7 @@ static void devs_list_skycompletion(struct sky_async_req *skyreq)
 		struct sky_dev_desc *devdesc;
 
 		foreach_devdesc(devdesc, req->skystruct.devdescs) {
-			char dev_uuid[36];
+			char dev_uuid[37];
 
 			uuid_unparse(devdesc->dev_uuid, dev_uuid);
 			ret = snprintf_buffer(&buffer, &off, &size,
