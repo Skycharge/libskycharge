@@ -228,7 +228,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 			     int rsp_num,
 			     ...)
 {
-	uint8_t len, cmd_len, rsp_len;
+	uint8_t len, cmd_len, rsp_len, read_len;
 	uint8_t cmd_buf[256], rsp_buf[256];
 	enum sp_return sprc;
 	int rc, args, off;
@@ -319,24 +319,25 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		 * the compatibility sake.
 		 */
 		rsp_len = min(len, proto->get_rsp_len(rsp_buf)) + proto->rsp_hdr_len;
+		read_len = proto->get_rsp_len(rsp_buf) + proto->rsp_hdr_len;
 		sprc = sp_blocking_read(dev->port, rsp_buf + proto->rsp_data_off,
-				rsp_len - proto->rsp_data_off,
+				read_len - proto->rsp_data_off,
 				TIMEOUT_MS);
 		if (sprc < 0) {
 			rc = sprc_to_errno(sprc);
 			sky_err("sp_blocking_read(): %s\n", strerror(-rc));
 			goto out_unlock;
-		} else if (sprc != rsp_len - proto->rsp_data_off) {
+		} else if (sprc != read_len - proto->rsp_data_off) {
 			sky_err("sp_blocking_read(): failed to read within %d ms timeout, only %d is read, but expected %d\n",
-				TIMEOUT_MS, sprc, rsp_len - proto->rsp_data_off);
+				TIMEOUT_MS, sprc, read_len - proto->rsp_data_off);
 			rc = -ETIMEDOUT;
 			goto out_unlock;
 		} else if (!(valid_crc = proto->check_crc(rsp_buf)) ||
-			   !proto->is_valid_rsp_hdr(rsp_buf, rsp_len, cmd,
+			   !proto->is_valid_rsp_hdr(rsp_buf, read_len, cmd,
 						    CHECK_ALL, &rc)) {
 			hex_dump_to_buffer(cmd_buf, cmd_len, 16, 1,
 					   strdump_req, sizeof(strdump_req), false);
-			hex_dump_to_buffer(rsp_buf, rsp_len, 16, 1,
+			hex_dump_to_buffer(rsp_buf, read_len, 16, 1,
 					   strdump_rsp, sizeof(strdump_rsp), false);
 
 			if (!valid_crc)
