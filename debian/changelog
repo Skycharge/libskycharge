@@ -1,3 +1,18 @@
+skycharge (2.0.2~rc2) stretch; urgency=low
+  * libskycharge: remove warning if 'mux_dev' is not specified
+  * skybroker: fix zframes leak
+  * skyhttpd: forgotten space for the trailing \0 in a buffer
+  * libskycharge-local: don't fail on CRC check if hw buffer is bigger than expected
+  * libskycharge-dummy: switch to HW2 and set hw state to SCANNING
+  * libskycharge: introduce new sky_hw_is_idle() API call
+  * skyserver: remove annoying error logs
+  * skyserver: do not append USRUUID frame
+  * libskycharge,skyproto,skyserver: intrduce charging_session_id field
+  * skybroker: support MongoDB as the back-end DB
+  * skyserver: apply sink params from config for detect modes other than PLC
+
+ -- Roman Pen <r.penyaev@gmail.com>  Mon, 22 Nov 2021 19:15:00 +0200
+
 skycharge (2.0.1) stretch; urgency=low
   * skycharge.conf: always generate user-uuid and make config hw2 friendly
   * libskycharge: remove duplicated if statement
