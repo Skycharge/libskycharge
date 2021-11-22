@@ -16,6 +16,8 @@ Build-Depends: autotools-dev,
                libgps-dev,
                libavahi-client-dev,
                libmicrohttpd-dev,
+               libbson-dev [amd64],
+               libmongoc-dev [amd64],
 Standards-Version: 3.9.5
 
 
@@ -92,11 +94,14 @@ Description: server to control charging pad
  This package contains Skycharge server
 
 Package: skybroker
-Architecture: any
+Architecture: amd64
 Depends: ${misc:Depends},
          ${shlibs:Depends},
          libzmq5,
          libczmq4,
+         libuuid1,
+         libbson-1.0-0,
+         libmongoc-1.0-0,
 Description: broker which accepts connections from pads and clients
  This package contains Skycharge broker, which acts as a router and
  accepts many pads and clients and orchestrates requests between them.

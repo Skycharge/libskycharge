@@ -1,0 +1,6 @@
+# skybroker configuration options
+
+ADDR=0.0.0.0
+INCOMING_SERVERS_PORT=6666
+INCOMING_CLIENTS_PORT=5555
+DB_URI="mongodb://localhost"

@@ -1,6 +1,7 @@
 CC = $(CROSS_COMPILE)gcc
 DEFINES = -D_GNU_SOURCE
-CFLAGS = -g -O2 -Wall -Werror $(DEFINES)
+INCLUDES = -I/usr/include/libmongoc-1.0 -I/usr/include/libbson-1.0
+CFLAGS = -g -O2 -Wall -Werror $(DEFINES) $(INCLUDES)
 YACC := bison
 LEX  := flex
 
@@ -12,9 +13,16 @@ MAJ = $(shell echo "$(VER)" | cut -d . -f 1)
 MIN = $(shell echo "$(VER)" | cut -d . -f 2)
 REV = $(shell echo "$(VER)" | cut -d . -f 3)
 
+ARCH = $(shell dpkg --print-architecture)
+
 SRCS := $(wildcard *.c)
 DEPS := $(SRCS:.c=.d)
-BINS := skybroker skycharged skybmsd skypsu skyhttpd skyuartd skycharge-cli
+BINS := skycharged skybmsd skypsu skyhttpd skyuartd skycharge-cli
+
+ifeq ($(ARCH), amd64)
+  # Build skybroker only on x86-64
+  BINS += skybroker
+endif
 
 LIBSKYCHARGE-SRCS := libskycharge.o libskycharge-local.o libskycharge-remote.o \
 		     libskycharge-dummy.o libskybms.o libskydp.o bms-btle.o \
@@ -127,11 +135,11 @@ endif
 ##
 skybroker.o: skybroker-cmd.h version.h
 
-skybroker: skybroker.o skybroker-cmd.tab.o skybroker-cmd.lex.o
+skybroker: skybroker.o skybroker-cmd.tab.o skybroker-cmd.lex.o libskycharge.o
 ifneq ($(VERBOSE),1)
 	@echo "  LD $@"
 endif
-	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lczmq -lzmq -lpthread
+	$(Q)$(CC) $(LFLAGS) -o $@ $^ -lczmq -lzmq -luuid -lmongoc-1.0 -lbson-1.0 -lpthread
 
 ##
 ## skyserver (skycharged)

@@ -7,8 +7,8 @@ Wants=network-online.target
 Type=forking
 User=root
 Restart=always
+EnvironmentFile=-/etc/default/skybroker
 PIDFile=/var/run/skybroker.pid
-ExecStart=/usr/bin/skybroker 0.0.0.0 --servers-port 6666 --clients-port 5555 --daemon --pidfile /var/run/skybroker.pid
-
+ExecStart=/usr/bin/skybroker $ADDR --servers-port $INCOMING_SERVERS_PORT --clients-port $INCOMING_CLIENTS_PORT --database-uri $DB_URI --daemon --pidfile /var/run/skybroker.pid
 [Install]
 WantedBy=multi-user.target

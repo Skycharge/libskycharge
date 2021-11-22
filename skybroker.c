@@ -36,19 +36,21 @@
 #include <endian.h>
 #include <limits.h>
 #include <string.h>
+#include <uuid/uuid.h>
 
 #include <czmq.h>
+#include <mongoc.h>
 
 #include "skybroker-cmd.h"
 #include "daemon.h"
 #include "version.h"
 #include "skyproto.h"
+#include "libskycharge.h"
 
 struct server_peer {
 	zmsg_t *idents_msg;
-	zframe_t *ident_frame;
 	zframe_t *data_frame;
-	zframe_t *usruuid_frame;
+	uuid_t devuuid;
 	const void *rsp_data;
 	size_t rsp_len;
 	size_t num_devs;
@@ -59,6 +61,406 @@ struct server_peer {
 		struct server_peer *next;
 	};
 };
+
+struct db {
+	mongoc_uri_t         *uri;
+	mongoc_client_pool_t *pool;
+};
+
+struct db_client {
+	mongoc_client_pool_t *pool;
+	mongoc_client_t      *client;
+	mongoc_database_t    *db;
+	mongoc_collection_t  *coll_chargers;
+	mongoc_collection_t  *coll_user_uuids;
+	mongoc_collection_t  *coll_charging_sessions;
+
+};
+
+static pthread_mutex_t hash_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static int db_init(struct cli *cli, struct db *db)
+{
+	bson_error_t error;
+
+	/*
+	 * Init mongodb
+	 */
+	mongoc_init ();
+	db->uri = mongoc_uri_new_with_error(cli->dburi, &error);
+	if (!db->uri) {
+		sky_err("failed to parse URI: %s\n"
+			"error message:       %s\n",
+			cli->dburi,
+			error.message);
+		return -1;
+	}
+
+	/*
+	 * Create a new pool and client instance
+	 */
+	db->pool = mongoc_client_pool_new(db->uri);
+	if (!db->pool) {
+		sky_err("mongoc_client_pool_new(): failed\n");
+		mongoc_uri_destroy(db->uri);
+		return -1;
+	}
+	mongoc_client_pool_set_error_api(db->pool, 2);
+	mongoc_client_pool_set_appname(db->pool, "skybroker");
+
+	return 0;
+}
+
+static void db_deinit(struct db *db)
+{
+	mongoc_client_pool_destroy(db->pool);
+	mongoc_uri_destroy(db->uri);
+	mongoc_cleanup();
+}
+
+static int
+db_client_connect(struct db *db, struct db_client *db_client)
+{
+	db_client->client = mongoc_client_pool_pop(db->pool);
+	if (!db_client->client) {
+		sky_err("mongoc_client_pool_pop(): failed\n");
+		return -1;
+	}
+	db_client->db = mongoc_client_get_database(db_client->client,
+						   "skycharge_db");
+	if (!db_client->db) {
+		sky_err("mongoc_client_get_database(): failed\n");
+		goto err_push_pool;
+	}
+	db_client->coll_chargers =
+		mongoc_database_get_collection(db_client->db, "chargers");
+	if (!db_client->coll_chargers) {
+		sky_err("mongoc_database_get_collection(): failed\n");
+		goto err_database_destroy;
+	}
+	db_client->coll_user_uuids =
+		mongoc_database_get_collection(db_client->db, "userUUIDS");
+	if (!db_client->coll_user_uuids) {
+		sky_err("mongoc_database_get_collection(): failed\n");
+		goto err_coll_chargers_destroy;
+	}
+	db_client->coll_charging_sessions =
+		mongoc_database_get_collection(db_client->db, "chargingSessions");
+	if (!db_client->coll_charging_sessions) {
+		sky_err("mongoc_database_get_collection(): failed\n");
+		goto err_coll_user_uuids_destroy;
+	}
+
+	db_client->pool = db->pool;
+
+	return 0;
+
+err_coll_user_uuids_destroy:
+	mongoc_collection_destroy(db_client->coll_charging_sessions);
+err_coll_chargers_destroy:
+	mongoc_collection_destroy(db_client->coll_chargers);
+err_database_destroy:
+	mongoc_database_destroy(db_client->db);
+err_push_pool:
+	mongoc_client_pool_push(db->pool, db_client->client);
+
+	return -1;
+}
+
+static void db_client_disconnect(struct db_client *db_client)
+{
+	mongoc_collection_destroy(db_client->coll_charging_sessions);
+	mongoc_collection_destroy(db_client->coll_chargers);
+	mongoc_collection_destroy(db_client->coll_user_uuids);
+	mongoc_database_destroy(db_client->db);
+	mongoc_client_pool_push(db_client->pool, db_client->client);
+}
+
+static bool
+db_lookup_device_and_update_ts_by_devuuid(struct db_client *db_client,
+					  uuid_t devuuid, bool all_ts)
+{
+	mongoc_find_and_modify_opts_t *opts;
+	bson_iter_t iter, citer;
+	bson_t *query;
+	bson_t *update;
+	bson_t reply;
+
+	char devuuid_str[37];
+	bool success;
+
+	uuid_unparse(devuuid, devuuid_str);
+
+	query = BCON_NEW("deviceId", BCON_UTF8(devuuid_str));
+
+	if (all_ts)
+		update = BCON_NEW("$currentDate",
+				  "{", "loggedinAt", BCON_BOOL(true),
+				       "updatedAt",  BCON_BOOL(true), "}");
+	else
+		update = BCON_NEW("$currentDate",
+				  "{", "updatedAt",  BCON_BOOL(true), "}");
+
+	opts = mongoc_find_and_modify_opts_new();
+	mongoc_find_and_modify_opts_set_update(opts, update);
+
+	success = mongoc_collection_find_and_modify_with_opts(
+		db_client->coll_chargers, query, opts, &reply, NULL);
+
+	if (success)
+		success = bson_iter_init_find(&iter, &reply, "lastErrorObject") &&
+			BSON_ITER_HOLDS_DOCUMENT(&iter) &&
+			bson_iter_recurse(&iter, &citer) &&
+			bson_iter_find (&citer, "updatedExisting") &&
+			BSON_ITER_HOLDS_BOOL(&citer) &&
+			bson_iter_bool(&citer);
+
+	bson_destroy(update);
+	bson_destroy(query);
+	bson_destroy(&reply);
+	mongoc_find_and_modify_opts_destroy(opts);
+
+	return success;
+}
+
+static bool
+db_lookup_online_devices_by_usruuid(struct db_client *db_client, uuid_t usruuid,
+				    uuid_t **devuuids, size_t *nr_devuuids)
+{
+	mongoc_cursor_t *cursor;
+	bson_t *pipeline;
+	char usruuid_str[37];
+	const bson_t *doc;
+
+	const char *chargers_name;
+	unsigned found;
+	uuid_t *uuids;
+
+	uuid_unparse(usruuid, usruuid_str);
+
+	chargers_name = mongoc_collection_get_name(db_client->coll_chargers);
+	pipeline = BCON_NEW(
+		"pipeline", "[",
+
+		/* Lookup user UUID with valid userId */
+		  "{",
+		      "$match", "{",
+		          "userUUID", BCON_UTF8(usruuid_str),
+		          "userId", "{", "$exists", BCON_BOOL(true), "}",
+		      "}",
+		  "}",
+
+		/* Lookup online chargers belong to that user */
+		  "{",
+		      "$lookup", "{",
+		          "from", BCON_UTF8(chargers_name),
+		          "as", "online_charger",
+		          "let", "{", "userId", "$userId",
+		                      "updatedAt", "$updatedAt",
+			  "}",
+		          "pipeline", "[",
+		              "{",
+		                  "$match", "{",
+		                      "$expr", "{",
+		                          "$and", "[",
+		                               "{", "$eq", "[", "$userId", "$$userId", "]", "}",
+		                               "{", "$gte", "[", "$updatedAt", "{", "$subtract", "[", "$$NOW", BCON_INT32(SKY_HEARTBEAT_IVL_MS), "]", "}", "]", "}",
+					  "]",
+				      "}",
+				  "}",
+			      "}",
+			  "]",
+		      "}",
+		  "}",
+
+		/* Unwind array of online chargers */
+		  "{", "$unwind", "$online_charger", "}",
+
+		/* Get flatten deviceId fields only of online chargers */
+		  "{",
+		      "$project", "{", "_id", "$online_charger._id",
+				       "deviceId", "$online_charger.deviceId", "}",
+		      "}",
+		"]");
+
+	cursor = mongoc_collection_aggregate(db_client->coll_user_uuids,
+					     MONGOC_QUERY_NONE, pipeline,
+					     NULL, NULL);
+	uuids = NULL;
+	found = 0;
+	while (mongoc_cursor_next(cursor, &doc)) {
+		uuid_t uuid, *ptr;
+		bson_iter_t iter;
+		bool parsed;
+
+		parsed = bson_iter_init_find(&iter, doc, "deviceId") &&
+			 BSON_ITER_HOLDS_UTF8(&iter) &&
+			 uuid_parse(bson_iter_utf8(&iter, NULL), uuid) == 0;
+		found += !!parsed;
+
+		if (parsed) {
+			ptr = reallocarray(uuids, found, 37);
+			if (!ptr) {
+				sky_err("No memory!\n");
+				free(uuids);
+				uuids = NULL;
+				found = 0;
+				break;
+			}
+			uuids = ptr;
+			memcpy(&uuids[found - 1], uuid, sizeof(uuid));
+		}
+	}
+
+	mongoc_cursor_destroy(cursor);
+	bson_destroy(pipeline);
+
+	*nr_devuuids = found;
+	*devuuids = uuids;
+
+	return !!found;
+}
+
+static void db_update_charging_session(struct db_client *db_client, uuid_t devuuid,
+				       const struct sky_charging_state *state)
+{
+	bson_error_t error;
+	bson_t *query;
+	bson_t *update;
+	bson_t *opts;
+
+	char devuuid_str[37];
+	bool success;
+
+	uuid_unparse(devuuid, devuuid_str);
+
+	query = BCON_NEW("deviceId", BCON_UTF8(devuuid_str),
+			 "chargingSessionId", BCON_INT32(state->charging_session_id));
+
+	/* Pipeline update */
+        update = BCON_NEW(
+		/*
+		 * If document exists don't modify 'createdAt' and
+		 * 'startTime' fields.  If document does not exist set
+		 * fields mentioned above and set 'values' array to
+		 * initial '[]' value.
+		 */
+
+		"0", "{",
+                        "$set", "{",
+                            "createdAt", "{",
+                                "$ifNull", "[", "$createdAt", "$$NOW", "]",
+                            "}",
+                            "startTime", "{",
+                                "$ifNull", "[",
+                                    "$startTime", "{",
+                                        "$subtract", "[", "$$NOW", BCON_INT32(state->charging_secs), "]",
+                                    "}",
+                                "]",
+                            "}",
+                            "updatedAt", "$$NOW",
+                            "totalAhCharged", BCON_DOUBLE(state->charge_mAh / 1000.0),
+                            "totalWhCharged", BCON_DOUBLE(state->energy_mWh / 1000.0),
+			    "values", "{",
+                                "$ifNull", "[",
+                                    "$values", "[", "]",
+                                "]",
+                            "}",
+                        "}",
+		"}",
+
+		/*
+		 * Second step in update pipeline: document is
+		 * prepared, append the measurements from the charging
+		 * state to the 'values' array.
+		 */
+		"1", "{",
+                        "$set", "{",
+                            "values", "{",
+                                "$concatArrays", "[", "$values", "[", "{",
+		                    "timestamp", "$$NOW",
+		                    "state", BCON_UTF8(sky_devstate_to_str(SKY_MUX_HW2,
+									   state->dev_hw_state)),
+                                    "current", BCON_DOUBLE(state->current_mA / 1000.0),
+                                    "voltage", BCON_DOUBLE(state->voltage_mV / 1000.0),
+		                    "power", BCON_DOUBLE((double)state->voltage_mV * state->current_mA  / 1000000.0),
+                                    "soc", BCON_INT32(state->state_of_charge),
+                                    "untilFullSecs", BCON_INT32(state->until_full_secs),
+                                    "energy", BCON_DOUBLE(state->energy_mWh / 1000.0),
+                                    "charge", BCON_DOUBLE(state->charge_mAh / 1000.0),
+                                    "muxHumidityPerc", BCON_INT32(state->mux_humidity_perc),
+                                    "muxTemperature", BCON_INT32(state->mux_temperature_C),
+                                    "sinkTemperature", BCON_INT32(state->sink_temperature_C),
+                                    "linkQualityFactor", BCON_INT32(state->link_quality_factor),
+                                    "tx", "{",
+                                        "bytes", BCON_INT32(state->tx.bytes),
+                                        "packets", BCON_INT32(state->tx.packets),
+                                        "errBytes", BCON_INT32(state->tx.err_bytes),
+                                        "errPackets", BCON_INT32(state->tx.err_packets),
+                                    "}",
+                                    "rx", "{",
+                                        "bytes", BCON_INT32(state->rx.bytes),
+                                        "packets", BCON_INT32(state->rx.packets),
+                                        "errBytes", BCON_INT32(state->rx.err_bytes),
+                                        "errPackets", BCON_INT32(state->rx.err_packets),
+                                    "}",
+		                "}", "]", "]",
+		            "}",
+		        "}",
+		    "}"
+		);
+
+	opts = BCON_NEW("upsert", BCON_BOOL(true));
+
+	success = mongoc_collection_update_one(
+		db_client->coll_charging_sessions, query, update,
+		opts, NULL, &error);
+
+	if (!success)
+		sky_err("mongoc_collection_update_one() error: \"%s\"\n",
+			error.message);
+
+	bson_destroy(update);
+	bson_destroy(query);
+	bson_destroy(opts);
+}
+
+static void db_update_charger_device(struct db_client *db_client, uuid_t devuuid,
+				     const struct sky_charging_state *state)
+{
+	bson_error_t error;
+	bson_t *query;
+	bson_t *update;
+
+	char devuuid_str[37];
+	bool success;
+
+	uuid_unparse(devuuid, devuuid_str);
+
+	query = BCON_NEW("deviceId", BCON_UTF8(devuuid_str));
+	/* Pipeline update */
+        update = BCON_NEW(
+		"0", "{",
+		    "$set", "{",
+		        "updatedAt", "$$NOW",
+		        "state", BCON_UTF8(sky_devstate_to_str(SKY_MUX_HW2,
+							       state->dev_hw_state)),
+		        "muxHumidityPerc", BCON_INT32(state->mux_humidity_perc),
+		        "muxTemperature", BCON_INT32(state->mux_temperature_C),
+		    "}",
+		"}");
+
+	success = mongoc_collection_update_one(
+		db_client->coll_chargers, query, update,
+		NULL, NULL, &error);
+
+	if (!success)
+		sky_err("mongoc_collection_update_one() error: \"%s\"\n",
+			error.message);
+
+	bson_destroy(update);
+	bson_destroy(query);
+}
 
 /**
  * sky_find_data_frame() - finds first data frame, skips all
@@ -93,8 +495,12 @@ static void server_peer_free(struct server_peer *peer)
 {
 	zmsg_destroy(&peer->idents_msg);
 	zframe_destroy(&peer->data_frame);
-	zframe_destroy(&peer->usruuid_frame);
 	free(peer);
+}
+
+static bool is_uuid_frame_valid(zframe_t *uuid)
+{
+	return (uuid && zframe_size(uuid) == 16);
 }
 
 static void peer_destructor_fn(void **item)
@@ -104,19 +510,9 @@ static void peer_destructor_fn(void **item)
 	server_peer_free(peer);
 }
 
-static int zframe_comparator_fn(const void *item1, const void *item2)
+static int uuid_comparator_fn(const void *uuid1, const void *uuid2)
 {
-	zframe_t *frame1 = (void *)item1;
-	zframe_t *frame2 = (void *)item2;
-	size_t sz1 = zframe_size(frame1);
-	size_t sz2 = zframe_size(frame2);
-
-	if (sz1 < sz2)
-		return -1;
-	else if (sz1 > sz2)
-		return 1;
-
-	return memcmp(zframe_data(frame1), zframe_data(frame2), sz1);
+	return memcmp(uuid1, uuid2, sizeof(uuid_t));
 }
 
 /*
@@ -140,11 +536,9 @@ static inline unsigned int jhash(const char *key, size_t len)
 	return hash;
 }
 
-static size_t zframe_hasher_fn(const void *key)
+static size_t uuid_hasher_fn(const void *uuid)
 {
-	zframe_t *frame = (void *)key;
-
-	return jhash((char *)zframe_data(frame), zframe_size(frame));
+	return jhash(uuid, sizeof(uuid_t));
 }
 
 static int sky_reap_dead_servers(zhashx_t *hash)
@@ -155,6 +549,7 @@ static int sky_reap_dead_servers(zhashx_t *hash)
 
 	ms = zclock_time();
 
+	pthread_mutex_lock(&hash_lock);
 	for (peer = zhashx_first(hash); peer; peer = zhashx_next(hash)) {
 		if (ms >= peer->expires_at) {
 			peer->next = head;
@@ -174,9 +569,10 @@ static int sky_reap_dead_servers(zhashx_t *hash)
 		 * Zmq guys do lookup on each delete, even we have item
 		 * in our hands, what a wonderfull design.
 		 */
-		zhashx_delete(hash, head->ident_frame);
+		zhashx_delete(hash, head->devuuid);
 		head = next;
 	}
+	pthread_mutex_unlock(&hash_lock);
 
 	return nearest == ~0ull ? -1 : (nearest - ms) * ZMQ_POLL_MSEC;
 }
@@ -235,17 +631,15 @@ static bool sky_is_valid_devs_list_rsp(zframe_t *data, struct server_peer *peer)
 	return true;
 }
 
-static bool is_usruuid_frame_valid(zframe_t *usruuid)
-{
-	return (usruuid && zframe_size(usruuid) == 16);
-}
-
 static void sky_handle_server_msg(void *servers, void *clients,
-				  zhashx_t *srvs_hash)
+				  zhashx_t *srvs_hash,
+				  struct db_client *db_client)
 {
-	zframe_t *data, *ident, *usruuid;
+	zframe_t *data, *ident;
 	struct server_peer *peer;
+	uuid_t devuuid;
 	zmsg_t *msg;
+	bool authed;
 	int i, rc;
 
 	msg = zmsg_recv(servers);
@@ -255,14 +649,16 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		/* WTF? */
 		return;
 	}
-	if (zframe_size(ident) !=
-	    sizeof(((struct sky_dev_info *)0)->dev_uuid)) {
+	if (!is_uuid_frame_valid(ident)) {
 		/* Support uuids as idents only */
 		zmsg_destroy(&msg);
 		return;
 	}
+	memcpy(devuuid, zframe_data(ident), sizeof(devuuid));
 
-	peer = zhashx_lookup(srvs_hash, ident);
+	pthread_mutex_lock(&hash_lock);
+	peer = zhashx_lookup(srvs_hash, devuuid);
+	pthread_mutex_unlock(&hash_lock);
 	if (!peer) {
 		/*
 		 * New connection from server
@@ -270,19 +666,24 @@ static void sky_handle_server_msg(void *servers, void *clients,
 
 		data = sky_find_data_frame(msg);
 		if (!data) {
-			/* Malformed message? */
-			sky_err("Malformed message\n");
+			/* Malformed or unauthorized message? */
 			zmsg_destroy(&msg);
 			return;
 		}
-		/* USRUUID frame is the last one */
-		usruuid = zmsg_last(msg);
-		if (!is_usruuid_frame_valid(usruuid)) {
-			/* Malformed message? */
-			sky_err("Malformed message: invalid USRUUID frame\n");
+
+		authed = db_lookup_device_and_update_ts_by_devuuid(db_client,
+								   devuuid,
+								   true);
+		if (!authed) {
+			char devuuid_str[37];
+
+			uuid_unparse(devuuid, devuuid_str);
+			sky_err("Unauthorized attempt to register device with UUID '%s'\n",
+				devuuid_str);
 			zmsg_destroy(&msg);
 			return;
 		}
+
 		peer = calloc(1, sizeof(*peer));
 		if (!peer) {
 			sky_err("No memory\n");
@@ -293,7 +694,7 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		peer->expires_at = zclock_time() +
 			SKY_HEARTBEAT_IVL_MS * SKY_HEARTBEAT_CNT;
 		peer->idents_msg = msg;
-		peer->ident_frame = ident;
+		memcpy(peer->devuuid, devuuid, sizeof(devuuid));
 
 		if (!sky_is_valid_devs_list_rsp(data, peer)) {
 			sky_err("Malformed devs list\n");
@@ -306,10 +707,6 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		peer->rsp_data = (void *)zframe_data(data);
 		zmsg_remove(msg, data);
 
-		/* Take ownership on USRUUID frame */
-		peer->usruuid_frame = usruuid;
-		zmsg_remove(msg, usruuid);
-
 		/* Remove all possible frames below IDENT+0 frames */
 		for (i = 0, data = zmsg_first(msg); data;
 		     data = zmsg_next(msg), i++) {
@@ -320,7 +717,9 @@ static void sky_handle_server_msg(void *servers, void *clients,
 			}
 		}
 
-		rc = zhashx_insert(srvs_hash, peer->ident_frame, peer);
+		pthread_mutex_lock(&hash_lock);
+		rc = zhashx_insert(srvs_hash, peer->devuuid, peer);
+		pthread_mutex_unlock(&hash_lock);
 		if (rc) {
 			sky_err("zhashx_insert(): %d\n", rc);
 			server_peer_free(peer);
@@ -331,6 +730,19 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		 * Response from known server, forward to client.  Server keeps
 		 * all idents on stack, so simply forward the whole message.
 		 */
+
+		authed = db_lookup_device_and_update_ts_by_devuuid(db_client,
+								   devuuid,
+								   false);
+		if (!authed) {
+			/*
+			 * Charging device is not authorized any more.
+			 * Do nothing, soon the peer will be expired
+			 * and reaped.
+			 */
+			zmsg_destroy(&msg);
+			return;
+		}
 
 		/* Refresh expiration */
 		peer->expires_at = zclock_time() +
@@ -365,7 +777,8 @@ static void sky_handle_server_msg(void *servers, void *clients,
 }
 
 static int sky_devs_list_rsp(zhashx_t *srvs_hash,
-			     zframe_t *usruuid,
+			     uuid_t *devuuids,
+			     size_t nr_devuuids,
 			     uint16_t proto_version,
 			     struct sky_devs_list_rsp **rsp_,
 			     size_t *rsp_len)
@@ -375,7 +788,7 @@ static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 	void *rsp_data;
 	bool dyn_info;
 
-	size_t num, len;
+	size_t i, num, len;
 
 	*rsp_ = NULL;
 	*rsp_len = 0;
@@ -393,16 +806,15 @@ static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 	rsp->hdr.type  = htole16(SKY_DEVS_LIST_RSP);
 	rsp->hdr.error = 0;
 
-	/*
-	 * TODO: O(n) loop, makes sense to make something better?
-	 */
-	for (num = 0, peer = zhashx_first(srvs_hash); peer;
-	     peer = zhashx_next(srvs_hash)) {
+	for (num = 0, i = 0; i < nr_devuuids; i++) {
 		size_t info_len;
 		void *tmp;
 
-		/* Find corresponding user devices */
-		if (!zframe_eq(peer->usruuid_frame, usruuid))
+		pthread_mutex_lock(&hash_lock);
+		peer = zhashx_lookup(srvs_hash, devuuids[i]);
+		pthread_mutex_unlock(&hash_lock);
+		if (!peer)
+			/* Rarely can happen */
 			continue;
 
 		/* Skybroker does not try to peer old clients with new servers */
@@ -436,7 +848,8 @@ static int sky_devs_list_rsp(zhashx_t *srvs_hash,
 }
 
 static void sky_handle_client_msg(void *servers, void *clients,
-				  zhashx_t *srvs_hash)
+				  zhashx_t *srvs_hash,
+				  struct db_client *db_client)
 {
 	enum sky_proto_type req_type;
 	struct sky_req_hdr *req_hdr;
@@ -446,6 +859,7 @@ static void sky_handle_client_msg(void *servers, void *clients,
 	size_t len;
 
 	uint16_t proto_version;
+	uuid_t devuuid;
 	int rc;
 
 	msg = zmsg_recv(clients);
@@ -483,17 +897,25 @@ static void sky_handle_client_msg(void *servers, void *clients,
 	case SKY_DEVS_LIST_REQ: {
 		/* TODO: cooperate with skyserver, make single function */
 		struct sky_devs_list_rsp *rsp;
-		zframe_t *usruuid;
-		size_t len;
+		uuid_t usruuid, *devuuids = NULL;
+		zframe_t *usruuid_frame;
+		size_t len, nr_devuuids;
 
-		usruuid = zmsg_last(msg);
-		if (!is_usruuid_frame_valid(usruuid)) {
+		usruuid_frame = zmsg_last(msg);
+		if (!is_uuid_frame_valid(usruuid_frame)) {
 			/* Malformed message? */
 			sky_err("Malformed message: invalid USRUUID frame\n");
 			zmsg_destroy(&msg);
 			return;
 		}
-		rc = sky_devs_list_rsp(srvs_hash, usruuid, proto_version, &rsp, &len);
+
+		memcpy(usruuid, zframe_data(usruuid_frame), sizeof(usruuid));
+		(void)db_lookup_online_devices_by_usruuid(db_client, usruuid,
+							  &devuuids, &nr_devuuids);
+
+		rc = sky_devs_list_rsp(srvs_hash, devuuids, nr_devuuids,
+				       proto_version, &rsp, &len);
+		free(devuuids);
 		if (rc) {
 			sky_err("sky_devs_list_rsp(): %s\n", strerror(-rc));
 			zmsg_destroy(&msg);
@@ -539,7 +961,16 @@ static void sky_handle_client_msg(void *servers, void *clients,
 		ident = zmsg_last(msg);
 		assert(ident);
 
-		peer = zhashx_lookup(srvs_hash, ident);
+		if (!is_uuid_frame_valid(ident)) {
+			sky_err("Malformed ident\n");
+			zmsg_destroy(&msg);
+			return;
+		}
+		memcpy(devuuid, zframe_data(ident), sizeof(devuuid));
+
+		pthread_mutex_lock(&hash_lock);
+		peer = zhashx_lookup(srvs_hash, devuuid);
+		pthread_mutex_unlock(&hash_lock);
 		if (!peer) {
 			sky_err("zhashx_lookup(): Unknown peer\n");
 			zmsg_destroy(&msg);
@@ -604,20 +1035,161 @@ static int sky_kill_pthread(pthread_t thread)
 struct pub_proxy {
 	void *pub;
 	void *pull;
+	zhashx_t *srvs_hash;
+	struct db_client db_client;
+
 	pthread_t thr;
 };
+
+static int rsp_to_charging_state(zframe_t *rsp_frame,
+				 struct sky_charging_state *state)
+{
+	struct sky_charging_state_rsp *untrusty_rsp;
+	struct sky_charging_state_rsp rsp;
+
+	untrusty_rsp = (void *)zframe_data(rsp_frame);
+
+	if (zframe_size(rsp_frame) < sizeof(untrusty_rsp->hdr))
+		/* Malformed response */
+		return -EPROTO;
+
+	if (le16toh(untrusty_rsp->hdr.type) != SKY_CHARGING_STATE_EV ||
+	    untrusty_rsp->hdr.error != 0)
+		/* Malformed response */
+		return -EPROTO;
+
+	memset(&rsp, 0, sizeof(rsp));
+	memcpy(&rsp, untrusty_rsp, min(zframe_size(rsp_frame), sizeof(rsp)));
+
+	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->voltage_mV = le16toh(rsp.voltage_mV);
+	state->current_mA = le16toh(rsp.current_mA);
+	state->state_of_charge = le16toh(rsp.state_of_charge);
+	state->until_full_secs = le16toh(rsp.until_full_secs);
+	state->charging_secs = le16toh(rsp.charging_secs);
+	state->mux_temperature_C = le16toh(rsp.mux_temperature_C);
+	state->sink_temperature_C = le16toh(rsp.sink_temperature_C);
+	state->energy_mWh = le32toh(rsp.energy_mWh);
+	state->charge_mAh = le32toh(rsp.charge_mAh);
+	state->mux_humidity_perc = rsp.mux_humidity_perc;
+	state->link_quality_factor = rsp.link_quality_factor;
+
+	state->tx.bytes       = le32toh(rsp.tx.bytes);
+	state->tx.packets     = le32toh(rsp.tx.packets);
+	state->tx.err_bytes   = le32toh(rsp.tx.err_bytes);
+	state->tx.err_packets = le32toh(rsp.tx.err_packets);
+
+	state->rx.bytes       = le32toh(rsp.rx.bytes);
+	state->rx.packets     = le32toh(rsp.rx.packets);
+	state->rx.err_bytes   = le32toh(rsp.rx.err_bytes);
+	state->rx.err_packets = le32toh(rsp.rx.err_packets);
+
+	state->charging_session_id = le32toh(rsp.charging_session_id);
+
+	return 0;
+}
+
+static int sky_handle_charging_state(struct pub_proxy *proxy, zmsg_t *msg)
+{
+	struct sky_charging_state charging_state;
+	struct server_peer *peer;
+	zframe_t *ident, *data;
+	uuid_t devuuid;
+	int rc;
+
+	ident = zmsg_first(msg);
+	data = zmsg_next(msg);
+	if (!ident || !data) {
+		sky_err("Malformed message\n");
+		return -EPROTO;
+	}
+	if (zframe_size(ident) < sizeof(devuuid)) {
+		sky_err("Malformed IDENT\n");
+		return -EPROTO;
+	}
+	memcpy(&devuuid, zframe_data(ident), sizeof(devuuid));
+
+	rc = rsp_to_charging_state(data, &charging_state);
+	if (rc) {
+		sky_err("Malformed charging state response\n");
+		return rc;
+	}
+
+	pthread_mutex_lock(&hash_lock);
+	peer = zhashx_lookup(proxy->srvs_hash, devuuid);
+	pthread_mutex_unlock(&hash_lock);
+	if (!peer) {
+		char devuuid_str[37];
+
+		uuid_unparse(devuuid, devuuid_str);
+		sky_err("Unauthorized attempt to publish data from UUID '%s'\n",
+			devuuid_str);
+		return -EPERM;
+	}
+
+	if (!sky_hw_is_idle(SKY_MUX_HW2, charging_state.dev_hw_state))
+		/* Insert only if charge state is "interesting" */
+		db_update_charging_session(&proxy->db_client, devuuid,
+					   &charging_state);
+
+	db_update_charger_device(&proxy->db_client, devuuid,
+				 &charging_state);
+
+
+	return 0;
+}
+
+static int sky_zmq_proxy(struct pub_proxy *proxy)
+{
+	int rc;
+
+	while (true) {
+		zmq_pollitem_t items [] = {
+			{ proxy->pull, 0, ZMQ_POLLIN, 0 },
+		};
+		zmsg_t *msg;
+
+		rc = zmq_poll(items, ARRAY_SIZE(items), -1);
+		if (rc == -1)
+			/* Interrupted */
+			return -EINTR;
+
+		msg = zmsg_recv(proxy->pull);
+		if (!msg) {
+			sky_err("Received NULL message\n");
+			return -ECONNRESET;
+		}
+
+		rc = sky_handle_charging_state(proxy, msg);
+		if (rc) {
+			/* Ignore message and don't publish */
+			zmsg_destroy(&msg);
+			continue;
+		}
+
+		rc = zmsg_send(&msg, proxy->pub);
+		if (rc) {
+			sky_err("Failed to send a message\n");
+			zmsg_destroy(&msg);
+			return -ECONNRESET;
+		}
+	}
+
+	return 0;
+}
 
 static void *thread_do_proxy(void *arg)
 {
 	struct pub_proxy *proxy = arg;
 
-	(void)zmq_proxy(proxy->pub, proxy->pull, NULL);
+	(void)sky_zmq_proxy(proxy);
 
 	return NULL;
 }
 
 static int sky_setup_and_proxy_pub(void *ctx, struct sky_discovery *discovery,
-				   const char *ip, struct pub_proxy *proxy)
+				   struct db *db, const char *ip,
+				   struct pub_proxy *proxy)
 {
 	void *pub = NULL;
 	void *pull = NULL;
@@ -666,6 +1238,11 @@ static int sky_setup_and_proxy_pub(void *ctx, struct sky_discovery *discovery,
 		sky_err("zmq_bind(%s): %s\n", zaddr, strerror(-rc));
 		goto err;
 	}
+
+	rc = db_client_connect(db, &proxy->db_client);
+	if (rc)
+		goto err;
+
 	proxy->pub = pub;
 	proxy->pull = pull;
 
@@ -673,11 +1250,13 @@ static int sky_setup_and_proxy_pub(void *ctx, struct sky_discovery *discovery,
 	if (rc) {
 		rc = -rc;
 		sky_err("pthread_create(): %s\n", strerror(-rc));
-		goto err;
+		goto err_disconnect_client;
 	}
 
 	return 0;
 
+err_disconnect_client:
+	db_client_disconnect(&proxy->db_client);
 err:
 	if (pub)
 		zmq_close(pub);
@@ -690,6 +1269,7 @@ err:
 static void sky_destroy_pub(struct pub_proxy *proxy)
 {
 	(void)sky_kill_pthread(proxy->thr);
+	db_client_disconnect(&proxy->db_client);
 	zmq_close(proxy->pub);
 	zmq_close(proxy->pull);
 }
@@ -772,6 +1352,8 @@ int main(int argc, char *argv[])
 		.magic = SKY_DISCOVERY_MAGIC,
 		.proto_version = htole16(SKY_PROTO_VERSION),
 	};
+	struct db_client db_client;
+	struct db db;
 
 	void *ctx, *servers, *clients;
 	struct pub_proxy pub_proxy;
@@ -787,6 +1369,21 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
+
+	srvs_hash = zhashx_new();
+	if (!srvs_hash) {
+		sky_err("zhashx_new(): Failed\n");
+		return -1;
+	}
+
+	zhashx_set_key_comparator(srvs_hash, uuid_comparator_fn);
+	zhashx_set_key_duplicator(srvs_hash, NULL);
+	zhashx_set_key_destructor(srvs_hash, NULL);
+	zhashx_set_destructor(srvs_hash, peer_destructor_fn);
+	zhashx_set_duplicator(srvs_hash, NULL);
+	zhashx_set_key_hasher(srvs_hash, uuid_hasher_fn);
+
+	pub_proxy.srvs_hash = srvs_hash;
 
 	discovery.servers_port = atoi(cli.srvport);
 	discovery.sub_port     = discovery.servers_port + 1;
@@ -821,6 +1418,14 @@ int main(int argc, char *argv[])
 	 * stuff, so just wait for reasonable time and continue.
 	 */
 	wait_for_ifaces_up();
+
+	rc = db_init(&cli, &db);
+	if (rc != 0)
+		return -1;
+
+	rc = db_client_connect(&db, &db_client);
+	if (rc != 0)
+		return -1;
 
 	servers = zmq_socket(ctx, ZMQ_ROUTER);
 	clients = zmq_socket(ctx, ZMQ_ROUTER);
@@ -889,24 +1494,12 @@ int main(int argc, char *argv[])
 		sky_err("zsock_send(): %s\n", strerror(errno));
 		return -1;
 	}
-	rc = sky_setup_and_proxy_pub(ctx, &discovery, cli.addr, &pub_proxy);
+	rc = sky_setup_and_proxy_pub(ctx, &discovery, &db, cli.addr,
+				     &pub_proxy);
 	if (rc) {
 		sky_err("sky_setup_and_proxy_pub(): %d\n", rc);
 		return -1;
 	}
-
-	srvs_hash = zhashx_new();
-	if (!srvs_hash) {
-		sky_err("zhashx_new(): Failed\n");
-		return -1;
-	}
-
-	zhashx_set_key_comparator(srvs_hash, zframe_comparator_fn);
-	zhashx_set_key_duplicator(srvs_hash, NULL);
-	zhashx_set_key_destructor(srvs_hash, NULL);
-	zhashx_set_destructor(srvs_hash, peer_destructor_fn);
-	zhashx_set_duplicator(srvs_hash, NULL);
-	zhashx_set_key_hasher(srvs_hash, zframe_hasher_fn);
 
 	timeout = -1;
 	while (true) {
@@ -920,10 +1513,12 @@ int main(int argc, char *argv[])
 			break; /* Interrupted */
 
 		if (items[0].revents & ZMQ_POLLIN) {
-			sky_handle_server_msg(servers, clients, srvs_hash);
+			sky_handle_server_msg(servers, clients, srvs_hash,
+					      &db_client);
 		}
 		if (items[1].revents & ZMQ_POLLIN) {
-			sky_handle_client_msg(servers, clients, srvs_hash);
+			sky_handle_client_msg(servers, clients, srvs_hash,
+					      &db_client);
 		}
 
 		timeout = sky_reap_dead_servers(srvs_hash);
@@ -935,6 +1530,8 @@ int main(int argc, char *argv[])
 	zmq_close(clients);
 	zactor_destroy(&speaker);
 	zmq_ctx_destroy(&ctx);
+	db_client_disconnect(&db_client);
+	db_deinit(&db);
 	cli_free(&cli);
 
 	return 0;
