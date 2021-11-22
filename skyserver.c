@@ -1322,9 +1322,6 @@ static int sky_send_first_req(struct sky_server *serv,
 		rc = zmsg_addmem(msg, NULL, 0);
 		/* Frame with actual data */
 		rc |= zmsg_addmem(msg, rsp_void, rsp_len);
-		/* USRUUID frame is the last */
-		rc |= zmsg_addmem(msg, serv->conf.usruuid,
-				  sizeof(serv->conf.usruuid));
 	}
 	free(rsp_void);
 	if (!msg || rc) {
