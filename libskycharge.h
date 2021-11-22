@@ -595,8 +595,8 @@ const char *sky_gpsmode_to_str(enum sky_gps_mode mode);
 /**
  * sky_hw_is_charging() - returns true if hardware is in charge state
  */
-static inline int sky_hw_is_charging(enum sky_dev_type mux_type,
-				     enum sky_dev_state hw_state)
+static inline bool sky_hw_is_charging(enum sky_dev_type mux_type,
+				      enum sky_dev_state hw_state)
 {
 	if (mux_type == SKY_MUX_HW1)
 		return  hw_state == SKY_HW1_CHARGING_RUN ||
@@ -605,6 +605,23 @@ static inline int sky_hw_is_charging(enum sky_dev_type mux_type,
 	return (hw_state == SKY_HW2_PRECHARGING ||
 		hw_state == SKY_HW2_CHARGING);
 }
+
+/**
+ * sky_hw_is_idle() - returns true if hardware is not in a charge loop
+ *                    or does not have any state related to charging
+ */
+static inline bool sky_hw_is_idle(enum sky_dev_type mux_type,
+				  enum sky_dev_state hw_state)
+{
+	if (mux_type == SKY_MUX_HW1)
+		return !sky_hw_is_charging(mux_type, hw_state);
+
+	return (hw_state == SKY_HW2_STOPPED ||
+		hw_state == SKY_HW2_SCANNING ||
+		hw_state == SKY_HW2_ERR_LOW_MUX_VOLTAGE ||
+		hw_state == SKY_HW2_ERR_VOLTAGE_ON_OUTPUT);
+}
+
 
 /**
  * sky_confinit() - Inits generic configuration to zero.
