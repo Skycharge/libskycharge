@@ -1,3 +1,28 @@
+skycharge (2.1.0) stretch; urgency=low
+  * libskycharge: remove warning if 'mux_dev' is not specified
+  * skybroker: fix zframes leak
+  * skyhttpd: forgotten space for the trailing \0 in a buffer
+  * libskycharge-local: don't fail on CRC check if hw buffer is bigger than expected
+  * libskycharge-dummy: switch to HW2 and set hw state to SCANNING
+  * libskycharge: introduce new sky_hw_is_idle() API call
+  * skyserver: remove annoying error logs
+  * skyserver: do not append USRUUID frame
+  * libskycharge,skyproto,skyserver: intrduce charging_session_id field
+  * skybroker: support MongoDB as the back-end DB
+  * skyserver: apply sink params from config for detect modes other than PLC
+  * libskycharge-pri,libskycharge-remote: make the function which parses devs-list response common
+  * skybroker: update DB with fields from the dev-desc structure
+  * libskycharge,skycharge.conf: rename precharge-current-coef to precharge-current-ma
+  * Revert "skyclient: remove SoC from the client output"
+  * skyclient,skyclient-cmd.docopt: make server port optional, default value is 5555
+  * skycharge.conf: add forgotten 'sink-cutoff-timeout-ms' configuration line
+  * skycharge.conf: set 'sink-precharge-delay-secs = 1'
+  * skycharge.conf: minor text tweaks
+  * libskycharge-remote: fix mem leak on subscription recv path
+  * skyclient: always connect to the skycharged even for the local connection
+
+ -- Roman Pen <r.penyaev@gmail.com>  Mon, 29 Nov 2021 18:10:00 +0200
+
 skycharge (2.0.1) stretch; urgency=low
   * skycharge.conf: always generate user-uuid and make config hw2 friendly
   * libskycharge: remove duplicated if statement
