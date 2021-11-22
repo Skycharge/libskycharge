@@ -77,7 +77,7 @@ static int skydum_devslist(const struct sky_dev_ops *ops,
 	if (!dev)
 		return -ENOMEM;
 
-	dev->dev_type = SKY_MUX_HW1;
+	dev->dev_type = SKY_MUX_HW2;
 	dev->proto_version = 0;
 	dev->hw_info = (struct sky_hw_info) {
 		.fw_version        = 0x00010203,
@@ -155,7 +155,7 @@ static int skydum_paramsget(struct sky_dev *dev_, struct sky_dev_params *params)
 		return -EINVAL;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
-	for (i = 0; i < SKY_HW1_NUM_DEVPARAM; i++) {
+	for (i = 0; i < SKY_HW2_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		params->dev_params[i] = dev->params.dev_params[i];
@@ -174,7 +174,7 @@ static int skydum_paramsset(struct sky_dev *dev_,
 		return 0;
 
 	dev = container_of(dev_, struct skydum_dev, dev);
-	for (i = 0; i < SKY_HW1_NUM_DEVPARAM; i++) {
+	for (i = 0; i < SKY_HW2_NUM_DEVPARAM; i++) {
 		if (!(params->dev_params_bits & (1<<i)))
 				continue;
 		dev->params.dev_params[i] = params->dev_params[i];
@@ -203,14 +203,7 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 	dev->state.energy_mWh = dev->vol * dev->cur / 1000 * (dt / 3600.0);
 	dev->state.charge_mAh = dev->cur * (dt / 3600.0);
 
-	dev->state.dev_hw_state += 1;
-	if (dev->state.dev_hw_state == 4)
-		dev->state.dev_hw_state = 5;
-	if (dev->state.dev_hw_state == 11)
-		dev->state.dev_hw_state = 12;
-	if (dev->state.dev_hw_state == 21)
-		dev->state.dev_hw_state = 22;
-	dev->state.dev_hw_state %= 26;
+	dev->state.dev_hw_state = SKY_HW2_SCANNING;
 
 	*state = dev->state;
 
