@@ -1660,6 +1660,11 @@ static void sky_hw1_psu_deinit(struct sky_server *serv)
 		sky_psu_deinit(&serv->hw1_psu);
 }
 
+static bool sky_hw2_mux_detect_mode_is_plc(struct sky_dev_params *params)
+{
+	return params->dev_params[SKY_HW2_DETECT_MODE] == SKY_DETECT_PLC;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_server serv = {
@@ -1785,13 +1790,27 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (sink_params && sink_params->dev_params_bits) {
-			/* Apply sink params */
-			rc = sky_sink_paramsset(servdev->dev, sink_params);
+			struct sky_dev_params params;
+
+			/* Fetch all MUX params */
+			params.dev_params_bits = ~0;
+			rc = sky_paramsget(servdev->dev, &params);
 			if (rc) {
-				sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
+				sky_err("sky_paramsget(): %s\n", strerror(-rc));
 				sky_devclose(servdev->dev);
 				servdev->dev = NULL;
 				goto close_devs;
+			}
+
+			/* Apply sink params for detect modes other than PLC */
+			if (!sky_hw2_mux_detect_mode_is_plc(&params)) {
+				rc = sky_sink_paramsset(servdev->dev, sink_params);
+				if (rc) {
+					sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
+					sky_devclose(servdev->dev);
+					servdev->dev = NULL;
+					goto close_devs;
+				}
 			}
 		}
 		subsc.data = servdev;
