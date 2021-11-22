@@ -1150,12 +1150,10 @@ static int sky_zmq_proxy(struct req_proxy *p)
 
 		if (expires_at <= zclock_time()) {
 			/* Connection is dead */
-			sky_err("Connection is dead\n");
 			return -ECONNRESET;
 		}
 		if (items[0].revents & ZMQ_POLLIN) {
 			/* Connection is dead */
-			sky_err("Connection is dead\n");
 			return -ECONNRESET;
 		} else if (items[1].revents & ZMQ_POLLIN) {
 			src = p->to_broker;
