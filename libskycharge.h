@@ -385,6 +385,8 @@ struct sky_charging_state {
 		uint32_t err_bytes;
 		uint32_t err_packets;
 	} rx;
+
+	uint32_t charging_session_id; /* Random ID for each charging session */
 };
 
 enum sky_droneport_status {

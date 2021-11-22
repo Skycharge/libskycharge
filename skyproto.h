@@ -278,6 +278,8 @@ struct sky_charging_state_rsp {
 		le32 err_bytes;
 		le32 err_packets;
 	} rx;
+
+	le32 charging_session_id;  /* Random ID for each charging session */
 };
 
 struct sky_peerinfo_rsp {

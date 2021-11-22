@@ -554,6 +554,8 @@ static int skyrem_chargingstate_parse(struct skyrem_async *async,
 	state->rx.err_bytes   = le32toh(rsp.rx.err_bytes);
 	state->rx.err_packets = le32toh(rsp.rx.err_packets);
 
+	state->charging_session_id = le32toh(rsp.charging_session_id);
+
 complete:
 	skyrem_asyncreq_complete(async, req, rc);
 	return 0;
@@ -1333,6 +1335,8 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	state->rx.packets     = le32toh(rsp.rx.packets);
 	state->rx.err_bytes   = le32toh(rsp.rx.err_bytes);
 	state->rx.err_packets = le32toh(rsp.rx.err_packets);
+
+	state->charging_session_id = le32toh(rsp.charging_session_id);
 
 	/* Indicate we sleep here */
 	return 1;

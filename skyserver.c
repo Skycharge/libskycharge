@@ -200,6 +200,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	rsp.rx.packets          = htole16(state->rx.packets);
 	rsp.rx.err_bytes        = htole16(state->rx.err_bytes);
 	rsp.rx.err_packets      = htole16(state->rx.err_packets);
+	rsp.charging_session_id	= htole32(state->charging_session_id);
 
 	msg = zmsg_new();
 	if (!msg) {
@@ -665,6 +666,8 @@ static void sky_execute_cmd(struct sky_server *serv,
 			rsp->rx.packets     = htole16(state.rx.packets);
 			rsp->rx.err_bytes   = htole16(state.rx.err_bytes);
 			rsp->rx.err_packets = htole16(state.rx.err_packets);
+			rsp->charging_session_id =
+				htole32(state.charging_session_id);
 		}
 
 		break;
