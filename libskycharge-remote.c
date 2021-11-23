@@ -569,105 +569,18 @@ static int skyrem_devslist_parse(struct skyrem_async *async,
 				 struct sky_async_req *req,
 				 void *rsp_data, size_t rsp_len)
 {
-	struct sky_dev_desc *head = NULL, *tail = NULL;
-	struct sky_dev_desc **list = req->out.ptr;
-	struct sky_devs_list_rsp *rsp = rsp_data;
-	size_t num_devs;
+	struct sky_parse_devs_list_rsp_result result = {
+		.list = req->out.ptr
+	};
 	int rc;
 
-	/* Sanity checks */
-	if (rsp_len < offsetof_end(typeof(*rsp), info_off))
-		/* Malformed response */
-		goto complete_with_EPROTO;
-
-	rc = -le16toh(rsp->hdr.error);
+	rc = sky_parse_devs_list_rsp(rsp_data, rsp_len, &async->async,
+				     &result);
 	if (rc)
-		goto complete;
+		return rc;
 
-	num_devs = le16toh(rsp->num_devs);
-
-	if (num_devs) {
-		struct sky_dev_desc *devdesc;
-		size_t info_off;
-		bool dyn_info;
-		int i;
-
-		/*
-		 * Protocol version before 0x0400 does not have `info_off`,
-		 * so we use the fact that it is 0 if the protocol is below.
-		 */
-		dyn_info = !!rsp->info_off;
-		info_off = dyn_info ?
-			le16toh(rsp->info_off) :
-			offsetof_end(typeof(*rsp), info_off);
-
-		for (i = 0; i < num_devs; i++) {
-			struct sky_dev_info *notrust_info = rsp_data + info_off;
-			struct sky_dev_info info;
-			size_t info_len;
-
-			/* Sanity checks */
-			if (rsp_len < info_off + offsetof_end(typeof(info), info_len))
-				/* Malformed response */
-				goto complete_with_EPROTO;
-
-			/*
-			 * Protocol version before 0x0400 does not have `info_len`.
-			 * But there is one corner case, when we are connected to
-			 * the new skybroker, which sets `info_off` but forwards
-			 * us the sky_dev_info from the old server, where the
-			 * `info_len` is 0. So handle this carefully.
-			 */
-			info_len = le16toh(notrust_info->info_len) ?:
-				offsetof_end(typeof(*notrust_info), portname);
-			info_len = dyn_info ? info_len :
-				offsetof_end(typeof(*notrust_info), portname);
-			info_off += info_len;
-
-			/* Copy to a local buffer */
-			memset(&info, 0, sizeof(info));
-			memcpy(&info, notrust_info, min(info_len, sizeof(info)));
-
-			devdesc = calloc(1, sizeof(*devdesc));
-			if (!devdesc) {
-				sky_devsfree(head);
-				return -ENOMEM;
-			}
-			devdesc->dev_type = le16toh(info.dev_type);
-			memcpy(devdesc->dev_name, info.dev_name,
-			       sizeof(devdesc->dev_name));
-			memcpy(devdesc->dev_uuid, info.dev_uuid,
-			       sizeof(devdesc->dev_uuid));
-			devdesc->proto_version = le16toh(info.proto_version);
-			devdesc->hw_info = (struct sky_hw_info) {
-				.fw_version        = le32toh(info.fw_version),
-				.hw_version        = le32toh(info.hw_version),
-				.plc_proto_version = le32toh(info.plc_proto_version),
-				.uid.part1         = le32toh(info.hw_uid.part1),
-				.uid.part2         = le32toh(info.hw_uid.part2),
-				.uid.part3         = le32toh(info.hw_uid.part3),
-			};
-			devdesc->conf = *async->async.conf;
-			devdesc->dev_ops = async->async.ops;
-			memcpy(devdesc->portname, info.portname,
-			       sizeof(info.portname));
-
-			devdesc->next = head;
-			head = devdesc;
-			if (tail == NULL)
-				tail = devdesc;
-		}
-	}
-	if (head)
-		tail->next = *list;
-	*list = head;
-complete:
-	skyrem_asyncreq_complete(async, req, rc);
+	skyrem_asyncreq_complete(async, req, result.error);
 	return 0;
-
-complete_with_EPROTO:
-	rc = -EPROTO;
-	goto complete;
 }
 
 static int skyrem_peerinfo_parse(struct skyrem_async *async,

@@ -122,6 +122,134 @@ int hex_dump_to_buffer(const void *buf, size_t len, int rowsize,
 #define foreach_devops(ops, devops)			\
        for (ops = devops; ops; ops = ops->next)
 
+struct sky_parse_devs_list_rsp_result {
+	struct sky_dev_desc **list;
+	int                 error;
+	size_t              rsp_len;
+	size_t              num_devs;
+	size_t              info_off;
+	bool                dyn_info;
+};
+
+static inline int
+sky_parse_devs_list_rsp(const void *rsp_data, size_t rsp_len,
+			const struct sky_async *async,
+			struct sky_parse_devs_list_rsp_result *result)
+{
+	struct sky_dev_desc *head = NULL, *tail = NULL;
+	const struct sky_devs_list_rsp *rsp = rsp_data;
+	size_t num_devs, info_off;
+	bool dyn_info;
+	int rc, i;
+
+	/* Sanity checks */
+	if (rsp_len < offsetof_end(typeof(*rsp), info_off))
+		/* Malformed response */
+		goto end_with_EPROTO;
+
+	rc = -le16toh(rsp->hdr.error);
+	if (rc)
+		goto end_with_error;
+
+	num_devs = le16toh(rsp->num_devs);
+	if (!num_devs) {
+		/* Empty list consider as success */
+		rc = 0;
+		goto end_with_error;
+	}
+
+	/*
+	 * Protocol version before 0x0400 does not have `info_off`,
+	 * so we use the fact that it is 0 if the protocol is below.
+	 */
+	dyn_info = !!rsp->info_off;
+	info_off = dyn_info ?
+		le16toh(rsp->info_off) :
+		offsetof_end(typeof(*rsp), info_off);
+
+	/* Result contains the start offset */
+	result->info_off = info_off;
+
+	for (i = 0; i < num_devs; i++) {
+		const struct sky_dev_info *notrust_info = rsp_data + info_off;
+		struct sky_dev_info info;
+		struct sky_dev_desc *devdesc;
+		size_t info_len;
+
+		/* Sanity checks */
+		if (rsp_len < info_off + offsetof_end(typeof(info), info_len))
+			/* Malformed response */
+			goto end_with_EPROTO;
+
+		/*
+		 * Protocol version before 0x0400 does not have `info_len`.
+		 * But there is one corner case, when we are connected to
+		 * the new skybroker, which sets `info_off` but forwards
+		 * us the sky_dev_info from the old server, where the
+		 * `info_len` is 0. So handle this carefully.
+		 */
+		info_len = le16toh(notrust_info->info_len) ?:
+			offsetof_end(typeof(*notrust_info), portname);
+		info_len = dyn_info ? info_len :
+			offsetof_end(typeof(*notrust_info), portname);
+		info_off += info_len;
+
+		/* Copy to a local buffer */
+		memset(&info, 0, sizeof(info));
+		memcpy(&info, notrust_info, min(info_len, sizeof(info)));
+
+		devdesc = calloc(1, sizeof(*devdesc));
+		if (!devdesc) {
+			sky_devsfree(head);
+			return -ENOMEM;
+		}
+		devdesc->dev_type = le16toh(info.dev_type);
+		memcpy(devdesc->dev_name, info.dev_name,
+		       sizeof(devdesc->dev_name) - 1);
+		memcpy(devdesc->dev_uuid, info.dev_uuid,
+		       sizeof(devdesc->dev_uuid));
+		devdesc->proto_version = le16toh(info.proto_version);
+		devdesc->hw_info = (struct sky_hw_info) {
+			.fw_version        = le32toh(info.fw_version),
+			.hw_version        = le32toh(info.hw_version),
+			.plc_proto_version = le32toh(info.plc_proto_version),
+			.uid.part1         = le32toh(info.hw_uid.part1),
+			.uid.part2         = le32toh(info.hw_uid.part2),
+			.uid.part3         = le32toh(info.hw_uid.part3),
+		};
+		if (async) {
+			devdesc->conf = *async->conf;
+			devdesc->dev_ops = async->ops;
+		}
+		memcpy(devdesc->portname, info.portname,
+		       sizeof(devdesc->portname) - 1);
+
+		devdesc->next = head;
+		head = devdesc;
+		if (tail == NULL)
+			tail = devdesc;
+	}
+	if (head)
+		tail->next = *result->list;
+
+	*result->list    = head;
+	result->error    = 0;
+	result->rsp_len  = rsp_len;
+	result->num_devs = num_devs;
+	result->dyn_info = dyn_info;
+
+	return 0;
+
+end_with_error:
+	sky_devsfree(head);
+	result->error = rc;
+	return 0;
+
+end_with_EPROTO:
+	rc = -EPROTO;
+	goto end_with_error;
+}
+
 static inline void sky_async_init(const struct sky_conf *conf,
 				  const struct sky_dev_ops *ops,
 				  struct sky_async *async)
