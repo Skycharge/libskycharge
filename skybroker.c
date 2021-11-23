@@ -46,12 +46,14 @@
 #include "version.h"
 #include "skyproto.h"
 #include "libskycharge.h"
+#include "libskycharge-pri.h"
 
 struct server_peer {
 	zmsg_t *idents_msg;
 	zframe_t *data_frame;
 	uuid_t devuuid;
 	const void *rsp_data;
+	struct sky_dev_desc *devdesc;
 	size_t rsp_len;
 	size_t num_devs;
 	size_t info_off;
@@ -177,8 +179,9 @@ static void db_client_disconnect(struct db_client *db_client)
 }
 
 static bool
-db_lookup_device_and_update_ts_by_devuuid(struct db_client *db_client,
-					  uuid_t devuuid, bool all_ts)
+db_lookup_and_update_device_by_devuuid(struct db_client *db_client,
+				       const struct sky_dev_desc *devdesc,
+				       bool only_ts)
 {
 	mongoc_find_and_modify_opts_t *opts;
 	bson_iter_t iter, citer;
@@ -189,17 +192,54 @@ db_lookup_device_and_update_ts_by_devuuid(struct db_client *db_client,
 	char devuuid_str[37];
 	bool success;
 
-	uuid_unparse(devuuid, devuuid_str);
-
+	uuid_unparse(devdesc->dev_uuid, devuuid_str);
 	query = BCON_NEW("deviceId", BCON_UTF8(devuuid_str));
 
-	if (all_ts)
-		update = BCON_NEW("$currentDate",
-				  "{", "loggedinAt", BCON_BOOL(true),
-				       "updatedAt",  BCON_BOOL(true), "}");
-	else
-		update = BCON_NEW("$currentDate",
-				  "{", "updatedAt",  BCON_BOOL(true), "}");
+	if (!only_ts) {
+		char plc_proto_ver_str[16];
+		char proto_ver_str[16];
+		char fw_ver_str[16];
+		char hw_ver_str[16];
+		char uid_str[32];
+
+		snprintf(proto_ver_str, sizeof(plc_proto_ver_str), "%u.%u",
+			 version_minor(devdesc->proto_version),
+			 version_revis(devdesc->proto_version));
+		snprintf(plc_proto_ver_str, sizeof(plc_proto_ver_str), "%u.%u.%u",
+			 version_major(devdesc->hw_info.plc_proto_version),
+			 version_minor(devdesc->hw_info.plc_proto_version),
+			 version_revis(devdesc->hw_info.plc_proto_version));
+		snprintf(fw_ver_str, sizeof(fw_ver_str), "%u.%u.%u",
+			 version_major(devdesc->hw_info.fw_version),
+			 version_minor(devdesc->hw_info.fw_version),
+			 version_revis(devdesc->hw_info.fw_version));
+		snprintf(hw_ver_str, sizeof(hw_ver_str), "%u.%u.%u",
+			 version_major(devdesc->hw_info.hw_version),
+			 version_minor(devdesc->hw_info.hw_version),
+			 version_revis(devdesc->hw_info.hw_version));
+		snprintf(uid_str, sizeof(uid_str), "%x%x%x",
+			 devdesc->hw_info.uid.part1,
+			 devdesc->hw_info.uid.part2,
+			 devdesc->hw_info.uid.part3);
+
+		update = BCON_NEW("$currentDate", "{",
+				      "loggedinAt", BCON_BOOL(true),
+				      "updatedAt",  BCON_BOOL(true),
+				  "}",
+				  "$set", "{",
+				      "type", BCON_UTF8(sky_devtype_to_str(devdesc->dev_type)),
+				      "name", BCON_UTF8(devdesc->dev_name),
+				      "firmwareVersion", BCON_UTF8(fw_ver_str),
+				      "hardwareVersion", BCON_UTF8(hw_ver_str),
+				      "protocolVersion", BCON_UTF8(proto_ver_str),
+				      "plcProtocolVersion", BCON_UTF8(plc_proto_ver_str),
+				      "hw_uid", BCON_UTF8(uid_str),
+				  "}");
+	} else {
+		update = BCON_NEW("$currentDate", "{",
+				      "updatedAt",  BCON_BOOL(true),
+				  "}");
+	}
 
 	opts = mongoc_find_and_modify_opts_new();
 	mongoc_find_and_modify_opts_set_update(opts, update);
@@ -495,6 +535,7 @@ static void server_peer_free(struct server_peer *peer)
 {
 	zmsg_destroy(&peer->idents_msg);
 	zframe_destroy(&peer->data_frame);
+	sky_devsfree(peer->devdesc);
 	free(peer);
 }
 
@@ -577,56 +618,51 @@ static int sky_reap_dead_servers(zhashx_t *hash)
 	return nearest == ~0ull ? -1 : (nearest - ms) * ZMQ_POLL_MSEC;
 }
 
-static bool sky_is_valid_devs_list_rsp(zframe_t *data, struct server_peer *peer)
+static bool parse_devs_list_rsp(struct db_client *db_client,
+				zframe_t *data, struct server_peer *peer)
 {
-	struct sky_devs_list_rsp *rsp;
+	struct sky_dev_desc *list = NULL;
+	struct sky_dev_desc *devdesc;
+	struct sky_parse_devs_list_rsp_result result = {
+		.list = &list
+	};
+	int rc;
 
-	size_t num_devs, rsp_len, off, info_off;
-	void *rsp_data;
-	bool dyn_info;
-	int i;
-
-	rsp_data = (void *)zframe_data(data);
-	rsp = rsp_data;
-	rsp_len = zframe_size(data);
-	if (rsp_len < offsetof_end(typeof(*rsp), info_off))
-		return false;
-	if (rsp->hdr.error)
+	rc = sky_parse_devs_list_rsp(zframe_data(data), zframe_size(data),
+				     NULL, &result);
+	if (rc || result.error)
 		return false;
 
-	num_devs = le16toh(rsp->num_devs);
-	if (!num_devs)
+	if (result.num_devs != 1) {
+		/* We don't support many devices from the same host */
+		sky_devsfree(list);
 		return false;
-
-	info_off = le16toh(rsp->info_off);
-	/* Dynamic info is supported starting from protocol version >= 0x0400 */
-	dyn_info = !!info_off;
-	info_off = off = (info_off ?: offsetof_end(typeof(*rsp), info_off));
-	if (rsp_len < info_off)
-		return false;
-
-	for (i = 0; i < num_devs; i++) {
-		struct sky_dev_info *notrust_info = rsp_data + info_off;
-		size_t info_len;
-
-		/* Sanity checks */
-		if (rsp_len < info_off + offsetof_end(typeof(*notrust_info), info_len))
-			return false;
-
-		/* Compatibility with protocols below 0x0400 */
-		info_len = dyn_info ?
-			le16toh(notrust_info->info_len) :
-			offsetof_end(typeof(*notrust_info), portname);
-		if (!info_len)
-			return false;
-
-		info_off += info_len;
 	}
 
-	peer->rsp_len = rsp_len;
-	peer->num_devs = num_devs;
-	peer->info_off = off;
-	peer->dyn_info = dyn_info;
+	/* Even this is a loop, we expect only 1 device from the same host */
+	foreach_devdesc(devdesc, list) {
+		bool authed;
+
+		authed = db_lookup_and_update_device_by_devuuid(db_client,
+								devdesc,
+								false);
+		if (!authed) {
+			char devuuid_str[37];
+
+			uuid_unparse(devdesc->dev_uuid, devuuid_str);
+			sky_err("Unauthorized attempt to register device with UUID '%s'\n",
+				devuuid_str);
+			sky_devsfree(list);
+			return false;
+		}
+
+	}
+
+	peer->devdesc  = list;
+	peer->rsp_len  = result.rsp_len;
+	peer->num_devs = result.num_devs;
+	peer->info_off = result.info_off;
+	peer->dyn_info = result.dyn_info;
 
 	return true;
 }
@@ -671,19 +707,6 @@ static void sky_handle_server_msg(void *servers, void *clients,
 			return;
 		}
 
-		authed = db_lookup_device_and_update_ts_by_devuuid(db_client,
-								   devuuid,
-								   true);
-		if (!authed) {
-			char devuuid_str[37];
-
-			uuid_unparse(devuuid, devuuid_str);
-			sky_err("Unauthorized attempt to register device with UUID '%s'\n",
-				devuuid_str);
-			zmsg_destroy(&msg);
-			return;
-		}
-
 		peer = calloc(1, sizeof(*peer));
 		if (!peer) {
 			sky_err("No memory\n");
@@ -696,8 +719,7 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		peer->idents_msg = msg;
 		memcpy(peer->devuuid, devuuid, sizeof(devuuid));
 
-		if (!sky_is_valid_devs_list_rsp(data, peer)) {
-			sky_err("Malformed devs list\n");
+		if (!parse_devs_list_rsp(db_client, data, peer)) {
 			server_peer_free(peer);
 			return;
 		}
@@ -731,9 +753,9 @@ static void sky_handle_server_msg(void *servers, void *clients,
 		 * all idents on stack, so simply forward the whole message.
 		 */
 
-		authed = db_lookup_device_and_update_ts_by_devuuid(db_client,
-								   devuuid,
-								   false);
+		authed = db_lookup_and_update_device_by_devuuid(db_client,
+								peer->devdesc,
+								true);
 		if (!authed) {
 			/*
 			 * Charging device is not authorized any more.
@@ -1122,8 +1144,6 @@ static int sky_handle_charging_state(struct pub_proxy *proxy, zmsg_t *msg)
 		char devuuid_str[37];
 
 		uuid_unparse(devuuid, devuuid_str);
-		sky_err("Unauthorized attempt to publish data from UUID '%s'\n",
-			devuuid_str);
 		return -EPERM;
 	}
 
