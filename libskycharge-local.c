@@ -1001,9 +1001,9 @@ static int hw2_sky_get_sink_params(struct skyloc_dev *dev,
 			params->dev_params[p] =
 				chg_settings.cutoff_timeout_ms;
 			break;
-		case SKY_SINK_PRECHARGE_CURRENT_COEF:
+		case SKY_SINK_PRECHARGE_CURRENT_MA:
 			params->dev_params[p] =
-				chg_settings.precharge_current_coef;
+				chg_settings.precharge_current_mA;
 			break;
 		case SKY_SINK_PRECHARGE_DELAY_SECS:
 			params->dev_params[p] =
@@ -1092,8 +1092,8 @@ static int hw2_sky_set_sink_params(struct skyloc_dev *dev,
 			chg_settings.cutoff_timeout_ms =
 				params->dev_params[p];
 			break;
-		case SKY_SINK_PRECHARGE_CURRENT_COEF:
-			chg_settings.precharge_current_coef =
+		case SKY_SINK_PRECHARGE_CURRENT_MA:
+			chg_settings.precharge_current_mA =
 				params->dev_params[p];
 			break;
 		case SKY_SINK_PRECHARGE_DELAY_SECS:

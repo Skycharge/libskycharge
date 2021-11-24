@@ -134,10 +134,8 @@ struct sky_hw2_charging_settings {
 	uint16_t charging_max_current_mA; /* Max charging current */
 	uint16_t cutoff_min_current_mA; /* Min current threshold when we stop charging */
 	uint16_t cutoff_timeout_ms; /* For how long it is allowed to detect min current */
-	uint8_t  precharge_current_coef; /* Precharge current coef in percentage, so in
-					  * range [0 100]. Is used for slow current
-					  * increase while charging */
-	uint8_t  padding1;
+	uint16_t precharge_current_mA; /* Precharge start current which rises to the
+					* `charging_max_current_mA` in `precharge_secs` */
 	uint16_t precharge_delay_secs; /* For how many seconds we delay the charging
 					* in order to cool down the battery */
 	uint16_t precharge_secs; /* How many seconds we slowly increase current on the

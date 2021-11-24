@@ -642,7 +642,7 @@ static int parse_line(char *line, struct sky_conf *cfg)
 	} else if (parse_sinkparam(line, SKY_SINK_CUTOFF_TIMEOUT_MS,
 				   &cfg->sink_params, parse_unsigned, &ret)) {
 
-	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_CURRENT_COEF,
+	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_CURRENT_MA,
 				   &cfg->sink_params, parse_unsigned, &ret)) {
 
 	} else if (parse_sinkparam(line, SKY_SINK_PRECHARGE_DELAY_SECS,
@@ -1245,8 +1245,8 @@ const char *sky_sinkparam_to_str(enum sky_sink_param param)
 		return "cutoff-min-current-ma";
 	case SKY_SINK_CUTOFF_TIMEOUT_MS:
 		return "cutoff-timeout-ms";
-	case SKY_SINK_PRECHARGE_CURRENT_COEF:
-		return "precharge-current-coef";
+	case SKY_SINK_PRECHARGE_CURRENT_MA:
+		return "precharge-current-ma";
 	case SKY_SINK_PRECHARGE_DELAY_SECS:
 		return "precharge-delay-secs";
 	case SKY_SINK_PRECHARGE_SECS:
@@ -1332,8 +1332,8 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	case SKY_SINK_PRECHARGE_SECS:
 	case SKY_SINK_TOTAL_CHARGE_SECS:
 		return snprintf(buf, size, "%u", v);
-	case SKY_SINK_PRECHARGE_CURRENT_COEF:
-		return snprintf(buf, size, "%u%%", v);
+	case SKY_SINK_PRECHARGE_CURRENT_MA:
+		return snprintf(buf, size, "%u", v);
 	case SKY_SINK_USER_DATA1:
 	case SKY_SINK_USER_DATA2:
 	case SKY_SINK_USER_DATA3:
@@ -1399,10 +1399,8 @@ int sky_sinkparam_value_from_str(const char *str,
 	case SKY_SINK_USER_DATA4:
 		rc = parse_unsigned(str, &v);
 		break;
-	case SKY_SINK_PRECHARGE_CURRENT_COEF:
+	case SKY_SINK_PRECHARGE_CURRENT_MA:
 		rc = parse_unsigned(str, &v);
-		if (!rc)
-			v = clamp_val(v, 0, 100);
 		break;
 	default:
 		return -EINVAL;

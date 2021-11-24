@@ -212,7 +212,7 @@ enum sky_sink_param {
 	SKY_SINK_CHARGING_MAX_CURRENT_MA          = 5,
 	SKY_SINK_CUTOFF_MIN_CURRENT_MA            = 6,
 	SKY_SINK_CUTOFF_TIMEOUT_MS                = 7,
-	SKY_SINK_PRECHARGE_CURRENT_COEF           = 8,
+	SKY_SINK_PRECHARGE_CURRENT_MA             = 8,
 	SKY_SINK_PRECHARGE_DELAY_SECS             = 9,
 	SKY_SINK_PRECHARGE_SECS                   = 10,
 	SKY_SINK_TOTAL_CHARGE_SECS                = 11,
