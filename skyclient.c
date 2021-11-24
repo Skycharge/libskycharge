@@ -524,6 +524,9 @@ int main(int argc, char *argv[])
 			return -1;
 		}
 	}
+	if (cli.addr && !cli.port)
+		/* Default broker port */
+		cli.port = strdup("5555");
 
 	if (cli.discoverbroker) {
 		struct sky_brokerinfo brokerinfo;
