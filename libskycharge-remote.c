@@ -33,7 +33,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <pthread.h>
 #include <unistd.h>
 #include <assert.h>
 #include <poll.h>
@@ -1208,23 +1207,30 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	msg = zmsg_recv(dev->zock.sub);
 	if (!msg)
 		return -ECONNRESET;
-	if (zmsg_size(msg) != 2)
+	if (zmsg_size(msg) != 2) {
+		zmsg_destroy(&msg);
 		return -ECONNRESET;
+	}
 
 	zmsg_first(msg);
 	frame = zmsg_next(msg);
 
-	if (zframe_size(frame) < sizeof(untrusty_rsp->hdr))
+	if (zframe_size(frame) < sizeof(untrusty_rsp->hdr)) {
 		/* Malformed response */
+		zmsg_destroy(&msg);
 		return -ECONNRESET;
+	}
 
 	untrusty_rsp = (void *)zframe_data(frame);
 	rc = -le16toh(untrusty_rsp->hdr.error);
-	if (rc)
+	if (rc) {
+		zmsg_destroy(&msg);
 		return rc;
+	}
 
 	memset(&rsp, 0, sizeof(rsp));
 	memcpy(&rsp, untrusty_rsp, min(zframe_size(frame), sizeof(rsp)));
+	zmsg_destroy(&msg);
 
 	state->dev_hw_state = le16toh(rsp.dev_hw_state);
 	state->voltage_mV = le16toh(rsp.voltage_mV);
