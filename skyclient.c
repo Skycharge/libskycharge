@@ -507,6 +507,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "%s\n", cli_usage);
 		return -1;
 	}
+	if (!cli.addr) {
+		/* By default connect to the server locally */
+		cli.addr = strdup("localhost");
+	} else if (!strcmp(cli.addr, "directly")) {
+		/* Still have a possibility to bypass the server */
+		free(cli.addr);
+		cli.addr = NULL;
+	}
+
 	if (cli.port) {
 		const char *regexp = "[^[:digit:]]+";
 		regmatch_t match;
@@ -523,10 +532,10 @@ int main(int argc, char *argv[])
 				"       See help for details.\n", cli.addr, cli.port);
 			return -1;
 		}
-	}
-	if (cli.addr && !cli.port)
+	} else {
 		/* Default broker port */
 		cli.port = strdup("5555");
+	}
 
 	if (cli.discoverbroker) {
 		struct sky_brokerinfo brokerinfo;
