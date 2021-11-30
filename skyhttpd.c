@@ -68,8 +68,8 @@
  *     /charging-params - sky_paramsget()
  *     /charging-state  - sky_chargingstate()
  *     /gps-data        - sky_gpsdata()
- *     /charge-start    - sky_chargestart()
- *     /charge-stop     - sky_chargestop()
+ *     /scan-resume     - sky_scanresume()
+ *     /scan-stop       - sky_scanstop()
  *     /droneport-open  - sky_droneport_open()
  *     /droneport-close - sky_droneport_close()
  *     /droneport-state - sky_droneport_state()
@@ -453,18 +453,18 @@ dev_cmd_create_request(int (*devcmd)(struct sky_async *async,
 }
 
 static int
-charge_start_create_request(struct httpd_request *req)
+scan_resume_create_request(struct httpd_request *req)
 {
-	return dev_cmd_create_request(sky_asyncreq_chargestart,
+	return dev_cmd_create_request(sky_asyncreq_scanresume,
 				      req->httpd, req->httpcon,
 				      req->user_uuid, req->device_uuid,
 				      req->skystruct.devdescs);
 }
 
 static int
-charge_stop_create_request(struct httpd_request *req)
+scan_stop_create_request(struct httpd_request *req)
 {
-	return dev_cmd_create_request(sky_asyncreq_chargestop,
+	return dev_cmd_create_request(sky_asyncreq_scanstop,
 				      req->httpd, req->httpcon,
 				      req->user_uuid, req->device_uuid,
 				      req->skystruct.devdescs);
@@ -1022,24 +1022,24 @@ gps_data_http_handler(struct httpd *httpd,
 }
 
 static int
-charge_start_http_handler(struct httpd *httpd,
+scan_resume_http_handler(struct httpd *httpd,
 			  struct MHD_Connection *con,
 			  const uuid_t user_uuid,
 			  const uuid_t device_uuid)
 {
 	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
-						  charge_start_create_request,
+						  scan_resume_create_request,
 						  devs_list_composite_skycompletion);
 }
 
 static int
-charge_stop_http_handler(struct httpd *httpd,
-			 struct MHD_Connection *con,
-			 const uuid_t user_uuid,
-			 const uuid_t device_uuid)
+scan_stop_http_handler(struct httpd *httpd,
+			  struct MHD_Connection *con,
+			  const uuid_t user_uuid,
+			  const uuid_t device_uuid)
 {
 	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
-						  charge_stop_create_request,
+						  scan_stop_create_request,
 						  devs_list_composite_skycompletion);
 }
 
@@ -1077,8 +1077,8 @@ struct httpd_handler {
 	{ "/gps-data",        gps_data_http_handler        },
 
 	/* Commands */
-	{ "/charge-start",    charge_start_http_handler    },
-	{ "/charge-stop",     charge_stop_http_handler     },
+	{ "/scan-resume",     scan_resume_http_handler     },
+	{ "/scan-stop",       scan_stop_http_handler       },
 	{ "/droneport-open",  droneport_open_http_handler  },
 	{ "/droneport-close", droneport_close_http_handler },
 };

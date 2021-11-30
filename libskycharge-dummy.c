@@ -261,12 +261,12 @@ static int skydum_reset(struct sky_dev *dev_)
 	return -EINVAL;
 }
 
-static int skydum_chargestart(struct sky_dev *dev_)
+static int skydum_scanresume(struct sky_dev *dev_)
 {
 	return 0;
 }
 
-static int skydum_chargestop(struct sky_dev *dev_)
+static int skydum_scanstop(struct sky_dev *dev_)
 {
 	return 0;
 }
@@ -462,11 +462,11 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 	case SKY_SET_DEV_PARAMS_REQ:
 		rc = skydum_paramsset(req->dev, req->in.ptr);
 		break;
-	case SKY_START_CHARGE_REQ:
-		rc = skydum_chargestart(req->dev);
+	case SKY_RESUME_SCAN_REQ:
+		rc = skydum_scanresume(req->dev);
 		break;
-	case SKY_STOP_CHARGE_REQ:
-		rc = skydum_chargestop(req->dev);
+	case SKY_STOP_SCAN_REQ:
+		rc = skydum_scanstop(req->dev);
 		break;
 	case SKY_OPEN_DRONEPORT_REQ:
 		rc = skydum_droneport_open(req->dev);

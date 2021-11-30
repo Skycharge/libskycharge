@@ -1646,20 +1646,20 @@ int sky_asyncreq_reset(struct sky_async *async,
 	return 0;
 }
 
-int sky_asyncreq_chargestart(struct sky_async *async,
+int sky_asyncreq_scanresume(struct sky_async *async,
 			     struct sky_dev *dev,
 			     struct sky_async_req *req)
 {
-	sky_asyncreq_init(SKY_START_CHARGE_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_init(SKY_RESUME_SCAN_REQ, dev, NULL, NULL, req);
 	sky_asyncreq_add(async, req);
 	return 0;
 }
 
-int sky_asyncreq_chargestop(struct sky_async *async,
+int sky_asyncreq_scanstop(struct sky_async *async,
 			    struct sky_dev *dev,
 			    struct sky_async_req *req)
 {
-	sky_asyncreq_init(SKY_STOP_CHARGE_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_init(SKY_STOP_SCAN_REQ, dev, NULL, NULL, req);
 	sky_asyncreq_add(async, req);
 	return 0;
 }
@@ -1886,7 +1886,7 @@ int sky_reset(struct sky_dev *dev)
 	return rc;
 }
 
-int sky_chargestart(struct sky_dev *dev)
+int sky_scanresume(struct sky_dev *dev)
 {
 	struct sky_async *async = NULL;
 	struct sky_async_req req;
@@ -1894,7 +1894,7 @@ int sky_chargestart(struct sky_dev *dev)
 
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
-		rc = sky_asyncreq_chargestart(async, dev, &req);
+		rc = sky_asyncreq_scanresume(async, dev, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);
@@ -1902,7 +1902,7 @@ int sky_chargestart(struct sky_dev *dev)
 	return rc;
 }
 
-int sky_chargestop(struct sky_dev *dev)
+int sky_scanstop(struct sky_dev *dev)
 {
 	struct sky_async *async = NULL;
 	struct sky_async_req req;
@@ -1910,7 +1910,7 @@ int sky_chargestop(struct sky_dev *dev)
 
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
-		rc = sky_asyncreq_chargestop(async, dev, &req);
+		rc = sky_asyncreq_scanstop(async, dev, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);

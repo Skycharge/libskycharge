@@ -996,10 +996,10 @@ int sky_asyncreq_reset(struct sky_async *async,
 		       struct sky_async_req *req);
 
 /**
- * sky_chargestart() - Starts device charge.
+ * sky_scanresume() - Resumes scan and all device operations.
  * @dev:	Device context.
  *
- * Starts device charge.
+ * Resumes scan.
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
@@ -1007,23 +1007,23 @@ int sky_asyncreq_reset(struct sky_async *async,
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_chargestart(struct sky_dev *dev);
+int sky_scanresume(struct sky_dev *dev);
 
 /**
- * sky_asyncreq_chargestart() - Inits and submits an asynchronous request to
- *                              start charging.
+ * sky_asyncreq_scanresume() - Inits and submits an asynchronous request to
+ *                             resume scan.
  *
- * See synchronous sky_chargestart() variant for details.
+ * See synchronous sky_scanresume() variant for details.
  */
-int sky_asyncreq_chargestart(struct sky_async *async,
-			     struct sky_dev *dev,
-			     struct sky_async_req *req);
+int sky_asyncreq_scanresume(struct sky_async *async,
+			    struct sky_dev *dev,
+			    struct sky_async_req *req);
 
 /**
- * sky_chargestop() - Stops device charge.
+ * sky_scanstop() - Stops scan and all device operations.
  * @dev:	Device context.
  *
- * Stops device charge.
+ * Stops scan.
  *
  * RETURNS:
  * Returns 0 on success and <0 otherwise:
@@ -1031,15 +1031,15 @@ int sky_asyncreq_chargestart(struct sky_async *async,
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_chargestop(struct sky_dev *dev);
+int sky_scanstop(struct sky_dev *dev);
 
 /**
- * sky_asyncreq_chargestop() - Inits and submits an asynchronous request to
- *                             stop charging.
+ * sky_asyncreq_scanstop() - Inits and submits an asynchronous request to
+ *                           stop scan.
  *
- * See synchronous sky_chargestop() variant for details.
+ * See synchronous sky_scanstop() variant for details.
  */
-int sky_asyncreq_chargestop(struct sky_async *async,
+int sky_asyncreq_scanstop(struct sky_async *async,
 			    struct sky_dev *dev,
 			    struct sky_async_req *req);
 

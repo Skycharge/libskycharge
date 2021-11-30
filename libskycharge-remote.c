@@ -769,8 +769,8 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_SET_DEV_PARAMS_REQ:
 		rc = skyrem_paramsset_send(async, req);
 		break;
-	case SKY_START_CHARGE_REQ:
-	case SKY_STOP_CHARGE_REQ:
+	case SKY_RESUME_SCAN_REQ:
+	case SKY_STOP_SCAN_REQ:
 	case SKY_OPEN_DRONEPORT_REQ:
 	case SKY_CLOSE_DRONEPORT_REQ:
 	case SKY_DRONEPORT_STATE_REQ:
@@ -821,8 +821,8 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 		break;
 	case SKY_SINK_SET_DEV_PARAMS_REQ:
 	case SKY_SET_DEV_PARAMS_REQ:
-	case SKY_START_CHARGE_REQ:
-	case SKY_STOP_CHARGE_REQ:
+	case SKY_RESUME_SCAN_REQ:
+	case SKY_STOP_SCAN_REQ:
 	case SKY_OPEN_DRONEPORT_REQ:
 	case SKY_CLOSE_DRONEPORT_REQ:
 	case SKY_RESET_DEV_REQ:

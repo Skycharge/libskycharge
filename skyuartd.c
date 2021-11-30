@@ -261,26 +261,26 @@ static int uartd_send_generic_rsp(struct uartd *uartd, int type, int error)
 	return uartd_send_rsp(uartd, &uart_rsp.uart_hdr, sizeof(uart_rsp.rsp));
 }
 
-static void uartd_start_charge_req(struct uartd *uartd)
+static void uartd_resume_scan_req(struct uartd *uartd)
 {
 	int rc;
 
-	rc = sky_chargestart(uartd->dev);
+	rc = sky_scanresume(uartd->dev);
 	if (rc)
-		sky_err("sky_chargestart(): %s\n", strerror(-rc));
+		sky_err("sky_scanresume(): %s\n", strerror(-rc));
 
-	(void)uartd_send_generic_rsp(uartd, SKY_START_CHARGE_RSP, -rc);
+	(void)uartd_send_generic_rsp(uartd, SKY_RESUME_SCAN_RSP, -rc);
 }
 
-static void uartd_stop_charge_req(struct uartd *uartd)
+static void uartd_stop_scan_req(struct uartd *uartd)
 {
 	int rc;
 
-	rc = sky_chargestop(uartd->dev);
+	rc = sky_scanstop(uartd->dev);
 	if (rc)
-		sky_err("sky_chargestop(): %s\n", strerror(-rc));
+		sky_err("sky_scanstop(): %s\n", strerror(-rc));
 
-	(void)uartd_send_generic_rsp(uartd, SKY_STOP_CHARGE_RSP, -rc);
+	(void)uartd_send_generic_rsp(uartd, SKY_STOP_SCAN_RSP, -rc);
 }
 
 static void uartd_open_droneport_req(struct uartd *uartd)
@@ -396,7 +396,7 @@ static int do_some_tests(void)
 			struct uart_packet uart_hdr;
 			struct sky_req_hdr req;
 		} uart_req;
-		uart_req.req.type  = htole16(SKY_STOP_CHARGE_REQ);
+		uart_req.req.type  = htole16(SKY_STOP_SCAN_REQ);
 		(void)uartd_send_rsp(&uartd, &uart_req.uart_hdr, sizeof(uart_req.req));
 
 
@@ -438,7 +438,7 @@ static int do_some_tests(void)
 			struct uart_packet uart_hdr;
 			struct sky_req_hdr req;
 		} uart_req;
-		uart_req.req.type  = htole16(SKY_START_CHARGE_REQ);
+		uart_req.req.type  = htole16(SKY_RESUME_SCAN_REQ);
 		(void)uartd_send_rsp(&uartd, &uart_req.uart_hdr, sizeof(uart_req.req));
 
 		struct uart_generic_rsp gen_rsp;
@@ -645,11 +645,11 @@ int main (int argc, char **argv)
 		}
 
 		switch (req.req.hdr.type) {
-		case SKY_START_CHARGE_REQ:
-			uartd_start_charge_req(&uartd);
+		case SKY_RESUME_SCAN_REQ:
+			uartd_resume_scan_req(&uartd);
 			break;
-		case SKY_STOP_CHARGE_REQ:
-			uartd_stop_charge_req(&uartd);
+		case SKY_STOP_SCAN_REQ:
+			uartd_stop_scan_req(&uartd);
 			break;
 		case SKY_OPEN_DRONEPORT_REQ:
 			uartd_open_droneport_req(&uartd);

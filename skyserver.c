@@ -507,7 +507,7 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
-	case SKY_START_CHARGE_REQ: {
+	case SKY_RESUME_SCAN_REQ: {
 		struct sky_rsp_hdr *rsp;
 
 		dev = sky_find_dev(serv, devport_frame);
@@ -522,14 +522,14 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		rc = sky_chargestart(dev);
+		rc = sky_scanresume(dev);
 
-		rsp->type  = htole16(SKY_START_CHARGE_RSP);
+		rsp->type  = htole16(SKY_RESUME_SCAN_RSP);
 		rsp->error = htole16(-rc);
 
 		break;
 	}
-	case SKY_STOP_CHARGE_REQ: {
+	case SKY_STOP_SCAN_REQ: {
 		struct sky_rsp_hdr *rsp;
 
 		dev = sky_find_dev(serv, devport_frame);
@@ -544,9 +544,9 @@ static void sky_execute_cmd(struct sky_server *serv,
 			goto emergency;
 		}
 
-		rc = sky_chargestop(dev);
+		rc = sky_scanstop(dev);
 
-		rsp->type  = htole16(SKY_STOP_CHARGE_RSP);
+		rsp->type  = htole16(SKY_STOP_SCAN_RSP);
 		rsp->error = htole16(-rc);
 
 		break;

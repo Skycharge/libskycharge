@@ -1506,7 +1506,7 @@ static int skyloc_autoscan(struct sky_dev *dev_, unsigned autoscan)
 	return get_hwops(dev_)->scan(dev, autoscan);
 }
 
-static int skyloc_chargestart(struct sky_dev *dev_)
+static int skyloc_scanresume(struct sky_dev *dev_)
 {
 	/* Start charging enabling autoscan */
 	return skyloc_autoscan(dev_, 1);
@@ -1724,10 +1724,10 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 	case SKY_SET_DEV_PARAMS_REQ:
 		rc = skyloc_paramsset(req->dev, req->in.ptr);
 		break;
-	case SKY_START_CHARGE_REQ:
-		rc = skyloc_chargestart(req->dev);
+	case SKY_RESUME_SCAN_REQ:
+		rc = skyloc_scanresume(req->dev);
 		break;
-	case SKY_STOP_CHARGE_REQ:
+	case SKY_STOP_SCAN_REQ:
 		rc = skyloc_chargestop(req->dev);
 		break;
 	case SKY_OPEN_DRONEPORT_REQ:

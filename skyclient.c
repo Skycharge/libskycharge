@@ -703,16 +703,16 @@ int main(int argc, char *argv[])
 		   cli.setdevparams || cli.setsinkparams) {
 		parse_and_set_params(&cli, dev, devdesc);
 
-	} else if (cli.startcharge) {
-		rc = sky_chargestart(dev);
+	} else if (cli.resumescan) {
+		rc = sky_scanresume(dev);
 		if (rc) {
-			sky_err("sky_chargestart(): %s\n", strerror(-rc));
+			sky_err("sky_resumescan(): %s\n", strerror(-rc));
 			exit(-1);
 		}
-	} else if (cli.stopcharge) {
-		rc = sky_chargestop(dev);
+	} else if (cli.stopscan) {
+		rc = sky_scanstop(dev);
 		if (rc) {
-			sky_err("sky_stopcharge(): %s\n", strerror(-rc));
+			sky_err("sky_scanstop(): %s\n", strerror(-rc));
 			exit(-1);
 		}
 	} else if (cli.opendroneport) {
