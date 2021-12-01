@@ -1,3 +1,4 @@
 skycharged   usr/bin
 skybmsd      usr/bin
 skypsu       usr/bin
+debian/default/skycharged	etc/default
