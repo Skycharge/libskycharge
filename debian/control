@@ -22,33 +22,6 @@ Build-Depends: autotools-dev,
 Standards-Version: 3.9.5
 
 
-Package: skysense-conf
-Depends: skycharge-conf, ${misc:Depends}
-Architecture: all
-Priority: optional
-Section: oldlibs
-Description: transitional package
-  This is a transitional Skycharge package. It can safely be removed.
-
-
-Package: skysense-cli
-Depends: skycharge-cli, ${misc:Depends}
-Architecture: all
-Priority: optional
-Section: oldlibs
-Description: transitional package
-  This is a transitional Skycharge package. It can safely be removed.
-
-
-Package: skysensed
-Depends: skycharged, ${misc:Depends}
-Architecture: all
-Priority: optional
-Section: oldlibs
-Description: transitional package
-  This is a transitional Skycharge package. It can safely be removed.
-
-
 Package: skycharge-conf
 Architecture: any
 Depends: ${misc:Depends},
