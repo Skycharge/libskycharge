@@ -1,3 +1,14 @@
+skycharge (2.1.1) stretch; urgency=low
+  * libskycharge,httpd,server,client: rename charge start/stop to scan resume/stop
+  * skycharge.conf: increase sink-total-charge-secs to 2 hours
+  * skybroker,libskycharge-remote: fully authorize client-to-device requests
+  * libskycharge,remote,server: make subscriptions secure
+  * skycharged: put addr and port to the /etc/default/skycharged config
+  * skycharged: don't wait for USB device if the connection is dummy
+  * debian/control: don't build skysense packages anymore, even dummy
+
+ -- Roman Pen <r.penyaev@gmail.com>  Thu, 2 Dec 2021 10:00:00 +0200
+
 skycharge (2.1.0) stretch; urgency=low
   * libskycharge: remove warning if 'mux_dev' is not specified
   * skybroker: fix zframes leak
