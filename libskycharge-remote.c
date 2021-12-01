@@ -761,6 +761,44 @@ complete_with_EPROTO:
 	goto complete;
 }
 
+static int skyrem_subscription_token_parse(struct skyrem_async *async,
+					   struct sky_async_req *req,
+					   void *rsp_data, size_t rsp_len)
+{
+	struct sky_subscription_token *token = req->out.ptr;
+	struct sky_subscription_token_rsp *rsp = rsp_data;
+	size_t len;
+	int rc;
+
+	if (rsp_len <= sizeof(*rsp))
+		goto complete_with_EPROTO;
+
+	len = le16toh(rsp->len);
+	if (!len)
+		goto complete_with_EPROTO;
+
+	if (rsp_len < sizeof(*rsp) + len)
+		goto complete_with_EPROTO;
+
+	if (len > sizeof(token->buf))
+		goto complete_with_EPROTO;
+
+	rc = -le16toh(rsp->hdr.error);
+	if (rc)
+		goto complete;
+
+	token->len = len;
+	memcpy(token->buf, rsp->buf, len);
+
+complete:
+	skyrem_asyncreq_complete(async, req, rc);
+	return 0;
+
+complete_with_EPROTO:
+	rc = -EPROTO;
+	goto complete;
+}
+
 static int skyrem_asyncreq_send(struct skyrem_async *async)
 {
 	struct sky_async_req *req;
@@ -791,6 +829,7 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_SINK_GET_INFO_REQ:
 	case SKY_SINK_START_CHARGE_REQ:
 	case SKY_SINK_STOP_CHARGE_REQ:
+	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
 		rc = skyrem_genericreq_send(async, req);
 		break;
 	default:
@@ -856,6 +895,9 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 		break;
 	case SKY_SINK_GET_INFO_REQ:
 		rc = skyrem_sinkinfo_parse(async, req, rsp, rsp_len);
+		break;
+	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
+		rc = skyrem_subscription_token_parse(async, req, rsp, rsp_len);
 		break;
 	default:
 		/* Consider fatal */
@@ -1126,18 +1168,19 @@ static void skyrem_devclose(struct sky_dev *dev_)
 	free(dev);
 }
 
-static int skyrem_subscribe(struct sky_dev *dev_)
+static int
+skyrem_subscribe(struct sky_dev *dev_, struct sky_subscription_token *token)
 {
 	struct sky_dev_desc *devdesc;
 	struct skyrem_dev *dev;
-	char topic[128];
 	char zaddr[128];
-	size_t len;
 	void *sub;
 	int rc, opt;
 
-	BUILD_BUG_ON(sizeof(devdesc->dev_uuid) + sizeof(devdesc->portname) >
-		     sizeof(topic));
+	if (!token)
+		return -EINVAL;
+	if (!token->len)
+		return -EINVAL;
 
 	devdesc = &dev_->devdesc;
 	dev = container_of(dev_, struct skyrem_dev, dev);
@@ -1170,11 +1213,7 @@ static int skyrem_subscribe(struct sky_dev *dev_)
 		zmq_close(sub);
 		return rc;
 	}
-	memcpy(topic, devdesc->dev_uuid, sizeof(devdesc->dev_uuid));
-	len = strlen(devdesc->portname);
-	memcpy(topic + sizeof(devdesc->dev_uuid), devdesc->portname, len);
-	len += sizeof(devdesc->dev_uuid);
-	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, topic, len);
+	rc = zmq_setsockopt(sub, ZMQ_SUBSCRIBE, token->buf, token->len);
 	if (rc != 0) {
 		zmq_close(sub);
 		return rc;
@@ -1215,10 +1254,6 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	msg = zmsg_recv(dev->zock.sub);
 	if (!msg)
 		return -ECONNRESET;
-	if (zmsg_size(msg) != 2) {
-		zmsg_destroy(&msg);
-		return -ECONNRESET;
-	}
 
 	zmsg_first(msg);
 	frame = zmsg_next(msg);

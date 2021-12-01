@@ -43,6 +43,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <uuid/uuid.h>
+#include <systemd/sd-id128.h>
 
 #include <zmq.h>
 #include <czmq.h>
@@ -52,6 +53,7 @@
 #include "libskypsu.h"
 #include "daemon.h"
 #include "avahi.h"
+#include "crc8.h"
 #include "skyproto.h"
 #include "version.h"
 #include "types.h"
@@ -76,6 +78,7 @@ struct sky_server_dev {
 
 struct sky_server {
 	bool exit;
+	sd_id128_t id;
 	struct cli cli;
 	struct sky_conf conf; /* Local device config */
 	struct zocket zock;
@@ -137,13 +140,8 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 	struct sky_conf *conf = &serv->conf;
 	struct sky_dev_desc *devdesc = servdev->devdesc;
 	struct sky_charging_state_rsp rsp;
-	char topic[128];
 	zmsg_t *msg;
-	size_t len;
 	int rc;
-
-	BUILD_BUG_ON(sizeof(conf->devuuid) + sizeof(devdesc->portname) >
-		     sizeof(topic));
 
 	if (serv->hw1_psu.type != SKY_PSU_UNKNOWN &&
 	    sky_psu_is_precharge_set(&serv->hw1_psu)) {
@@ -208,13 +206,11 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 		return;
 	}
 	/* Publisher topic */
-	memcpy(topic, conf->devuuid, sizeof(conf->devuuid));
-	len = strlen(devdesc->portname);
-	memcpy(topic + sizeof(conf->devuuid), devdesc->portname, len);
-	len += sizeof(conf->devuuid);
-	rc = zmsg_addmem(msg, topic, len);
+	rc = zmsg_addmem(msg, &serv->id, sizeof(serv->id));
 	if (!rc)
 		rc = zmsg_addmem(msg, &rsp, sizeof(rsp));
+	if (!rc)
+		rc = zmsg_addmem(msg, conf->devuuid, sizeof(conf->devuuid));
 	if (rc) {
 		sky_err("zmsg_add(): No memory\n");
 		zmsg_destroy(&msg);
@@ -850,6 +846,23 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		rsp->type  = htole16(req_type + 1);
 		rsp->error = htole16(-rc);
+
+		break;
+	}
+	case SKY_GET_SUBSCRIPTION_TOKEN_REQ: {
+		struct sky_subscription_token_rsp *rsp;
+
+		len = sizeof(*rsp) + sizeof(serv->id);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		rsp->hdr.type  = htole16(req_type + 1);
+		rsp->hdr.error = htole16(0);
+		rsp->len       = htole16(sizeof(serv->id.bytes));
+		memcpy(rsp->buf, serv->id.bytes, sizeof(serv->id.bytes));
 
 		break;
 	}
@@ -1665,6 +1678,25 @@ static bool sky_hw2_mux_detect_mode_is_plc(struct sky_dev_params *params)
 	return params->dev_params[SKY_HW2_DETECT_MODE] == SKY_DETECT_PLC;
 }
 
+static int sky_get_machine_app_specific(const uuid_t uuid, sd_id128_t *id)
+{
+	uint8_t crc;
+	int i, rc;
+
+	rc = sd_id128_get_machine(id);
+        if (rc < 0)
+                return rc;
+
+	/* Pfff, whatever, just not to leak dev-uuid */
+	crc = crc8(uuid, sizeof(uuid_t));
+	BUILD_BUG_ON(sizeof(uuid_t) != sizeof(*id));
+	for (i = 0; i < sizeof(*id); i++) {
+		id->bytes[i] ^= uuid[i] ^ crc;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_server serv = {
@@ -1686,6 +1718,14 @@ int main(int argc, char *argv[])
 		sky_err("sky_confparse(): %s\n", strerror(-rc));
 		goto free_cli;
 	}
+
+	/* Get machine app specific ID based on dev-uuid */
+	rc = sky_get_machine_app_specific(serv.conf.devuuid, &serv.id);
+	if (rc) {
+		sky_err("sky_get_machine_app_specific(): %s\n", strerror(-rc));
+		goto free_cli;
+	}
+
 	/* PSU is controlled by the BB, only HW1 */
 	if (conf->mux_type == SKY_MUX_HW1) {
 		rc = sky_hw1_psu_init(&serv);
@@ -1814,7 +1854,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		subsc.data = servdev;
-		rc = sky_subscribe(servdev->dev, &subsc);
+		rc = sky_subscribe(servdev->dev, NULL, &subsc);
 		if (rc) {
 			sky_err("sky_subscribe(): %s\n", strerror(-rc));
 			sky_devclose(servdev->dev);

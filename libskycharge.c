@@ -1766,6 +1766,16 @@ int sky_asyncreq_sink_chargestop(struct sky_async *async,
 	return 0;
 }
 
+int sky_asyncreq_subscription_token(struct sky_async *async,
+				    struct sky_dev *dev,
+				    struct sky_subscription_token *token,
+				    struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_GET_SUBSCRIPTION_TOKEN_REQ, dev, NULL, token, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
 static int sky_asyncexecute_on_stack(struct sky_async *async,
 				     struct sky_async_req *req)
 {
@@ -2078,6 +2088,23 @@ int sky_sink_chargestop(struct sky_dev *dev)
 	return rc;
 }
 
+int sky_subscription_token(struct sky_dev *dev,
+			   struct sky_subscription_token *token)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_subscription_token(async, dev, token, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
 void sky_devsfree(struct sky_dev_desc *head)
 {
 	struct sky_dev_desc *next;
@@ -2161,6 +2188,7 @@ static void *subscription_work(void *data)
 }
 
 int sky_subscribe(struct sky_dev *dev,
+		  struct sky_subscription_token *token,
 		  struct sky_subscription *subsc)
 {
 	int rc;
@@ -2172,7 +2200,7 @@ int sky_subscribe(struct sky_dev *dev,
 
 	memcpy(&dev->subsc, subsc, sizeof(*subsc));
 
-	rc = get_devops(dev)->subscribe(dev);
+	rc = get_devops(dev)->subscribe(dev, token);
 	if (rc)
 		return rc;
 	rc = pthread_create(&dev->thread, NULL, subscription_work, dev);

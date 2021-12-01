@@ -18,6 +18,7 @@ Build-Depends: autotools-dev,
                libmicrohttpd-dev,
                libbson-dev [amd64],
                libmongoc-dev [amd64],
+               libsystemd-dev,
 Standards-Version: 3.9.5
 
 
@@ -88,6 +89,7 @@ Depends: ${misc:Depends},
          libserialport0,
          libgps22,
          libavahi-client3,
+         libsystemd0,
 Replaces: skysensed (<< 2.0.0)
 Breaks: skysensed (<< 2.0.0)
 Description: server to control charging pad

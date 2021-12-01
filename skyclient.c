@@ -630,8 +630,14 @@ int main(int argc, char *argv[])
 			.on_state = sky_on_charging_state,
 			.interval_msecs = 1000,
 		};
+		struct sky_subscription_token token;
 
-		rc = sky_subscribe(dev, &sub);
+		rc = sky_subscription_token(dev, &token);
+		if (rc) {
+			sky_err("sky_subscription_token(): %s\n", strerror(-rc));
+			exit(-1);
+		}
+		rc = sky_subscribe(dev, &token, &sub);
 		if (rc) {
 			sky_err("sky_subscribe(): %s\n", strerror(-rc));
 			exit(-1);

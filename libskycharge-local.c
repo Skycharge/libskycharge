@@ -1469,7 +1469,8 @@ static int skyloc_chargingstate(struct sky_dev *dev_,
 	return 0;
 }
 
-static int skyloc_subscribe(struct sky_dev *dev_)
+static int
+skyloc_subscribe(struct sky_dev *dev_, struct sky_subscription_token *token)
 {
 	/* Nop for now */
 	return 0;
@@ -1771,6 +1772,9 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_SINK_STOP_CHARGE_REQ:
 		rc = skyloc_sink_chargestop(req->dev);
+		break;
+	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
+		rc = -EOPNOTSUPP;
 		break;
 	default:
 		/* Consider fatal */

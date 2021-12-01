@@ -151,7 +151,7 @@ skycharged: skyserver.o avahi.o $(LIBSKYCHARGE-SRCS) \
 ifneq ($(VERBOSE),1)
 	@echo "  LD $@"
 endif
-	$(Q)$(CC) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS) -lavahi-client -lavahi-common
+	$(Q)$(CC) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS) -lavahi-client -lavahi-common -lsystemd
 
 ##
 ## skybmsd (skycharged)

@@ -1278,8 +1278,10 @@ static int sky_handle_charging_state(struct pub_proxy *proxy, zmsg_t *msg)
 	uuid_t devuuid;
 	int rc;
 
-	ident = zmsg_first(msg);
+	/* Skip subscription topic */
+	zmsg_first(msg);
 	data = zmsg_next(msg);
+	ident = zmsg_next(msg);
 	if (!ident || !data) {
 		sky_err("Malformed message\n");
 		return -EPROTO;

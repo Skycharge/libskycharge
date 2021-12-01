@@ -239,7 +239,8 @@ static int skydum_chargingstate(struct sky_dev *dev_,
 	return 0;
 }
 
-static int skydum_subscribe(struct sky_dev *dev_)
+static int
+skydum_subscribe(struct sky_dev *dev_, struct sky_subscription_token *token)
 {
 	/* Nop for now */
 	return 0;
@@ -508,6 +509,9 @@ static int skydum_asyncreq_execute(struct sky_async *async,
 		rc = -EOPNOTSUPP;
 		break;
 	case SKY_SINK_STOP_CHARGE_REQ:
+		rc = -EOPNOTSUPP;
+		break;
+	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
 		rc = -EOPNOTSUPP;
 		break;
 	default:

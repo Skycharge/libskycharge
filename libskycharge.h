@@ -405,11 +405,20 @@ struct sky_droneport_state {
 };
 
 /**
+ * struct sky_subscription_token - Subscription token
+ */
+struct sky_subscription_token {
+	uint8_t buf[32];
+	size_t  len;
+};
+
+/**
  * struct sky_subscription - Event subscription configuration.
  */
 struct sky_subscription {
 	void *data;
 	void (*on_state)(void *data, struct sky_charging_state *state);
+	struct sky_subscription_token *token;
 	unsigned interval_msecs;
 };
 
@@ -474,14 +483,15 @@ struct sky_gpsdata {
  *                           of asynchronous commands.
  */
 union sky_async_storage {
-	struct sky_peerinfo        peerinfo;
-	struct sky_dev_desc        *devdescs;
-	struct sky_dev_params      params;
-	struct sky_charging_state  charging_state;
-	struct sky_droneport_state dp_state;
-	struct sky_gpsdata         gpsdata;
-	enum sky_drone_status      drone_status;
-	struct sky_sink_info       sink_info;
+	struct sky_peerinfo           peerinfo;
+	struct sky_dev_desc           *devdescs;
+	struct sky_dev_params         params;
+	struct sky_charging_state     charging_state;
+	struct sky_droneport_state    dp_state;
+	struct sky_gpsdata            gpsdata;
+	enum sky_drone_status         drone_status;
+	struct sky_sink_info          sink_info;
+	struct sky_subscription_token sub_token;
 };
 
 struct sky_async_req;
@@ -725,9 +735,38 @@ void sky_asyncreq_useruuidset(struct sky_async_req *req,
 bool sky_asyncreq_cancel(struct sky_async *async,
 			 struct sky_async_req *req);
 
+
+/**
+ * sky_subscription_token() - Returns subscription token for the device.
+ * @token:        Pointer to a token structure to be filled in.
+ *
+ * Returns subscription token which can be used for further sky_subscribe()
+ * request.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise.
+ */
+int sky_subscription_token(struct sky_dev *dev,
+			   struct sky_subscription_token *token);
+
+/**
+ * sky_asyncreq_subscription_token() - Inits and submits an asynchronous request
+ *                                     to receive the subscription token for the
+ *                                     device.
+ *
+ * See synchronous sky_subscription_token() variant for details.
+ */
+int sky_asyncreq_subscription_token(struct sky_async *async,
+				    struct sky_dev *dev,
+				    struct sky_subscription_token *token,
+				    struct sky_async_req *req);
+
 /**
  * sky_subscribe() - Subscribe on @sky_charging_state update events.
  * @dev:	Device context.
+ * @token:      Subscription token, see sky_subscription_token().
+ *              For the SKY_LOCAL connection type token is not used
+ *              and NULL can be passed.
  * @sub:	Subscription configuration.
  *
  * Subscribes on @sky_charging_state update events.
@@ -742,7 +781,8 @@ bool sky_asyncreq_cancel(struct sky_async *async,
  * -EPERM  if operation is not permitted.
  * -ECONNRESET connection reset by peer (in case of remote connection)
  */
-int sky_subscribe(struct sky_dev *dev, struct sky_subscription *sub);
+int sky_subscribe(struct sky_dev *dev, struct sky_subscription_token *token,
+		  struct sky_subscription *sub);
 
 /**
  * sky_unsubscribe() - Unsubscribe from @sky_charging_state update events.

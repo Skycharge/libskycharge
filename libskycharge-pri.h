@@ -59,7 +59,7 @@ struct sky_dev_ops {
 			      unsigned int timeout_ms);
 	int (*devopen)(const struct sky_dev_desc *devdesc, struct sky_dev **dev);
 	void (*devclose)(struct sky_dev *dev);
-	int (*subscribe)(struct sky_dev *dev);
+	int (*subscribe)(struct sky_dev *dev, struct sky_subscription_token *token);
 	void (*unsubscribe)(struct sky_dev *dev);
 	int (*subscription_work)(struct sky_dev *dev,
 				 struct sky_charging_state *state);

@@ -124,6 +124,9 @@ enum sky_proto_type {
 	SKY_SINK_STOP_CHARGE_REQ = 35,
 	SKY_SINK_STOP_CHARGE_RSP = 36,
 
+	SKY_GET_SUBSCRIPTION_TOKEN_REQ = 37,
+	SKY_GET_SUBSCRIPTION_TOKEN_RSP = 38,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -135,7 +138,7 @@ enum {
 	DEFAULT_TIMEOUT = 30000,
 	PORTNAME_LEN = 32,
 
-	SKY_PROTO_VERSION = 0x0400,
+	SKY_PROTO_VERSION = 0x0500,
 
 	SKY_HEARTBEAT_IVL_MS = 5000,
 	SKY_HEARTBEAT_CNT    = 3,
@@ -196,6 +199,12 @@ union sky_req {
 	struct sky_req_hdr            hdr;
 	struct sky_get_dev_params_req get_dev_params;
 	struct sky_set_dev_params_req set_dev_params;
+};
+
+struct sky_subscription_token_rsp {
+	struct sky_rsp_hdr hdr;
+	le16    len;
+	uint8_t buf[];
 };
 
 struct sky_dev_info {
