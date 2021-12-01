@@ -361,6 +361,120 @@ db_lookup_online_devices_by_usruuid(struct db_client *db_client, uuid_t usruuid,
 	return !!found;
 }
 
+static bool
+db_lookup_device_by_usruuid_devuuid(struct db_client *db_client,
+				    uuid_t usruuid, uuid_t devuuid)
+{
+	mongoc_cursor_t *cursor;
+	bson_t *pipeline;
+	char usruuid_str[37];
+	char devuuid_str[37];
+	const bson_t *doc;
+
+	const char *chargers_name;
+	bool found;
+
+	uuid_unparse(usruuid, usruuid_str);
+	uuid_unparse(devuuid, devuuid_str);
+
+	chargers_name = mongoc_collection_get_name(db_client->coll_chargers);
+	pipeline = BCON_NEW(
+		"pipeline", "[",
+
+		/* Lookup user UUID with valid userId */
+		  "{",
+		      "$match", "{",
+		          "userUUID", BCON_UTF8(usruuid_str),
+		          "userId", "{", "$exists", BCON_BOOL(true), "}",
+		      "}",
+		  "}",
+
+		/* Lookup charger belong to that user */
+		  "{",
+		      "$lookup", "{",
+		          "from", BCON_UTF8(chargers_name),
+		          "as", "charger",
+		          "let", "{",
+		              "userId", "$userId",
+		              "deviceId", "$deviceId",
+		              "updatedAt", "$updatedAt",
+			  "}",
+		          "pipeline", "[",
+		              "{",
+		                  "$match", "{",
+		                      "$expr", "{",
+		                          "$and", "[",
+		                               "{", "$eq", "[", "$userId", "$$userId", "]", "}",
+		                               "{", "$eq", "[", "$deviceId", BCON_UTF8(devuuid_str), "]", "}",
+					  "]",
+				      "}",
+				  "}",
+			      "}",
+			  "]",
+		      "}",
+		  "}",
+
+		/* Unwind array of chargers */
+		  "{", "$unwind", "$charger", "}",
+
+		/* Get flatten deviceId fields only of chargers */
+		  "{",
+		      "$project", "{", "_id", "$charger._id",
+				       "deviceId", "$charger.deviceId", "}",
+		      "}",
+		"]");
+
+	cursor = mongoc_collection_aggregate(db_client->coll_user_uuids,
+					     MONGOC_QUERY_NONE, pipeline,
+					     NULL, NULL);
+	found = mongoc_cursor_next(cursor, &doc);
+	mongoc_cursor_destroy(cursor);
+	bson_destroy(pipeline);
+
+	return found;
+}
+
+static bool
+db_lookup_user_by_usruuid(struct db_client *db_client, uuid_t usruuid)
+{
+	mongoc_cursor_t *cursor;
+	bson_t *pipeline;
+	char usruuid_str[37];
+	const bson_t *doc;
+
+	bool found;
+
+	uuid_unparse(usruuid, usruuid_str);
+	pipeline = BCON_NEW(
+		"pipeline", "[",
+
+		/* Lookup user UUID with valid userId */
+		  "{",
+		      "$match", "{",
+		          "userUUID", BCON_UTF8(usruuid_str),
+		          "userId", "{", "$exists", BCON_BOOL(true), "}",
+		      "}",
+		  "}",
+
+		/* Get few fields only */
+		  "{",
+		      "$project", "{", "_id", BCON_BOOL(true),
+		                       "userUUID", BCON_BOOL(true),
+		                       "userId", BCON_BOOL(true),
+		      "}",
+		  "}",
+		"]");
+
+	cursor = mongoc_collection_aggregate(db_client->coll_user_uuids,
+					     MONGOC_QUERY_NONE, pipeline,
+					     NULL, NULL);
+	found = mongoc_cursor_next(cursor, &doc);
+	mongoc_cursor_destroy(cursor);
+	bson_destroy(pipeline);
+
+	return found;
+}
+
 static void db_update_charging_session(struct db_client *db_client, uuid_t devuuid,
 				       const struct sky_charging_state *state)
 {
@@ -529,6 +643,21 @@ static inline zframe_t *sky_find_data_frame(zmsg_t *msg)
 	}
 
 	return data;
+}
+
+static zframe_t *sky_zmsg_prev(zmsg_t *msg, zframe_t *frame)
+{
+	zframe_t *prev = NULL, *next;
+
+	next = zmsg_first(msg);
+	while (next) {
+		if (next == frame)
+			return prev;
+		prev = next;
+		next = zmsg_next(msg);
+	}
+
+	return NULL;
 }
 
 static void server_peer_free(struct server_peer *peer)
@@ -876,12 +1005,14 @@ static void sky_handle_client_msg(void *servers, void *clients,
 	enum sky_proto_type req_type;
 	struct sky_req_hdr *req_hdr;
 	struct server_peer *peer;
+	zframe_t *usruuid_frame;
 	zframe_t *data, *ident;
 	zmsg_t *msg, *srv_msg;
 	size_t len;
 
 	uint16_t proto_version;
-	uuid_t devuuid;
+	uuid_t devuuid, usruuid;
+	bool authed;
 	int rc;
 
 	msg = zmsg_recv(clients);
@@ -919,8 +1050,7 @@ static void sky_handle_client_msg(void *servers, void *clients,
 	case SKY_DEVS_LIST_REQ: {
 		/* TODO: cooperate with skyserver, make single function */
 		struct sky_devs_list_rsp *rsp;
-		uuid_t usruuid, *devuuids = NULL;
-		zframe_t *usruuid_frame;
+		uuid_t *devuuids = NULL;
 		size_t len, nr_devuuids;
 
 		usruuid_frame = zmsg_last(msg);
@@ -954,23 +1084,34 @@ static void sky_handle_client_msg(void *servers, void *clients,
 		break;
 	}
 	case SKY_PEERINFO_REQ: {
-		/* TODO: cooperate with skyserver, make single function */
-		struct sky_peerinfo_rsp *rsp;
+		/* TODO: cooperate with skyserver, make a single function */
+		struct sky_peerinfo_rsp rsp;
 
-		rsp = calloc(1, sizeof(*rsp));
-		if (!rsp) {
-			sky_err("No memory\n");
+		usruuid_frame = zmsg_last(msg);
+		if (!is_uuid_frame_valid(usruuid_frame)) {
+			/* Malformed message? */
+			sky_err("Malformed message: invalid USRUUID frame\n");
 			zmsg_destroy(&msg);
 			return;
 		}
+		memcpy(usruuid, zframe_data(usruuid_frame), sizeof(usruuid));
+		authed = db_lookup_user_by_usruuid(db_client, usruuid);
 
-		rsp->hdr.type  = htole16(SKY_PEERINFO_RSP);
-		rsp->hdr.error = htole16(0);
-		rsp->proto_version  = htole16(SKY_PROTO_VERSION);
-		rsp->server_version = htole32(SKY_VERSION);
+		if (authed) {
+			rsp = (struct sky_peerinfo_rsp) {
+				.hdr.type  = htole16(SKY_PEERINFO_RSP),
+				.hdr.error = htole16(0),
+				.proto_version  = htole16(SKY_PROTO_VERSION),
+				.server_version = htole32(SKY_VERSION)
+			};
+		} else {
+			rsp = (struct sky_peerinfo_rsp) {
+				.hdr.type  = htole16(SKY_PEERINFO_RSP),
+				.hdr.error = htole16(EPERM),
+			};
+		}
 
-		zframe_reset(data, rsp, sizeof(*rsp));
-		free(rsp);
+		zframe_reset(data, &rsp, sizeof(rsp));
 		rc = zmsg_send(&msg, clients);
 		if (rc) {
 			sky_err("zmsg_send(): %s\n", strerror(errno));
@@ -981,14 +1122,32 @@ static void sky_handle_client_msg(void *servers, void *clients,
 	default:
 		/* Destination ident frame is always the last in the message */
 		ident = zmsg_last(msg);
-		assert(ident);
-
 		if (!is_uuid_frame_valid(ident)) {
 			sky_err("Malformed ident\n");
 			zmsg_destroy(&msg);
 			return;
 		}
+		usruuid_frame = sky_zmsg_prev(msg, ident);
+		if (!is_uuid_frame_valid(usruuid_frame)) {
+			/* Malformed message? */
+			sky_err("Malformed message: invalid USRUUID frame\n");
+			zmsg_destroy(&msg);
+			return;
+		}
 		memcpy(devuuid, zframe_data(ident), sizeof(devuuid));
+		memcpy(usruuid, zframe_data(usruuid_frame), sizeof(usruuid));
+
+		authed = db_lookup_device_by_usruuid_devuuid(db_client, usruuid,
+							     devuuid);
+		if (!authed) {
+			char devuuid_str[37];
+
+			uuid_unparse(devuuid, devuuid_str);
+			sky_err("Unauthorized attempt to access device with UUID '%s'\n",
+				devuuid_str);
+			zmsg_destroy(&msg);
+			return;
+		}
 
 		pthread_mutex_lock(&hash_lock);
 		peer = zhashx_lookup(srvs_hash, devuuid);

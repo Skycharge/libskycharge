@@ -259,10 +259,18 @@ static int skyrem_sendreq(struct skyrem_async *async,
 			  struct sky_req_hdr *hdr,
 			  size_t len)
 {
+	const uint8_t *usruuid = skyrem_asyncreq_useruuid(async, req);
 	unsigned int tag;
 	le32 le32tag;
 	zmsg_t *msg;
 	int rc;
+
+	/*
+	 * USRUUID should be a valid pointer, but can be zero-uuid for
+	 * a connection between client and server in LAN.
+	 */
+	if (!usruuid)
+		return -EINVAL;
 
 	msg = zmsg_new();
 	if (!msg)
@@ -285,12 +293,12 @@ static int skyrem_sendreq(struct skyrem_async *async,
 		rc |= zmsg_addstr(msg, devdesc->portname);
 		/* TAG frame for the response identification */
 		rc |= zmsg_addmem(msg, &le32tag, sizeof(le32tag));
+		/* USRUUID frame is the penultimate */
+		rc |= zmsg_addmem(msg, usruuid, 16);
 		/* DEVUUID frame is the last one */
 		rc |= zmsg_addmem(msg, devdesc->dev_uuid,
 				  sizeof(devdesc->dev_uuid));
 	} else {
-		const uint8_t *usruuid = skyrem_asyncreq_useruuid(async, req);
-
 		/*
 		 * DEVPORT frame follows request frame. But for this kind
 		 * of request DEVPORT should not be sent at all, but we
