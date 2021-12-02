@@ -1611,7 +1611,8 @@ static void sky_wait_for_mux_hw1_dev(struct sky_server *serv)
 	bool printed = false;
 	int rc;
 
-	if (serv->conf.mux_type != SKY_MUX_HW1)
+	if (serv->conf.mux_type != SKY_MUX_HW1 ||
+	    serv->conf.contype == SKY_DUMMY)
 		/* Only HW1 MUX should be awaited */
 		return;
 
