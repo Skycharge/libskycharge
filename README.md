@@ -37,6 +37,6 @@ gateway to the Skycharge hardware.
 UART service, which runs on the BeagleBone Board and acts as a UART
 gateway to the Skycharge hardware.
 
-## Documentation
+## SDK documentation
 
-https://support.skycharge.de/docs/geist
+https://support.skycharge.de/docs/sdk
