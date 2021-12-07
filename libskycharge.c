@@ -1230,7 +1230,7 @@ const char *sky_sinkparam_to_str(enum sky_sink_param param)
 {
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
-		return "capabilties";
+		return "capabilities";
 	case SKY_SINK_BATT_TYPE:
 		return "batt-type";
 	case SKY_SINK_BATT_CAPACITY_MAH:

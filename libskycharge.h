@@ -193,7 +193,7 @@ enum sky_dev_param {
 };
 
 /**
- * enum sky_sink_capabilities - Capabilties bits of the sink
+ * enum sky_sink_capabilities - Capabilities bits of the sink
  *     @SKY_SINK_CAPABILITIES param
  */
 enum sky_sink_capabilities {
