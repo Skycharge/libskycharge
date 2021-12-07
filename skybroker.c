@@ -1283,7 +1283,6 @@ static int sky_handle_charging_state(struct pub_proxy *proxy, zmsg_t *msg)
 	data = zmsg_next(msg);
 	ident = zmsg_next(msg);
 	if (!ident || !data) {
-		sky_err("Malformed message\n");
 		return -EPROTO;
 	}
 	if (zframe_size(ident) < sizeof(devuuid)) {
