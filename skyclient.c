@@ -438,8 +438,15 @@ parse_key_value_params(bool is_dev_params, struct sky_dev_desc *devdesc,
 
 }
 
-static void parse_and_set_params(struct cli *cli, struct sky_dev *dev,
-				 struct sky_dev_desc *devdesc)
+/**
+ * parse_dev_or_sink_params() - parse device or sink params and fills in bitset
+ *
+ * NOTE: if @devdesc or @params is NULL function verifies command line arguments
+ *       without updating the params bitset
+ *
+ */
+static void parse_dev_or_sink_params(struct cli *cli, struct sky_dev_desc *devdesc,
+				     struct sky_dev_params *params)
 {
 	const char params_delims[] = ";, ";
 	const char kv_delims[] = "=:";
@@ -448,10 +455,8 @@ static void parse_and_set_params(struct cli *cli, struct sky_dev *dev,
 	char *params_str;
 	bool is_dev_params;
 
-	struct sky_dev_params params;
-	int rc;
-
-	memset(&params, 0, sizeof(params));
+	if (params)
+		memset(params, 0, sizeof(*params));
 	is_dev_params = cli->setdevparam || cli->setdevparams;
 
 	if (cli->setdevparam || cli->setsinkparam) {
@@ -472,25 +477,14 @@ static void parse_and_set_params(struct cli *cli, struct sky_dev *dev,
 		value = tmp2;
 
 		if (!strlen(value)) {
-			sky_err("Value is not specified in key-value pair\n");
+			sky_err("Value for a parameter '%s' is missing\n",
+				param);
 			exit(-1);
 		}
 
-		parse_key_value_params(is_dev_params, devdesc, &params, param, value);
-	}
-
-	if (is_dev_params) {
-		rc = sky_paramsset(dev, &params);
-		if (rc) {
-			sky_err("sky_paramsset(): %s\n", strerror(-rc));
-			exit(-1);
-		}
-	} else {
-		rc = sky_sink_paramsset(dev, &params);
-		if (rc) {
-			sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
-			exit(-1);
-		}
+		if (devdesc && params)
+			parse_key_value_params(is_dev_params, devdesc,
+					       params, param, value);
 	}
 }
 
@@ -591,6 +585,16 @@ int main(int argc, char *argv[])
 
 		return 0;
 	}
+
+	if (cli.setdevparam || cli.setsinkparam ||
+	    cli.setdevparams || cli.setsinkparams)
+		/*
+		 * Verify command line arguments before making a
+		 * connection to a device. If parameters are specified
+		 * incorrectly (delimiter is missing, etc) then we
+		 * rise an error before making a connection.
+		 */
+		parse_dev_or_sink_params(&cli, NULL, NULL);
 
 	sky_prepare_dev(&cli, &dev, &devdesc, &devdescs);
 
@@ -707,8 +711,22 @@ int main(int argc, char *argv[])
 
 	} else if (cli.setdevparam || cli.setsinkparam ||
 		   cli.setdevparams || cli.setsinkparams) {
-		parse_and_set_params(&cli, dev, devdesc);
+		struct sky_dev_params params;
 
+		parse_dev_or_sink_params(&cli, devdesc, &params);
+		if (cli.setdevparam || cli.setdevparams) {
+			rc = sky_paramsset(dev, &params);
+			if (rc) {
+				sky_err("sky_paramsset(): %s\n", strerror(-rc));
+				exit(-1);
+			}
+		} else {
+			rc = sky_sink_paramsset(dev, &params);
+			if (rc) {
+				sky_err("sky_sink_paramsset(): %s\n", strerror(-rc));
+				exit(-1);
+			}
+		}
 	} else if (cli.resumescan) {
 		rc = sky_scanresume(dev);
 		if (rc) {
