@@ -40,6 +40,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <sys/time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #include <zlib.h>
 #include <math.h>
 #include <regex.h>
@@ -61,6 +64,50 @@ static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
 
 	return crc;
 }
+
+static bool resolve_hostname_and_connection_probe(struct cli *cli)
+{
+	struct addrinfo hints, *res, *rp;
+	bool resolved = false;
+	int rc;
+
+	memset(&hints, 0, sizeof (hints));
+	hints.ai_family   = AF_INET; /* IPv4 only */
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags    = AI_NUMERICSERV;
+
+	rc = getaddrinfo(cli->addr, cli->port, &hints, &res);
+	if (rc) {
+		if (rc != EAI_NONAME)
+			sky_err("getaddrinfo(%s): %s\n", cli->addr,
+				gai_strerror(rc));
+		goto out;
+	}
+	for (rp = res; rp != NULL; rp = rp->ai_next) {
+		struct timeval timeout;
+		int fd;
+
+		fd = socket(rp->ai_family, rp->ai_socktype,
+			    rp->ai_protocol);
+		if (fd == -1)
+			continue;
+
+		/* Few seconds should be enough */
+		timeout.tv_sec = 5;
+		timeout.tv_usec = 0;
+		setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO,
+			   &timeout, sizeof(timeout));
+
+		rc = connect(fd, rp->ai_addr, rp->ai_addrlen);
+		resolved = (rc == 0);
+		close(fd);
+		break;
+	}
+	freeaddrinfo(res);
+out:
+	return resolved;
+}
+
 
 /**
  * Unix UTC time to ISO8601, no timezone adjustment.
@@ -596,6 +643,11 @@ int main(int argc, char *argv[])
 		 */
 		parse_dev_or_sink_params(&cli, NULL, NULL);
 
+	if (cli.addr && !resolve_hostname_and_connection_probe(&cli)) {
+		fprintf(stderr, "Unable to connect to '%s:%s'\n",
+			cli.addr, cli.port);
+		return -1;
+	}
 	sky_prepare_dev(&cli, &dev, &devdesc, &devdescs);
 
 	if (cli.listdevs) {
