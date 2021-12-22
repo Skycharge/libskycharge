@@ -44,7 +44,7 @@ enum sky_hw2_errno {
 	SKY_HW2_EINTR      = 7,
 	SKY_HW2_EBUSY      = 8,
 	SKY_HW2_ENOLINK    = 9,
-
+	SKY_HW2_EIO        = 10,
 
 	SKY_MAX_ERRNO  = 16 /* Due to the uart response type,
 			     * which embeds 4 bits for errno */
@@ -64,6 +64,10 @@ enum sky_hw2_serial_cmd {
 	SKY_HW2_SET_SINK_CHARGING_SETTINGS_CMD = 0x0a,
 	SKY_HW2_SINK_START_CHARGE_CMD          = 0x0b,
 	SKY_HW2_SINK_STOP_CHARGE_CMD           = 0x0c,
+	SKY_HW2_SINK_FLASH_ERASE_PAGE_CMD      = 0x0d,
+	SKY_HW2_SINK_FLASH_WRITE_CHUNK_CMD     = 0x0e,
+	SKY_HW2_SINK_FLASH_INFO_CMD            = 0x0f,
+	SKY_HW2_SINK_FLASH_SET_START_ADDR_CMD  = 0x10,
 
 	/*
 	 * Types of messages from mux
@@ -169,6 +173,8 @@ static inline int skyerrno_to_errno(enum sky_hw2_errno err)
 		return EBUSY;
 	case SKY_HW2_ENOLINK:
 		return ENOLINK;
+	case SKY_HW2_EIO:
+		return EIO;
 	default:
 		sky_err("Unknown error %d\n", err);
 		return 0;

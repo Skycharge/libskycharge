@@ -102,6 +102,12 @@ struct sky_hw_ops {
 			     struct sky_sink_info *info);
 	int (*sink_start_charge)(struct skyloc_dev *dev);
 	int (*sink_stop_charge)(struct skyloc_dev *dev);
+	int (*sink_flash_erase_page)(struct skyloc_dev *dev, uint32_t addr);
+	int (*sink_flash_write_chunk)(struct skyloc_dev *dev,
+				      const struct sky_flash_chunk *chunk);
+	int (*sink_flash_info)(struct skyloc_dev *dev,
+			       struct sky_flash_info *info);
+	int (*sink_flash_set_start_addr)(struct skyloc_dev *dev, uint32_t addr);
 };
 
 static inline int sprc_to_errno(enum sp_return sprc)
@@ -590,18 +596,46 @@ static int hw1_sky_sink_stop_charge(struct skyloc_dev *dev)
 	return -EOPNOTSUPP;
 }
 
+static int hw1_sky_sink_flash_erase_page(struct skyloc_dev *dev,
+					 uint32_t addr)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_sink_flash_write_chunk(struct skyloc_dev *dev,
+					  const struct sky_flash_chunk *chunk)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_sink_flash_info(struct skyloc_dev *dev,
+				   struct sky_flash_info *info)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_sink_flash_set_start_addr(struct skyloc_dev *dev,
+					     uint32_t addr)
+{
+	return -EOPNOTSUPP;
+}
+
 static struct sky_hw_ops hw1_sky_ops = {
-	.get_hw_info       = hw1_sky_get_hw_info,
-	.get_params        = hw1_sky_get_params,
-	.set_params        = hw1_sky_set_params,
-	.get_state         = hw1_sky_get_state,
-	.reset             = hw1_sky_reset,
-	.scan              = hw1_sky_scan,
-	.get_sink_params   = hw1_sky_get_sink_params,
-	.set_sink_params   = hw1_sky_set_sink_params,
-	.get_sink_info     = hw1_sky_get_sink_info,
-	.sink_start_charge = hw1_sky_sink_start_charge,
-	.sink_stop_charge  = hw1_sky_sink_stop_charge,
+	.get_hw_info               = hw1_sky_get_hw_info,
+	.get_params                = hw1_sky_get_params,
+	.set_params                = hw1_sky_set_params,
+	.get_state                 = hw1_sky_get_state,
+	.reset                     = hw1_sky_reset,
+	.scan                      = hw1_sky_scan,
+	.get_sink_params           = hw1_sky_get_sink_params,
+	.set_sink_params           = hw1_sky_set_sink_params,
+	.get_sink_info             = hw1_sky_get_sink_info,
+	.sink_start_charge         = hw1_sky_sink_start_charge,
+	.sink_stop_charge          = hw1_sky_sink_stop_charge,
+	.sink_flash_erase_page     = hw1_sky_sink_flash_erase_page,
+	.sink_flash_write_chunk    = hw1_sky_sink_flash_write_chunk,
+	.sink_flash_info           = hw1_sky_sink_flash_info,
+	.sink_flash_set_start_addr = hw1_sky_sink_flash_set_start_addr,
 };
 
 /*
@@ -1137,7 +1171,6 @@ static int hw2_sky_set_sink_params(struct skyloc_dev *dev,
 static int hw2_sky_get_sink_info(struct skyloc_dev *dev,
 				 struct sky_sink_info *info)
 {
-	/* First retreive settings */
 	memset(info, 0, sizeof(*info));
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
 				 SKY_HW2_GET_SINK_INFO_CMD,
@@ -1159,18 +1192,62 @@ static int hw2_sky_sink_stop_charge(struct skyloc_dev *dev)
 				 0, 0);
 }
 
+static int hw2_sky_sink_flash_erase_page(struct skyloc_dev *dev,
+					 uint32_t addr)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_FLASH_ERASE_PAGE_CMD,
+				 1, 0,
+				 sizeof(addr), &addr);
+}
+
+static int hw2_sky_sink_flash_write_chunk(struct skyloc_dev *dev,
+					  const struct sky_flash_chunk *chunk)
+{
+	size_t len;
+
+	len = offsetof(typeof(*chunk), buf) + chunk->size;
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_FLASH_WRITE_CHUNK_CMD,
+				 1, 0,
+				 len, chunk);
+}
+
+static int hw2_sky_sink_flash_info(struct skyloc_dev *dev,
+				   struct sky_flash_info *info)
+{
+	memset(info, 0, sizeof(*info));
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_FLASH_INFO_CMD,
+				 0, 1,
+				 sizeof(*info), info);
+}
+
+static int hw2_sky_sink_flash_set_start_addr(struct skyloc_dev *dev,
+					     uint32_t addr)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_FLASH_SET_START_ADDR_CMD,
+				 1, 0,
+				 sizeof(addr), &addr);
+}
+
 static struct sky_hw_ops hw2_sky_ops = {
-	.get_hw_info       = hw2_sky_get_hw_info,
-	.get_params        = hw2_sky_get_params,
-	.set_params        = hw2_sky_set_params,
-	.get_state         = hw2_sky_get_state,
-	.reset             = hw2_sky_reset,
-	.scan              = hw2_sky_scan,
-	.get_sink_params   = hw2_sky_get_sink_params,
-	.set_sink_params   = hw2_sky_set_sink_params,
-	.get_sink_info     = hw2_sky_get_sink_info,
-	.sink_start_charge = hw2_sky_sink_start_charge,
-	.sink_stop_charge  = hw2_sky_sink_stop_charge,
+	.get_hw_info               = hw2_sky_get_hw_info,
+	.get_params                = hw2_sky_get_params,
+	.set_params                = hw2_sky_set_params,
+	.get_state                 = hw2_sky_get_state,
+	.reset                     = hw2_sky_reset,
+	.scan                      = hw2_sky_scan,
+	.get_sink_params           = hw2_sky_get_sink_params,
+	.set_sink_params           = hw2_sky_set_sink_params,
+	.get_sink_info             = hw2_sky_get_sink_info,
+	.sink_start_charge         = hw2_sky_sink_start_charge,
+	.sink_stop_charge          = hw2_sky_sink_stop_charge,
+	.sink_flash_erase_page     = hw2_sky_sink_flash_erase_page,
+	.sink_flash_write_chunk    = hw2_sky_sink_flash_write_chunk,
+	.sink_flash_info           = hw2_sky_sink_flash_info,
+	.sink_flash_set_start_addr = hw2_sky_sink_flash_set_start_addr,
 };
 
 /*
@@ -1664,6 +1741,45 @@ static int skyloc_sink_chargestop(struct sky_dev *dev_)
 	return get_hwops(dev_)->sink_stop_charge(dev);
 }
 
+static int skyloc_sink_flash_pageerase(struct sky_dev *dev_, uint32_t addr)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_flash_erase_page(dev, addr);
+}
+
+static int skyloc_sink_flash_chunkwrite(struct sky_dev *dev_,
+					const struct sky_flash_chunk *chunk)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_flash_write_chunk(dev, chunk);
+}
+
+static int skyloc_sink_flash_info(struct sky_dev *dev_,
+				  struct sky_flash_info *info)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_flash_info(dev, info);
+}
+
+static int skyloc_sink_flash_startaddrset(struct sky_dev *dev_,
+					  uint32_t addr)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_flash_set_start_addr(dev, addr);
+}
+
 static bool skyloc_asyncreq_cancel(struct sky_async *async,
 				   struct sky_async_req *req)
 {
@@ -1772,6 +1888,20 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 		break;
 	case SKY_SINK_STOP_CHARGE_REQ:
 		rc = skyloc_sink_chargestop(req->dev);
+		break;
+	case SKY_SINK_FLASH_ERASE_PAGE_REQ:
+		rc = skyloc_sink_flash_pageerase(req->dev,
+				(uint32_t)(uintptr_t)req->in.ptr);
+		break;
+	case SKY_SINK_FLASH_WRITE_CHUNK_REQ:
+		rc = skyloc_sink_flash_chunkwrite(req->dev, req->in.ptr);
+		break;
+	case SKY_SINK_FLASH_INFO_REQ:
+		rc = skyloc_sink_flash_info(req->dev, req->out.ptr);
+		break;
+	case SKY_SINK_FLASH_SET_START_ADDR_REQ:
+		rc = skyloc_sink_flash_startaddrset(req->dev,
+				(uint32_t)(uintptr_t)req->in.ptr);
 		break;
 	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
 		rc = -EOPNOTSUPP;

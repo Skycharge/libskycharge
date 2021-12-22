@@ -44,6 +44,7 @@
 #include "libskycharge-pri.h"
 #include "types.h"
 #include "skyproto.h"
+#include "crc16.h"
 
 static struct sky_dev_ops *devops;
 
@@ -1656,8 +1657,8 @@ int sky_asyncreq_scanresume(struct sky_async *async,
 }
 
 int sky_asyncreq_scanstop(struct sky_async *async,
-			    struct sky_dev *dev,
-			    struct sky_async_req *req)
+			  struct sky_dev *dev,
+			  struct sky_async_req *req)
 {
 	sky_asyncreq_init(SKY_STOP_SCAN_REQ, dev, NULL, NULL, req);
 	sky_asyncreq_add(async, req);
@@ -1762,6 +1763,54 @@ int sky_asyncreq_sink_chargestop(struct sky_async *async,
 				 struct sky_async_req *req)
 {
 	sky_asyncreq_init(SKY_SINK_STOP_CHARGE_REQ, dev, NULL, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_flash_pageerase(struct sky_async *async,
+				      struct sky_dev *dev,
+				      uint32_t addr,
+				      struct sky_async_req *req)
+{
+	/* Abuse input pointer */
+	BUILD_BUG_ON(sizeof(addr) > sizeof(void *));
+	sky_asyncreq_init(SKY_SINK_FLASH_ERASE_PAGE_REQ, dev,
+			  (void *)(uintptr_t)addr, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_flash_chunkwrite(struct sky_async *async,
+				       struct sky_dev *dev,
+				       struct sky_flash_chunk *chunk,
+				       struct sky_async_req *req)
+{
+	chunk->crc16 = crc16(chunk->buf, chunk->size);
+
+	sky_asyncreq_init(SKY_SINK_FLASH_WRITE_CHUNK_REQ, dev, chunk, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_flash_info(struct sky_async *async,
+				 struct sky_dev *dev,
+				 struct sky_flash_info *info,
+				 struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_SINK_FLASH_INFO_REQ, dev, NULL, info, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_flash_startaddrset(struct sky_async *async,
+					 struct sky_dev *dev,
+					 uint32_t addr,
+					 struct sky_async_req *req)
+{
+	/* Abuse input pointer */
+	BUILD_BUG_ON(sizeof(addr) > sizeof(void *));
+	sky_asyncreq_init(SKY_SINK_FLASH_SET_START_ADDR_REQ, dev,
+			  (void *)(uintptr_t)addr, NULL, req);
 	sky_asyncreq_add(async, req);
 	return 0;
 }
@@ -2081,6 +2130,72 @@ int sky_sink_chargestop(struct sky_dev *dev)
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
 		rc = sky_asyncreq_sink_chargestop(async, dev, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_flash_pageerase(struct sky_dev *dev, uint32_t addr)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_flash_pageerase(async, dev, addr, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_flash_chunkwrite(struct sky_dev *dev,
+			      struct sky_flash_chunk *chunk)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_flash_chunkwrite(async, dev, chunk, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_flash_info(struct sky_dev *dev,
+			struct sky_flash_info *info)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_flash_info(async, dev, info, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_flash_startaddrset(struct sky_dev *dev, uint32_t addr)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_flash_startaddrset(async, dev, addr, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);

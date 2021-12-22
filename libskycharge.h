@@ -348,6 +348,26 @@ struct sky_sink_info {
 	struct sky_hw_info hw_info;
 };
 
+/**
+ * struct sky_flash_chunk - Flash chunk structure
+ */
+struct sky_flash_chunk {
+	uint32_t addr;
+	uint16_t crc16;
+	uint16_t size;
+	uint8_t  buf[128];
+};
+
+/**
+ * struct sky_flash_info - Flash info structure
+ */
+struct sky_flash_info {
+	uint32_t real_addr;
+	uint32_t set_addr;
+	uint16_t page_size;
+	uint16_t max_chunk_size;
+};
+
 #define make_version(min, maj, rev) (((maj) & 0xff) << 16 | ((min) & 0xff) << 8 | ((rev) & 0xff))
 #define version_major(v) (((v) >> 16) & 0xff)
 #define version_minor(v) (((v) >> 8) & 0xff)
@@ -492,6 +512,8 @@ union sky_async_storage {
 	enum sky_drone_status         drone_status;
 	struct sky_sink_info          sink_info;
 	struct sky_subscription_token sub_token;
+	struct sky_flash_chunk        flash_chunk;
+	struct sky_flash_info         flash_info;
 };
 
 struct sky_async_req;
@@ -1338,8 +1360,113 @@ int sky_sink_chargestop(struct sky_dev *dev);
  * See synchronous sky_sink_chargestop() variant for details.
  */
 int sky_asyncreq_sink_chargestop(struct sky_async *async,
-				  struct sky_dev *dev,
-				  struct sky_async_req *req);
+				 struct sky_dev *dev,
+				 struct sky_async_req *req);
+
+/**
+ * sky_sink_flash_pageerase() - Erase flash page on a sink module.
+ * @dev:	Device context.
+ * @addr:       Page address to erase.
+ *
+ * Accesses the sink hardware and erases the flash page.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_flash_pageerase(struct sky_dev *dev, uint32_t addr);
+
+/**
+ * sky_asyncreq_sink_flash_pageerase() - Erase flash page.
+ *
+ * See synchronous sky_sink_flash_pageerase() variant for details.
+ */
+int sky_asyncreq_sink_flash_pageerase(struct sky_async *async,
+				      struct sky_dev *dev,
+				      uint32_t addr,
+				      struct sky_async_req *req);
+
+/**
+ * sky_sink_flash_chunkwrite() - Write flash chunk to a sink module.
+ * @dev:	Device context.
+ * @chunk:      Flash chunk which describes the write operation.
+ *
+ * Accesses the sink hardware and writes the flash chunk.
+ *
+ * NOTE: @chunk->crc16 will be filled in by the library, other fields
+ *       should be correctly filled in.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_flash_chunkwrite(struct sky_dev *dev,
+			      struct sky_flash_chunk *chunk);
+
+/**
+ * sky_asyncreq_sink_flash_chunkwrite() - Write flash chunk.
+ *
+ * See synchronous sky_sink_flash_chunkwrite() variant for details.
+ */
+int sky_asyncreq_sink_flash_chunkwrite(struct sky_async *async,
+				       struct sky_dev *dev,
+				       struct sky_flash_chunk *chunk,
+				       struct sky_async_req *req);
+
+/**
+ * sky_sink_flash_info() - Get flash info.
+ * @dev:	Device context.
+ * @info:       Structure for info output.
+ *
+ * Accesses the sink hardware and gets the flash info.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_flash_info(struct sky_dev *dev,
+			struct sky_flash_info *info);
+
+/**
+ * sky_asyncreq_sink_flash_info() - Get flkash info.
+ *
+ * See synchronous sky_sink_flash_info() variant for details.
+ */
+int sky_asyncreq_sink_flash_info(struct sky_async *async,
+				 struct sky_dev *dev,
+				 struct sky_flash_info *info,
+				 struct sky_async_req *req);
+
+/**
+ * sky_sink_flash_startaddrset() - Set start flash address.
+ * @dev:	Device context.
+ * @addr:       Start flash address to be set.
+ *
+ * Accesses the sink hardware and sets the start flash address.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ * -ECONNRESET connection reset by peer (in case of remote connection)
+ */
+int sky_sink_flash_startaddrset(struct sky_dev *dev, uint32_t addr);
+
+/**
+ * sky_asyncreq_sink_flash_startaddrset() - Set start flash address.
+ *
+ * See synchronous sky_sink_flash_startaddrset() variant for details.
+ */
+int sky_asyncreq_sink_flash_startaddrset(struct sky_async *async,
+					 struct sky_dev *dev,
+					 uint32_t addr,
+					 struct sky_async_req *req);
 
 #ifdef __cplusplus
 }
