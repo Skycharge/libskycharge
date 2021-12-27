@@ -19,6 +19,7 @@ Build-Depends: autotools-dev,
                libbson-dev [amd64],
                libmongoc-dev [amd64],
                libsystemd-dev,
+               libelf-dev,
 Standards-Version: 3.9.5
 
 
@@ -45,7 +46,8 @@ Depends: ${misc:Depends},
          libzmq5,
          libczmq4,
          libserialport0,
-         libgps22
+         libgps22,
+         libelf1,
 Replaces: skysense-cli (<< 2.0.0)
 Breaks: skysense-cli (<< 2.0.0)
 Description: command line utility to control charging pad

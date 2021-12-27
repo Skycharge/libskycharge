@@ -42,17 +42,75 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <netdb.h>
+#include <fcntl.h>
 #include <zlib.h>
 #include <math.h>
 #include <regex.h>
+#include <libelf.h>
+#include <gelf.h>
 
 #include "libskycharge.h"
+#include "libskycharge-pri.h"
 #include "skyclient-cmd.h"
 #include "version.h"
 #include "types.h"
 
-#define CONFFILE "/etc/skycharge.conf"
+#define CONFFILE         "/etc/skycharge.conf"
+#define SINKFWFILE       "/usr/lib/firmware/skysink.elf"
+#define PROGRESSBAR      "=================================================="
+#define PROGRESSBARWIDTH (sizeof(PROGRESSBAR) - 1)
+
+struct progress_bar_state {
+	unsigned long long prev_ts_ms;
+	unsigned long long avg_eta_msecs;
+	unsigned           prev_text_len;
+	double             prev_perc;
+};
+
+void print_progress(struct progress_bar_state *s,
+		    double percentage, const char *text)
+{
+	unsigned long long eta_msecs = 0;
+	unsigned min, sec, len_diff;
+	unsigned val, lpad, rpad;
+
+	percentage = clamp_val(percentage, 0.0, 1.0);
+	val = percentage * 100;
+	lpad = percentage * PROGRESSBARWIDTH;
+	rpad = PROGRESSBARWIDTH - lpad;
+
+	/* ETA estimation */
+	if (s->prev_ts_ms) {
+		double left;
+
+		left = (1.0 - percentage) / (percentage - s->prev_perc);
+		/* Integrate and add 1s to have smooth ending */
+		eta_msecs = (msecs_epoch() - s->prev_ts_ms) * left + 1000;
+	}
+	s->prev_ts_ms = msecs_epoch();
+	s->prev_perc  = percentage;
+
+	if (percentage >= 1.0) {
+		s->avg_eta_msecs = 0;
+	} else {
+		s->avg_eta_msecs = ema(s->avg_eta_msecs, eta_msecs, 0.8);
+	}
+
+	seconds_to_hms(s->avg_eta_msecs/1000, NULL, &min, &sec);
+
+	if (s->prev_text_len > strlen(text)) {
+		len_diff = s->prev_text_len - strlen(text);
+	} else {
+		len_diff = 0;
+	}
+	s->prev_text_len = strlen(text);
+
+	printf("\r%3d%% |%.*s%*s| %02um:%02us | %s%*s", val, lpad,
+	       PROGRESSBAR, rpad, "", min, sec, text, len_diff, "");
+	fflush(stdout);
+}
 
 static inline unsigned int sky_dev_desc_crc32(struct sky_dev_desc *devdesc)
 {
@@ -521,6 +579,197 @@ static void parse_dev_or_sink_params(struct cli *cli, struct sky_dev_desc *devde
 	}
 }
 
+
+static void dump_section_and_flash_firmware(const struct cli *cli,
+					    const struct sky_flash_info *info,
+					    struct sky_dev *dev, int fd,
+					    Elf_Scn* scn)
+{
+	size_t start_addr, end_addr;
+	struct sky_flash_chunk chunk;
+	ssize_t len, to_read;
+	GElf_Shdr shdr;
+	int rc, retries;
+
+	char buf[64];
+	double progress, step;
+
+	struct progress_bar_state progress_state;
+	const int max_retries = 5;
+
+	memset(&progress_state, 0, sizeof(progress_state));
+
+	if (gelf_getshdr(scn , &shdr) != &shdr) {
+		fprintf(stderr, "ELF error: can't get section data\n");
+		exit(-1);
+	}
+
+	start_addr = shdr.sh_addr;
+	end_addr = shdr.sh_addr + shdr.sh_size;
+
+	progress = 0.0;
+	step = 0.02 / ((end_addr - start_addr) / (double)info->page_size);
+
+	/* Erase loop */
+	for (; start_addr < end_addr; start_addr += info->page_size) {
+		snprintf(buf, sizeof(buf), "erasing flash page 0x%08zx", start_addr);
+		print_progress(&progress_state, progress, buf);
+		progress += step;
+
+		rc = sky_sink_flash_pageerase(dev, start_addr);
+		if (rc) {
+			sky_err("sky_sink_flash_pageerase(0x%08zx): %s\n",
+				start_addr, strerror(-rc));
+			exit(-1);
+		}
+	}
+
+	start_addr = shdr.sh_addr;
+
+	rc = lseek(fd, shdr.sh_offset, SEEK_SET);
+	if (rc < 0) {
+		fprintf(stderr, "seek(): %s\n", strerror(errno));
+		exit(-1);
+	}
+
+	step = 0.97 / ((end_addr - start_addr) / (double)info->max_chunk_size);
+
+	/* Write loop */
+	to_read = min_t(uint32_t, sizeof(chunk.buf), info->max_chunk_size);
+	while (start_addr < end_addr) {
+		len = read(fd, &chunk.buf, to_read);
+		if (len < 0) {
+			fprintf(stderr, "Error: read from file failed: %s\n",
+				strerror(errno));
+			exit(-1);
+		} else if (len == 0) {
+			fprintf(stderr, "Error: unexpected end of file while read\n");
+			exit(-1);
+		}
+		chunk.addr = start_addr;
+		chunk.size = len;
+
+		retries = max_retries;
+retry:
+		snprintf(buf, sizeof(buf), "writing %zu bytes to 0x%08zx", len, start_addr);
+		print_progress(&progress_state, progress, buf);
+		progress += step;
+
+		rc = sky_sink_flash_chunkwrite(dev, &chunk);
+		if (rc) {
+			if (--retries)
+				goto retry;
+			fprintf(stderr, "sky_sink_flash_chunkwrite(0x%08zx, %zu): %s\n",
+				start_addr, len, strerror(-rc));
+			exit(-1);
+		}
+		start_addr += len;
+	}
+
+	/* Commit start firmware address */
+	if (!cli->bootloader) {
+		rc = sky_sink_flash_startaddrset(dev, shdr.sh_addr);
+		if (rc) {
+			fprintf(stderr, "sky_sink_flash_startaddrset(0x%08" PRIx64 "): %s\n",
+				shdr.sh_addr, strerror(-rc));
+			exit(-1);
+		}
+	}
+
+	print_progress(&progress_state, 1.0, "firmware update completed");
+	printf("\n");
+}
+
+static void sink_firmware_update(const struct cli *cli, struct sky_dev *dev)
+{
+	struct sky_flash_info info;
+	Elf_Scn* scn = NULL;
+	size_t shstrndx;
+	GElf_Shdr shdr;
+	Elf* elf;
+
+	const char *section_name = cli->bootloader ? ".bootloader" : NULL;
+	const char *fwfile = cli->elffile ? cli->elffile : SINKFWFILE;
+
+	int fd, rc;
+
+	printf("Firmware file: %s\n", fwfile);
+
+	fd = open(fwfile, O_RDONLY);
+	if (fd == -1) {
+		fprintf(stderr, "Error: can't open '%s' file for reading: %s\n",
+			fwfile, strerror(errno));
+		exit(-1);
+	}
+
+	rc = sky_sink_flash_info(dev, &info);
+	if (rc) {
+		fprintf(stderr, "sky_sink_flash_info(): %s\n",
+			strerror(-rc));
+		exit(-1);
+	}
+
+	if (elf_version(EV_CURRENT) == EV_NONE) {
+		fprintf(stderr, "Could not initialize libelf\n");
+		exit(-1);
+	}
+
+	elf = elf_begin(fd, ELF_C_READ, NULL);
+	if (!elf) {
+		fprintf(stderr, "Error: can't read file '%s' aself: %s\n",
+			fwfile, elf_errmsg(elf_errno()));
+		exit(-1);
+	}
+
+	if (elf_getshdrstrndx(elf, &shstrndx)) {
+		fprintf(stderr, "ELF error: can't find section name section\n");
+		exit(-1);
+	}
+
+	while ((scn = elf_nextscn(elf, scn))) {
+		const char* scn_name;
+
+		if (gelf_getshdr(scn , &shdr) != &shdr) {
+			fprintf(stderr, "ELF error: can't get section data\n");
+			exit(-1);
+		}
+		scn_name = elf_strptr(elf, shstrndx , shdr.sh_name);
+		if (scn_name == NULL) {
+			fprintf(stderr, "ELF error: can't get section name\n");
+			exit(-1);
+		}
+		if (section_name && !strcmp(scn_name, section_name)) {
+			break;
+		} else if (!section_name &&
+			   (!strcmp(scn_name, ".main1") || !strcmp(scn_name, ".main2"))) {
+			if (shdr.sh_addr != info.real_addr)
+				/* We search for a section with different address */
+				break;
+		}
+	}
+	if (!scn) {
+		fprintf(stderr, "Firmware section was not found, is the '%s' correct sink firmware file?\n",
+			fwfile);
+		exit(-1);
+	}
+
+	/* Section found, write data to the sink device */
+	dump_section_and_flash_firmware(cli, &info, dev, fd, scn);
+
+	elf_end(elf);
+	close(fd);
+}
+
+/**
+ * List of commands which should be passed directly to the device
+ * bypassing the server.
+ */
+static bool only_directly_permitted_command(struct cli *cli)
+{
+	return (cli->sinkfirmwareupdate ||
+		cli->sinkflashinfo);
+}
+
 int main(int argc, char *argv[])
 {
 	struct sky_dev_desc *devdescs = NULL;
@@ -537,7 +786,9 @@ int main(int argc, char *argv[])
 	if (!cli.addr) {
 		/* By default connect to the server locally */
 		cli.addr = strdup("localhost");
-	} else if (!strcmp(cli.addr, "directly")) {
+	}
+	if (only_directly_permitted_command(&cli) ||
+	    !strcmp(cli.addr, "directly")) {
 		/* Still have a possibility to bypass the server */
 		free(cli.addr);
 		cli.addr = NULL;
@@ -911,6 +1162,27 @@ int main(int argc, char *argv[])
 			sky_err("sky_sink_chargestop(): %s\n", strerror(-rc));
 			exit(-1);
 		}
+	} else if (cli.sinkfirmwareupdate) {
+		sink_firmware_update(&cli, dev);
+
+	} else if (cli.sinkflashinfo) {
+		struct sky_flash_info info;
+
+		rc = sky_sink_flash_info(dev, &info);
+		if (rc) {
+			sky_err("sky_sink_flash_info(): %s\n",
+				strerror(-rc));
+			exit(-1);
+		}
+
+		printf("Sink FLASH info:\n"
+		       "   real start addr: 0x%08x\n"
+		       "    set start addr: 0x%08x\n"
+		       "         page size: %u\n"
+		       "    max chunk size: %u\n",
+		       info.real_addr, info.set_addr,
+		       info.page_size, info.max_chunk_size);
+
 	} else
 		assert(0);
 

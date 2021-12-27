@@ -24,6 +24,8 @@ Usage:
     skycharge-cli set-sink-params <key-value-pairs-string> [(--id <dev-id>)] [(--conffile <conff>)] [(<addr> [<port>])]
     skycharge-cli sink-start-charge             [(--id <dev-id>)] [(--conffile <conff>)] [(<addr> [<port>])]
     skycharge-cli sink-stop-charge              [(--id <dev-id>)] [(--conffile <conff>)] [(<addr> [<port>])]
+    skycharge-cli sink-flash-info               [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli sink-firmware-update [<elf-file>] [--bootloader] [(--id <dev-id>)] [(--conffile <conff>)]
 
 Options:
     --id <dev-id> - short ID of the device, is used when 'list-devs' command outputs many devices
@@ -32,6 +34,7 @@ Options:
     --no-pretty   - the opposite of 'pretty', when 'pretty' is default.
     --json        - outputs in json format.
     --link-stat   - includes data link statistics in the output.
+    --bootloader  - update bootloader firmware, operation is considered as dangerous and can brick your sink device if update procedure is being interrupted
 
 Description:
     Skycharge console client communicates with local and remote devices.

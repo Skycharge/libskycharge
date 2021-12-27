@@ -186,7 +186,7 @@ skycharge-cli: skyclient.o $(LIBSKYCHARGE-SRCS) \
 ifneq ($(VERBOSE),1)
 	@echo "  LD $@"
 endif
-	$(Q)$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS)
+	$(Q)$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS) -lelf
 
 package:
 	dpkg-buildpackage -us -uc

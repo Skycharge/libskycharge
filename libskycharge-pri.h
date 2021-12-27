@@ -94,6 +94,14 @@ calib_point_to_uint32(uint16_t set, uint16_t read)
 	return (uint32_t)set << 16 | read;
 }
 
+/*
+ * ema() - exponential moving evarage, alpha is defined as '2 / (n + 1)'
+ */
+static inline double ema(double acc, double new_sample, double alpha)
+{
+	return (alpha * new_sample) + (1.0f - alpha) * acc;
+}
+
 static inline unsigned long long msecs_epoch(void)
 {
 	struct timespec ts;
