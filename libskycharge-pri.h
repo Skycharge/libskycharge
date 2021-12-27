@@ -106,6 +106,23 @@ static inline unsigned long long msecs_epoch(void)
 	return msecs;
 }
 
+static inline void
+seconds_to_hms(unsigned seconds, unsigned *hours, unsigned *mins, unsigned *secs)
+{
+	unsigned h, m, s;
+
+	h = seconds / 3600;
+	m = (seconds - h * 3600) / 60;
+	s = (seconds - h * 3600 - m * 60);
+
+	if (hours)
+		*hours = h;
+	if (mins)
+		*mins  = m;
+	if (secs)
+		*secs  = s;
+}
+
 int hex_dump_to_buffer_oneline(const void *buf, size_t len, int rowsize,
 			       int groupsize, char *linebuf,
 			       size_t linebuflen, bool ascii);

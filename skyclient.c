@@ -227,20 +227,6 @@ static void sky_prepare_dev(struct cli *cli, struct sky_dev **dev,
 	}
 }
 
-static void
-seconds_to_hms(unsigned seconds, unsigned *hours, unsigned *mins, unsigned *secs)
-{
-	unsigned h, m, s;
-
-	h = seconds / 3600;
-	m = (seconds - h * 3600) / 60;
-	s = (seconds - h * 3600 - m * 60);
-
-	*hours = h;
-	*mins  = m;
-	*secs  = s;
-}
-
 static void sky_print_charging_state(enum sky_dev_type dev_type,
 				     struct cli *cli,
 				     struct sky_charging_state *state)
