@@ -131,8 +131,6 @@ static float get_precharge_current(struct sky_server_dev *servdev)
 		current_delta * servdev->hw1.precharge_iter;
 }
 
-static pthread_mutex_t subsc_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 {
 	struct sky_server_dev *servdev = data;
@@ -216,9 +214,7 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 		zmsg_destroy(&msg);
 		return;
 	}
-	pthread_mutex_lock(&subsc_mutex);
 	rc = zmsg_send(&msg, serv->zock.pub);
-	pthread_mutex_unlock(&subsc_mutex);
 	if (rc) {
 		sky_err("zmsg_send(): %s\n", strerror(errno));
 		zmsg_destroy(&msg);
