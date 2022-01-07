@@ -862,6 +862,76 @@ static void sky_execute_cmd(struct sky_server *serv,
 
 		break;
 	}
+	case SKY_SINK_PASSTHRU_MSG_SEND_REQ: {
+		struct sky_sink_passthru_msg_send_req *req = (void *)req_hdr;
+		struct sky_passthru_msg msg;
+		struct sky_rsp_hdr *rsp;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+		if (zframe_size_const(data_frame) < sizeof(*req)) {
+			sky_err("malformed request\n");
+			rc = -EINVAL;
+			goto emergency;
+		}
+		if (zframe_size_const(data_frame) < sizeof(*req) + req->len) {
+			sky_err("malformed request\n");
+			rc = -EINVAL;
+			goto emergency;
+		}
+		if (req->len > sizeof(msg.buf)) {
+			rc = -EOVERFLOW;
+			goto emergency;
+		}
+
+		len = sizeof(*rsp);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+
+		msg.len = req->len;
+		memcpy(msg.buf, req->buf, req->len);
+
+		rc = sky_sink_passthru_msgsend(dev, &msg);
+
+		rsp->type  = htole16(req_type + 1);
+		rsp->error = htole16(-rc);
+
+		break;
+	}
+	case SKY_SINK_PASSTHRU_MSG_RECV_REQ: {
+		struct sky_sink_passthru_msg_recv_rsp *rsp;
+		struct sky_passthru_msg msg;
+
+		dev = sky_find_dev(serv, devport_frame);
+		if (dev == NULL) {
+			rc = -ENODEV;
+			goto emergency;
+		}
+
+		rc = sky_sink_passthru_msgrecv(dev, &msg);
+
+		len = sizeof(*rsp) + (rc ? 0 : msg.len);
+		rsp = rsp_void = calloc(1, len);
+		if (!rsp) {
+			rc = -ENOMEM;
+			goto emergency;
+		}
+		if (!rc) {
+			rsp->len = msg.len;
+			memcpy(rsp->buf, msg.buf, msg.len);
+		}
+
+		rsp->hdr.type  = htole16(req_type + 1);
+		rsp->hdr.error = htole16(-rc);
+
+		break;
+	}
 	default:
 		sky_err("unknown request: %d\n", req_type);
 		rc = -EINVAL;

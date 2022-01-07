@@ -108,6 +108,8 @@ struct sky_hw_ops {
 	int (*sink_flash_info)(struct skyloc_dev *dev,
 			       struct sky_flash_info *info);
 	int (*sink_flash_set_start_addr)(struct skyloc_dev *dev, uint32_t addr);
+	int (*sink_passthru_msg_send)(struct skyloc_dev *dev, const struct sky_passthru_msg *msg);
+	int (*sink_passthru_msg_recv)(struct skyloc_dev *dev, struct sky_passthru_msg *msg);
 };
 
 static inline int sprc_to_errno(enum sp_return sprc)
@@ -410,7 +412,6 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 	return rc >= 0 ? 0 : rc;
 }
 
-__attribute__((unused))
 static int __skycmd_serial_cmd(struct skyloc_dev *dev,
 			       struct skyserial_desc *proto,
 			       uint8_t cmd, unsigned req_num,
@@ -662,6 +663,18 @@ static int hw1_sky_sink_flash_set_start_addr(struct skyloc_dev *dev,
 	return -EOPNOTSUPP;
 }
 
+static int hw1_sky_sink_passthru_msg_send(struct skyloc_dev *dev,
+					  const struct sky_passthru_msg *msg)
+{
+	return -EOPNOTSUPP;
+}
+
+static int hw1_sky_sink_passthru_msg_recv(struct skyloc_dev *dev,
+					  struct sky_passthru_msg *msg)
+{
+	return -EOPNOTSUPP;
+}
+
 static struct sky_hw_ops hw1_sky_ops = {
 	.get_hw_info               = hw1_sky_get_hw_info,
 	.get_params                = hw1_sky_get_params,
@@ -678,6 +691,8 @@ static struct sky_hw_ops hw1_sky_ops = {
 	.sink_flash_write_chunk    = hw1_sky_sink_flash_write_chunk,
 	.sink_flash_info           = hw1_sky_sink_flash_info,
 	.sink_flash_set_start_addr = hw1_sky_sink_flash_set_start_addr,
+	.sink_passthru_msg_send    = hw1_sky_sink_passthru_msg_send,
+	.sink_passthru_msg_recv    = hw1_sky_sink_passthru_msg_recv,
 };
 
 /*
@@ -1274,6 +1289,32 @@ static int hw2_sky_sink_flash_set_start_addr(struct skyloc_dev *dev,
 				 sizeof(addr), &addr);
 }
 
+static int hw2_sky_sink_passthru_msg_send(struct skyloc_dev *dev,
+					  const struct sky_passthru_msg *msg)
+{
+	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+				 SKY_HW2_SINK_PASSTHRU_MSG_SEND,
+				 1, 0,
+				 msg->len, msg->buf);
+}
+
+static int hw2_sky_sink_passthru_msg_recv(struct skyloc_dev *dev,
+					  struct sky_passthru_msg *msg)
+{
+	int recv;
+
+	recv = __skycmd_serial_cmd(dev, &hw2_sky_serial,
+				   SKY_HW2_SINK_PASSTHRU_MSG_RECV,
+				   0, 1,
+				   sizeof(msg->buf), msg->buf);
+	if (recv < 0)
+		return recv;
+
+	msg->len = recv;
+
+	return 0;
+}
+
 static struct sky_hw_ops hw2_sky_ops = {
 	.get_hw_info               = hw2_sky_get_hw_info,
 	.get_params                = hw2_sky_get_params,
@@ -1290,6 +1331,8 @@ static struct sky_hw_ops hw2_sky_ops = {
 	.sink_flash_write_chunk    = hw2_sky_sink_flash_write_chunk,
 	.sink_flash_info           = hw2_sky_sink_flash_info,
 	.sink_flash_set_start_addr = hw2_sky_sink_flash_set_start_addr,
+	.sink_passthru_msg_send    = hw2_sky_sink_passthru_msg_send,
+	.sink_passthru_msg_recv    = hw2_sky_sink_passthru_msg_recv,
 };
 
 /*
@@ -1831,6 +1874,26 @@ static int skyloc_sink_flash_startaddrset(struct sky_dev *dev_,
 	return get_hwops(dev_)->sink_flash_set_start_addr(dev, addr);
 }
 
+static int skyloc_sink_passthru_msgsend(struct sky_dev *dev_,
+					const struct sky_passthru_msg *msg)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_passthru_msg_send(dev, msg);
+}
+
+static int skyloc_sink_passthru_msgrecv(struct sky_dev *dev_,
+					struct sky_passthru_msg *msg)
+{
+	struct skyloc_dev *dev;
+
+	dev = container_of(dev_, struct skyloc_dev, dev);
+
+	return get_hwops(dev_)->sink_passthru_msg_recv(dev, msg);
+}
+
 static bool skyloc_asyncreq_cancel(struct sky_async *async,
 				   struct sky_async_req *req)
 {
@@ -1953,6 +2016,12 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 	case SKY_SINK_FLASH_SET_START_ADDR_REQ:
 		rc = skyloc_sink_flash_startaddrset(req->dev,
 				(uint32_t)(uintptr_t)req->in.ptr);
+		break;
+	case SKY_SINK_PASSTHRU_MSG_SEND_REQ:
+		rc = skyloc_sink_passthru_msgsend(req->dev, req->in.ptr);
+		break;
+	case SKY_SINK_PASSTHRU_MSG_RECV_REQ:
+		rc = skyloc_sink_passthru_msgrecv(req->dev, req->out.ptr);
 		break;
 	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
 		rc = skyloc_subscription_token(req->dev, req->out.ptr);

@@ -139,6 +139,12 @@ enum sky_proto_type {
 	SKY_SINK_FLASH_SET_START_ADDR_REQ = 45,
 	SKY_SINK_FLASH_SET_START_ADDR_RSP = 46,
 
+	SKY_SINK_PASSTHRU_MSG_SEND_REQ = 47,
+	SKY_SINK_PASSTHRU_MSG_SEND_RSP = 48,
+
+	SKY_SINK_PASSTHRU_MSG_RECV_REQ = 49,
+	SKY_SINK_PASSTHRU_MSG_RECV_RSP = 50,
+
 	SKY_LAST_REQRSP,
 
 	/* Events */
@@ -345,6 +351,20 @@ struct sky_gpsdata_rsp {
 struct sky_dronedetect_rsp {
 	struct sky_rsp_hdr hdr;
 	le16 status;
+};
+
+struct sky_sink_passthru_msg_send_req {
+	struct sky_req_hdr      hdr;
+	uint8_t                 padding;
+	uint8_t                 len;
+	uint8_t                 buf[];
+};
+
+struct sky_sink_passthru_msg_recv_rsp {
+	struct sky_rsp_hdr      hdr;
+	uint8_t                 padding;
+	uint8_t                 len;
+	uint8_t                 buf[];
 };
 
 #pragma GCC diagnostic pop

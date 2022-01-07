@@ -368,6 +368,14 @@ struct sky_flash_info {
 	uint16_t max_chunk_size;
 };
 
+/**
+ * struct sky_passthru_msg - Passthru message
+ */
+struct sky_passthru_msg {
+	uint8_t len;
+	uint8_t buf[128];
+};
+
 #define make_version(min, maj, rev) (((maj) & 0xff) << 16 | ((min) & 0xff) << 8 | ((rev) & 0xff))
 #define version_major(v) (((v) >> 16) & 0xff)
 #define version_minor(v) (((v) >> 8) & 0xff)
@@ -392,7 +400,8 @@ struct sky_charging_state {
 	uint32_t charge_mAh;
 	uint8_t  mux_humidity_perc; /* 0-100% */
 	uint8_t  link_quality_factor; /* 0-100% */
-	uint16_t padding;
+	uint8_t  passthru_recv_bytes;
+	uint8_t  padding;
 	struct {
 		uint32_t bytes;
 		uint32_t packets;
@@ -514,6 +523,7 @@ union sky_async_storage {
 	struct sky_subscription_token sub_token;
 	struct sky_flash_chunk        flash_chunk;
 	struct sky_flash_info         flash_info;
+	struct sky_passthru_msg       passthru_msg;
 };
 
 struct sky_async_req;
@@ -1467,6 +1477,56 @@ int sky_asyncreq_sink_flash_startaddrset(struct sky_async *async,
 					 struct sky_dev *dev,
 					 uint32_t addr,
 					 struct sky_async_req *req);
+
+/**
+ * sky_sink_passthru_msgsend() - Send a passthru message to a sink module.
+ * @dev:	Device context.
+ * @msg:        Passthru message.
+ *
+ * Accesses the sink hardware and sends the passthru message.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ */
+int sky_sink_passthru_msgsend(struct sky_dev *dev,
+			      const struct sky_passthru_msg *msg);
+
+/**
+ * sky_asyncreq_sink_passthru_msgsend() - Send a passthru message to a sink module.
+ *
+ * See synchronous sky_sink_passthru_msgsend() variant for details.
+ */
+int sky_asyncreq_sink_passthru_msgsend(struct sky_async *async,
+				       struct sky_dev *dev,
+				       const struct sky_passthru_msg *msg,
+				       struct sky_async_req *req);
+
+/**
+ * sky_sink_passthru_msgrecv() - send a passthru message to a sink module.
+ * @dev:	Device context.
+ * @msg:        Passthru message.
+ *
+ * Accesses the sink hardware and sends the passthru message.
+ *
+ * RETURNS:
+ * Returns 0 on success and <0 otherwise:
+ *
+ * -ENOLINK no link with sink device
+ */
+int sky_sink_passthru_msgrecv(struct sky_dev *dev,
+			      struct sky_passthru_msg *msg);
+
+/**
+ * sky_asyncreq_sink_passthru_msgrecv() - Receive a passthru message from a sink module.
+ *
+ * See synchronous sky_sink_passthru_msgrecv() variant for details.
+ */
+int sky_asyncreq_sink_passthru_msgrecv(struct sky_async *async,
+				       struct sky_dev *dev,
+				       struct sky_passthru_msg *msg,
+				       struct sky_async_req *req);
 
 #ifdef __cplusplus
 }

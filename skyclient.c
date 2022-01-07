@@ -760,6 +760,58 @@ static void sink_firmware_update(const struct cli *cli, struct sky_dev *dev)
 	close(fd);
 }
 
+static void sink_passthru_send(struct sky_dev *dev)
+{
+	struct {
+		struct sky_passthru_msg msg;
+		uint8_t byte;
+	} buffer;
+	int rc, len, off;
+
+	for (off = 0; off < sizeof(buffer); ) {
+		len = read(0, buffer.msg.buf + off, sizeof(buffer) - off);
+		if (len < 0) {
+			fprintf(stderr, "read(stdin): %s\n", strerror(errno));
+			exit(-1);
+		}
+		if (!len)
+			break;
+		off += len;
+	}
+	if (off > sizeof(buffer.msg.buf)) {
+		fprintf(stderr, "Buffer overflow, expects not more than %zu bytes\n",
+			sizeof(buffer.msg.buf));
+		exit(-1);
+	}
+
+	buffer.msg.len = off;
+	rc = sky_sink_passthru_msgsend(dev, &buffer.msg);
+	if (rc) {
+		fprintf(stderr, "sky_sink_passthru_msgsend(): %s\n", strerror(-rc));
+		exit(-1);
+	}
+}
+
+static void sink_passthru_recv(struct sky_dev *dev)
+{
+	struct sky_passthru_msg msg;
+	int len, rc;
+
+	rc = sky_sink_passthru_msgrecv(dev, &msg);
+	if (rc) {
+		fprintf(stderr, "sky_sink_passthru_msgrecv(): %s\n", strerror(-rc));
+		exit(-1);
+	}
+
+	if (msg.len) {
+		len = write(1, msg.buf, msg.len);
+		if (len < 0) {
+			fprintf(stderr, "write(stdout): %s\n", strerror(-rc));
+			exit(-1);
+		}
+	}
+}
+
 /**
  * List of commands which should be passed directly to the device
  * bypassing the server.
@@ -1182,6 +1234,12 @@ int main(int argc, char *argv[])
 		       "    max chunk size: %u\n",
 		       info.real_addr, info.set_addr,
 		       info.page_size, info.max_chunk_size);
+
+	} else if (cli.sinkpassthrusend) {
+		sink_passthru_send(dev);
+
+	} else if (cli.sinkpassthrurecv) {
+		sink_passthru_recv(dev);
 
 	} else
 		assert(0);

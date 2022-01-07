@@ -54,7 +54,7 @@ enum sky_hw2_serial_cmd {
 	SKY_HW2_RESET_CMD                      = 0x00,
 	SKY_HW2_STOP_CMD                       = 0x01,
 	SKY_HW2_RESUME_CMD                     = 0x02,
-	SKY_HW2_SEND_PASSTHRU_DATA_CMD         = 0x03,
+	SKY_HW2_SINK_PASSTHRU_MSG_SEND         = 0x03,
 	SKY_HW2_GET_CHARGING_STATE_CMD         = 0x04,
 	SKY_HW2_GET_MUX_INFO_CMD               = 0x05,
 	SKY_HW2_GET_MUX_SETTINGS_CMD           = 0x06,
@@ -68,6 +68,7 @@ enum sky_hw2_serial_cmd {
 	SKY_HW2_SINK_FLASH_WRITE_CHUNK_CMD     = 0x0e,
 	SKY_HW2_SINK_FLASH_INFO_CMD            = 0x0f,
 	SKY_HW2_SINK_FLASH_SET_START_ADDR_CMD  = 0x10,
+	SKY_HW2_SINK_PASSTHRU_MSG_RECV         = 0x11,
 
 	/*
 	 * Types of messages from mux

@@ -518,6 +518,64 @@ static int skyrem_paramsset_send(struct skyrem_async *async,
 	return skyrem_sendreq(async, req, &req_uni.req.hdr, sz);
 }
 
+static int skyrem_sink_passthru_msgsend_send(struct skyrem_async *async,
+					     struct sky_async_req *req)
+{
+	const struct sky_passthru_msg *msg = req->in.ptr;
+	struct {
+		struct sky_sink_passthru_msg_send_req req;
+		uint8_t                               buf[sizeof(msg->buf)];
+	} req_uni = {
+		.req.hdr.type = htole16(req->type),
+		.req.len      = msg->len,
+	};
+	size_t sz;
+
+	sz = min_t(size_t, msg->len, sizeof(req_uni.buf));
+	memcpy(req_uni.req.buf, &msg->buf, sz);
+
+	sz = sizeof(req_uni.req) + msg->len;
+
+	return skyrem_sendreq(async, req, &req_uni.req.hdr, sz);
+}
+
+static int skyrem_sink_passthru_msgrecv_parse(struct skyrem_async *async,
+					      struct sky_async_req *req,
+					      void *rsp_data, size_t rsp_len)
+{
+	struct sky_passthru_msg *msg = req->out.ptr;
+	struct sky_sink_passthru_msg_recv_rsp *rsp = rsp_data;
+	int rc;
+
+	if (rsp_len < sizeof(*rsp))
+		/* Malformed response */
+		goto complete_with_EPROTO;
+
+	if (rsp_len < sizeof(*rsp) + rsp->len)
+		/* Malformed response */
+		goto complete_with_EPROTO;
+
+	if (rsp->len > sizeof(msg->buf))
+		/* Malformed response */
+		goto complete_with_EPROTO;
+
+	rc = -le16toh(rsp->hdr.error);
+	if (rc)
+		goto complete;
+
+	msg->len = rsp->len;
+	memcpy(msg->buf, rsp->buf, rsp->len);
+
+complete:
+	skyrem_asyncreq_complete(async, req, rc);
+	return 0;
+
+complete_with_EPROTO:
+	rc = -EPROTO;
+	goto complete;
+}
+
+
 static int skyrem_chargingstate_parse(struct skyrem_async *async,
 				      struct sky_async_req *req,
 				      void *rsp_data, size_t rsp_len)
@@ -815,6 +873,9 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_SET_DEV_PARAMS_REQ:
 		rc = skyrem_paramsset_send(async, req);
 		break;
+	case SKY_SINK_PASSTHRU_MSG_SEND_REQ:
+		rc = skyrem_sink_passthru_msgsend_send(async, req);
+		break;
 	case SKY_RESUME_SCAN_REQ:
 	case SKY_STOP_SCAN_REQ:
 	case SKY_OPEN_DRONEPORT_REQ:
@@ -830,6 +891,7 @@ static int skyrem_asyncreq_send(struct skyrem_async *async)
 	case SKY_SINK_START_CHARGE_REQ:
 	case SKY_SINK_STOP_CHARGE_REQ:
 	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
+	case SKY_SINK_PASSTHRU_MSG_RECV_REQ:
 		rc = skyrem_genericreq_send(async, req);
 		break;
 	default:
@@ -875,6 +937,7 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 	case SKY_RESET_DEV_REQ:
 	case SKY_SINK_START_CHARGE_REQ:
 	case SKY_SINK_STOP_CHARGE_REQ:
+	case SKY_SINK_PASSTHRU_MSG_SEND_REQ:
 		rc = skyrem_genericresp_parse(async, req, rsp, rsp_len);
 		break;
 	case SKY_CHARGING_STATE_REQ:
@@ -900,6 +963,9 @@ static int skyrem_asyncreq_recv(struct skyrem_async *async)
 		break;
 	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
 		rc = skyrem_subscription_token_parse(async, req, rsp, rsp_len);
+		break;
+	case SKY_SINK_PASSTHRU_MSG_RECV_REQ:
+		rc = skyrem_sink_passthru_msgrecv_parse(async, req, rsp, rsp_len);
 		break;
 	default:
 		/* Consider fatal */

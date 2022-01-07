@@ -26,6 +26,8 @@ Usage:
     skycharge-cli sink-stop-charge              [(--id <dev-id>)] [(--conffile <conff>)] [(<addr> [<port>])]
     skycharge-cli sink-flash-info               [(--id <dev-id>)] [(--conffile <conff>)]
     skycharge-cli sink-firmware-update [<elf-file>] [--bootloader] [(--id <dev-id>)] [(--conffile <conff>)]
+    skycharge-cli sink-passthru-send            [(--id <dev-id>)] [(--conffile <conff>)] [(<addr> [<port>])]
+    skycharge-cli sink-passthru-recv            [(--id <dev-id>)] [(--conffile <conff>)] [(<addr> [<port>])]
 
 Options:
     --id <dev-id> - short ID of the device, is used when 'list-devs' command outputs many devices

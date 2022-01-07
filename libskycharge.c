@@ -1815,6 +1815,28 @@ int sky_asyncreq_sink_flash_startaddrset(struct sky_async *async,
 	return 0;
 }
 
+int sky_asyncreq_sink_passthru_msgsend(struct sky_async *async,
+				       struct sky_dev *dev,
+				       const struct sky_passthru_msg *msg,
+				       struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_SINK_PASSTHRU_MSG_SEND_REQ, dev,
+			  msg, NULL, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
+int sky_asyncreq_sink_passthru_msgrecv(struct sky_async *async,
+				       struct sky_dev *dev,
+				       struct sky_passthru_msg *msg,
+				       struct sky_async_req *req)
+{
+	sky_asyncreq_init(SKY_SINK_PASSTHRU_MSG_RECV_REQ, dev,
+			  NULL, msg, req);
+	sky_asyncreq_add(async, req);
+	return 0;
+}
+
 int sky_asyncreq_subscription_token(struct sky_async *async,
 				    struct sky_dev *dev,
 				    struct sky_subscription_token *token,
@@ -2196,6 +2218,39 @@ int sky_sink_flash_startaddrset(struct sky_dev *dev, uint32_t addr)
 	rc = sky_asyncopen(&dev->devdesc.conf, &async);
 	if (!rc)
 		rc = sky_asyncreq_sink_flash_startaddrset(async, dev, addr, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_passthru_msgsend(struct sky_dev *dev,
+			      const struct sky_passthru_msg *msg)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_passthru_msgsend(async, dev, msg, &req);
+	if (!rc)
+		rc = sky_asyncexecute_on_stack(async, &req);
+	sky_asyncclose(async);
+
+	return rc;
+}
+
+int sky_sink_passthru_msgrecv(struct sky_dev *dev, struct sky_passthru_msg *msg)
+{
+	struct sky_async *async = NULL;
+	struct sky_async_req req;
+	int rc;
+
+	rc = sky_asyncopen(&dev->devdesc.conf, &async);
+	if (!rc)
+		rc = sky_asyncreq_sink_passthru_msgrecv(async, dev, msg, &req);
 	if (!rc)
 		rc = sky_asyncexecute_on_stack(async, &req);
 	sky_asyncclose(async);
