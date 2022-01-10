@@ -1,3 +1,14 @@
+skycharge (2.1.3) stretch; urgency=low
+  * skyserver: remove mutex on charging state, do not support multiple devices anymore
+  * libskycharge-local: make subscription token call work
+  * libskycharge-local: don't include header length to response buffer length
+  * libskycharge-local: return actual read response length from serial command routine
+  * libskycharge,remote,local,skyproto,server: implement passthru send and recv commands
+  * libskycharge-local,skyserver,skyuartd,crc8: pass initial crc to the crc8 function
+  * libskysink,tty-sink-pong: add header and testing util for tty communication with the sink
+
+ -- Roman Pen <r.penyaev@gmail.com>  Mon, 10 Jan 2022 18:00:00 +0200
+
 skycharge (2.1.2) stretch; urgency=low
   * README: doc link tweaks
   * libskycharge: typo fix
