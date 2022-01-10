@@ -154,7 +154,7 @@ static void devunlock(struct skyloc_dev *dev)
 	pthread_mutex_unlock(&dev->mutex);
 }
 
-static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
+static int skycmd_arg_copy(va_list ap, int dir, void *buf,
 			   size_t off, size_t maxlen)
 {
 	uint32_t val32, *val32p;
@@ -163,14 +163,14 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 
 	uint8_t sz;
 
-	sz = va_arg(*ap, int);
+	sz = va_arg(ap, int);
 	switch (sz) {
 	case 0:
 		return -EINVAL;
 	case 2:
-		val16p = va_arg(*ap, typeof(val16p));
+		val16p = va_arg(ap, typeof(val16p));
 		if (off + 2 > maxlen)
-			return -EINVAL;
+			return -EOVERFLOW;
 		if (dir == TO_BUF) {
 			val16 = htole16(*val16p);
 			memcpy(buf + off, &val16, 2);
@@ -181,9 +181,9 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 
 		return 2;
 	case 4:
-		val32p = va_arg(*ap, typeof(val32p));
+		val32p = va_arg(ap, typeof(val32p));
 		if (off + 4 > maxlen)
-			return -EINVAL;
+			return -EOVERFLOW;
 		if (dir == TO_BUF) {
 			val32 = htole32(*val32p);
 			memcpy(buf + off, &val32, 4);
@@ -195,9 +195,10 @@ static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 		return 4;
 	default:
 		/* No attempt to do conversion between bytes order */
-		p = va_arg(*ap, typeof(p));
-		if (off + sz > maxlen)
-			return -EINVAL;
+		p = va_arg(ap, typeof(p));
+		if (off >= maxlen)
+			return -EOVERFLOW;
+		sz = min_t(size_t, sz, maxlen - off);
 		if (dir == TO_BUF)
 			memcpy(buf + off, p, sz);
 		else if (dir == FROM_BUF)
@@ -215,7 +216,7 @@ static int skycmd_args_inbytes(va_list ap, size_t num, size_t maxlen)
 
 	va_copy(ap_cpy, ap);
 	for (off = 0, i = 0; i < num; i++) {
-		rc = skycmd_arg_copy(&ap_cpy, COUNT_SZ, NULL, off, maxlen);
+		rc = skycmd_arg_copy(ap_cpy, COUNT_SZ, NULL, off, maxlen);
 		if (rc < 0) {
 			off = rc;
 			goto out;
@@ -228,32 +229,34 @@ out:
 	return off;
 }
 
-static int skycmd_serial_cmd(struct skyloc_dev *dev,
-			     struct skyserial_desc *proto,
-			     uint8_t cmd, unsigned req_num,
-			     int rsp_num,
-			     ...)
+static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
+				   struct skyserial_desc *proto,
+				   uint8_t cmd, unsigned req_num,
+				   int  rsp_num, va_list ap)
 {
-	uint8_t len, cmd_len, rsp_len, read_len;
+	uint8_t len, cmd_len, read_len, rsp_len = 0;
 	uint8_t cmd_buf[256], rsp_buf[256];
 	enum sp_return sprc;
 	int rc, args, off;
-	va_list ap;
+	va_list ap_cpy;
 
 	char strdump_req[512];
 	char strdump_rsp[512];
 	bool valid_crc;
 
-	va_start(ap, rsp_num);
+	va_copy(ap_cpy, ap);
 	for (len = 0, off = proto->req_data_off, args = 0; args < req_num; args++) {
-		rc = skycmd_arg_copy(&ap, TO_BUF, cmd_buf, off,
+		rc = skycmd_arg_copy(ap_cpy, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
-		if (rc < 0)
+		if (rc < 0) {
+			va_end(ap_cpy);
 			goto out;
+		}
 
 		len += rc;
 		off += rc;
 	}
+	va_end(ap_cpy);
 	proto->fill_cmd_hdr(cmd_buf, len, cmd);
 
 	rc = devlock(dev);
@@ -362,25 +365,64 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		if (rc)
 			goto out_unlock;
 
+		va_copy(ap_cpy, ap);
 		for (off = proto->rsp_data_off, args = 0;
 		     off < rsp_len + proto->rsp_data_off && args < rsp_num;
 		     args++) {
-			rc = skycmd_arg_copy(&ap, FROM_BUF, rsp_buf, off,
+			rc = skycmd_arg_copy(ap_cpy, FROM_BUF, rsp_buf, off,
 					     rsp_len + proto->rsp_data_off);
 			if (rc < 0) {
-				sky_err("skycmd_arg_copy(): %s\n", strerror(-rc));
-				goto out_unlock;
+				if (rc != -EOVERFLOW) {
+					sky_err("skycmd_arg_copy(): %s\n",
+						strerror(-rc));
+					va_end(ap_cpy);
+					goto out_unlock;
+				}
+				/* Stop copying if no space for output */
+				break;
 			}
-
 			off += rc;
 		}
+		va_end(ap_cpy);
 	}
-	rc = 0;
+	rc = rsp_len;
 
 out_unlock:
 	devunlock(dev);
 out:
-	va_end(ap);
+
+	return rc;
+}
+
+static int skycmd_serial_cmd(struct skyloc_dev *dev,
+			     struct skyserial_desc *proto,
+			     uint8_t cmd, unsigned req_num,
+			     int rsp_num,
+			     ...)
+{
+	va_list args;
+	int rc;
+
+	va_start(args, rsp_num);
+	rc = skycmd_serial_cmd_vargs(dev, proto, cmd, req_num, rsp_num, args);
+	va_end(args);
+
+	return rc >= 0 ? 0 : rc;
+}
+
+__attribute__((unused))
+static int __skycmd_serial_cmd(struct skyloc_dev *dev,
+			       struct skyserial_desc *proto,
+			       uint8_t cmd, unsigned req_num,
+			       int rsp_num,
+			       ...)
+{
+	va_list args;
+	int rc;
+
+	va_start(args, rsp_num);
+	rc = skycmd_serial_cmd_vargs(dev, proto, cmd, req_num, rsp_num, args);
+	va_end(args);
 
 	return rc;
 }
