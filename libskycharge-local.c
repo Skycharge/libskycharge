@@ -1741,6 +1741,15 @@ static int skyloc_sink_chargestop(struct sky_dev *dev_)
 	return get_hwops(dev_)->sink_stop_charge(dev);
 }
 
+static int skyloc_subscription_token(struct sky_dev *dev_,
+				     struct sky_subscription_token *token)
+{
+	/* Nothing here */
+	token->len = 0;
+
+	return 0;
+}
+
 static int skyloc_sink_flash_pageerase(struct sky_dev *dev_, uint32_t addr)
 {
 	struct skyloc_dev *dev;
@@ -1904,7 +1913,7 @@ static int skyloc_asyncreq_execute(struct sky_async *async,
 				(uint32_t)(uintptr_t)req->in.ptr);
 		break;
 	case SKY_GET_SUBSCRIPTION_TOKEN_REQ:
-		rc = -EOPNOTSUPP;
+		rc = skyloc_subscription_token(req->dev, req->out.ptr);
 		break;
 	default:
 		/* Consider fatal */
