@@ -728,14 +728,14 @@ static void hw2_sky_fill_cmd_hdr(uint8_t *cmd_buf, uint8_t len, uint8_t cmd)
 	cmd_buf[0] = 0x42;
 	cmd_buf[2] = len;
 	cmd_buf[3] = cmd;
-	cmd_buf[1] = crc8(cmd_buf + 2, len + 4 - 2);
+	cmd_buf[1] = crc8(cmd_buf + 2, len + 4 - 2, 0);
 }
 
 static bool hw2_sky_check_crc(const uint8_t *rsp_buf)
 {
 	uint8_t crc;
 
-	crc = crc8((uint8_t *)rsp_buf + 2, rsp_buf[2] + 2);
+	crc = crc8((uint8_t *)rsp_buf + 2, rsp_buf[2] + 2, 0);
 
 	return (crc == rsp_buf[1]);
 }

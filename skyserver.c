@@ -1755,7 +1755,7 @@ static int sky_get_machine_app_specific(const uuid_t uuid, sd_id128_t *id)
                 return rc;
 
 	/* Pfff, whatever, just not to leak dev-uuid */
-	crc = crc8(uuid, sizeof(uuid_t));
+	crc = crc8(uuid, sizeof(uuid_t), 0);
 	BUILD_BUG_ON(sizeof(uuid_t) != sizeof(*id));
 	for (i = 0; i < sizeof(*id); i++) {
 		id->bytes[i] ^= uuid[i] ^ crc;

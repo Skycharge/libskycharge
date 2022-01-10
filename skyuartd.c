@@ -238,7 +238,7 @@ static int uartd_send_rsp(struct uartd *uartd, struct uart_packet *uart_hdr,
 	uart_hdr->magic = htole16(UART_MAGIC);
 	uart_hdr->data_len = data_len;
 	uart_hdr->crc8 = crc8((uint8_t *)&uart_hdr->data_len,
-			      data_len + sizeof(uart_hdr->data_len));
+			      data_len + sizeof(uart_hdr->data_len), 0);
 
 	sprc = sp_blocking_write(uartd->port, uart_hdr,
 				 data_len + sizeof(*uart_hdr), 0);
@@ -637,7 +637,7 @@ int main (int argc, char **argv)
 		}
 		if (req.uart_hdr.crc8 !=
 		    crc8((uint8_t *)&req.uart_hdr.data_len,
-			 req.uart_hdr.data_len + sizeof(req.uart_hdr.data_len))) {
+			 req.uart_hdr.data_len + sizeof(req.uart_hdr.data_len), 0)) {
 			sky_err("warning: incorrect crc8 for request %d\n", req.req.hdr.type);
 			type = req.req.hdr.type + 1;
 			error = UART_BAD_CRC;

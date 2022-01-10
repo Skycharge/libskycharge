@@ -37,9 +37,9 @@
  * CRC8, polynomial 0x31, initial value 0x0, final xor 0x0
  * can be checked here: http://www.sunshine2k.de/coding/javascript/crc/crc_js.html
  */
-static inline uint8_t crc8(const uint8_t *data, uint16_t len)
+static inline uint8_t crc8(const void *buf, uint16_t len, uint8_t crc)
 {
-	uint8_t crc = 0x0;
+	const uint8_t *data = buf;
 	uint8_t i;
 
 	while (len--) {
