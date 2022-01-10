@@ -188,6 +188,13 @@ ifneq ($(VERBOSE),1)
 endif
 	$(Q)$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^ $(LIBSKYCHARGE-LIBS) -lelf
 
+tty-sink-pong.o: libskysink.h
+tty-sink-pong: tty-sink-pong.o
+ifneq ($(VERBOSE),1)
+	@echo "  LD $@"
+endif
+	$(Q)$(CC) $(CFLAGS) $(LFLAGS) -o $@ $^
+
 package:
 	dpkg-buildpackage -us -uc
 
