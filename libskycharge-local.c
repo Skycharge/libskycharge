@@ -324,7 +324,7 @@ static int skycmd_serial_cmd(struct skyloc_dev *dev,
 		 * Read the rest, for HW2 we don't care about the size for
 		 * the compatibility sake.
 		 */
-		rsp_len = min(len, proto->get_rsp_len(rsp_buf)) + proto->rsp_hdr_len;
+		rsp_len = min(len, proto->get_rsp_len(rsp_buf));
 		read_len = proto->get_rsp_len(rsp_buf) + proto->rsp_hdr_len;
 		sprc = sp_blocking_read(dev->port, rsp_buf + proto->rsp_data_off,
 				read_len - proto->rsp_data_off,
