@@ -323,6 +323,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		if (dev_type == SKY_MUX_HW2) {
 			printf("\t\"energy\": \"%.3f\",\n", state->energy_mWh / 1000.0f);
 			printf("\t\"charge\": \"%.3f\",\n", state->charge_mAh / 1000.0f);
+			printf("\t\"source-humidity\": \"%u\",\n", state->mux_humidity_perc);
 			printf("\t\"source-temperature\": \"%d\",\n", state->mux_temperature_C);
 			printf("\t\"sink-temperature\": \"%d\",\n", state->sink_temperature_C);
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
@@ -403,6 +404,7 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		if (dev_type == SKY_MUX_HW2) {
 			printf("Energy:          %.3fWh\n", state->energy_mWh / 1000.0f);
 			printf("Charge:          %.3fAh\n", state->charge_mAh / 1000.0f);
+			printf("Source humidity: %d%%\n", state->mux_humidity_perc);
 			printf("Source temp:     %dC\n", state->mux_temperature_C);
 			printf("Sink temp:       %dC\n", state->sink_temperature_C);
 			seconds_to_hms(state->charging_secs, &hours, &mins, &secs);
