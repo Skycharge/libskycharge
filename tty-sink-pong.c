@@ -146,6 +146,7 @@ static int recv_passthru(int fd, void *buf, size_t maxlen)
 	}
 	crc = crc8((void *)&hdr + 2, sizeof(hdr) - 2, 0);
 
+	len = 0;
 	if (hdr.len) {
 		if (hdr.len > maxlen) {
 			err("Input buffer size is not enough\n");
@@ -428,7 +429,7 @@ int main(int argc, char *argv[])
 
 			/* Get passthru */
 			len = recv_passthru(fd, buf, sizeof(buf));
-			if (len  < 0)
+			if (len < 0)
 				return -1;
 
 			/* Pong it back */
