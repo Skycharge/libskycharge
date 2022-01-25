@@ -596,7 +596,8 @@ static int skyrem_chargingstate_parse(struct skyrem_async *async,
 	memset(&rsp, 0, sizeof(rsp));
 	memcpy(&rsp, untrusty_rsp, min(rsp_len, sizeof(rsp)));
 
-	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->dev_hw_state = rsp.dev_hw_state;
+	state->dev_hw_reason = rsp.dev_hw_reason;
 	state->voltage_mV = le16toh(rsp.voltage_mV);
 	state->current_mA = le16toh(rsp.current_mA);
 	state->state_of_charge = le16toh(rsp.state_of_charge);
@@ -1343,7 +1344,8 @@ static int skyrem_subscription_work(struct sky_dev *dev_,
 	memcpy(&rsp, untrusty_rsp, min(zframe_size(frame), sizeof(rsp)));
 	zmsg_destroy(&msg);
 
-	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->dev_hw_state = rsp.dev_hw_state;
+	state->dev_hw_reason = rsp.dev_hw_reason;
 	state->voltage_mV = le16toh(rsp.voltage_mV);
 	state->current_mA = le16toh(rsp.current_mA);
 	state->state_of_charge = le16toh(rsp.state_of_charge);

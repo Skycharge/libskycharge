@@ -315,6 +315,9 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		printf("\t\"timestamp\": \"%s\",\n", timestr);
 		printf("\t\"state\": \"%s\",\n",
 		       sky_devstate_to_str(dev_type, state->dev_hw_state));
+		if (dev_type == SKY_MUX_HW2)
+			printf("\t\"reason\": \"%s\",\n",
+			       sky_devreason_to_str(state->dev_hw_reason));
 		printf("\t\"voltage\": \"%.3f\",\n", state->voltage_mV / 1000.0f);
 		printf("\t\"current\": \"%.3f\",\n", state->current_mA / 1000.0f);
 		printf("\t\"power\": \"%.3f\"%s\n",
@@ -361,7 +364,9 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 		if (dev_type == SKY_MUX_HW2) {
 			printf("%s\t%-30s\t%.3fV\t%.3fA\t%.3fW\t%.3fWh\t%.3fAh\t%us\t%us\t",
 			       timestr,
-			       sky_devstate_to_str(dev_type, state->dev_hw_state),
+			       sky_devstate_and_reason_to_str(dev_type,
+							      state->dev_hw_state,
+							      state->dev_hw_reason),
 			       state->voltage_mV / 1000.0f,
 			       state->current_mA / 1000.0f,
 			       state->voltage_mV * state->current_mA / 1000000.0f,
@@ -396,7 +401,9 @@ static void sky_print_charging_state(enum sky_dev_type dev_type,
 
 		printf("Timestamp:       %s\n", timestr);
 		printf("Dev state:       %s\n",
-		       sky_devstate_to_str(dev_type, state->dev_hw_state));
+		       sky_devstate_and_reason_to_str(dev_type,
+						      state->dev_hw_state,
+						      state->dev_hw_reason));
 		printf("Voltage:         %.3fV\n", state->voltage_mV / 1000.0f);
 		printf("Current:         %.3fA\n", state->current_mA / 1000.0f);
 		printf("Power:           %.3fW\n",

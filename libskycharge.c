@@ -837,12 +837,8 @@ static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
 		return "CHARGING";
 	case SKY_HW2_CHARGING_FINISHED:
 		return "CHARGING_FINISHED";
-	case SKY_HW2_ERR_INVAL_CHARGING_SETTINGS:
-		return "ERR_INVAL_CHARGING_SETTINGS";
 	case SKY_HW2_ERR_BAD_LINK:
 		return "ERR_BAD_LINK";
-	case SKY_HW2_ERR_LOW_BATT_VOLTAGE:
-		return "ERR_LOW_BATT_VOLTAGE";
 	case SKY_HW2_ERR_LOW_MUX_VOLTAGE:
 		return "ERR_LOW_MUX_VOLTAGE";
 	case SKY_HW2_ERR_VOLTAGE_ON_OUTPUT:
@@ -860,6 +856,67 @@ const char *sky_devstate_to_str(enum sky_dev_type dev_type,
 		return sky_hw1_devstate_to_str(state);
 
 	return sky_hw2_devstate_to_str(state);
+}
+
+const char *sky_devreason_to_str(enum sky_dev_charging_finished_reason reason)
+{
+	/*
+	 * NOTE: don't forget to change sky_devstate_and_reason_to_str()
+	 */
+
+	switch(reason) {
+	case SKY_HW2_REACHED_CURRENT_CUTOFF:
+		return "REACHED_CURRENT_CUTOFF";
+	case SKY_HW2_CHARGING_TIME_ELAPSED:
+		return "CHARGING_TIME_ELAPSED";
+	case SKY_HW2_CHARGING_FORCIBLY_STOPPED:
+		return "CHARGING_FORCIBLY_STOPPED";
+	case SKY_HW2_CRITICAL_TEMP_ON_MUX:
+		return "CRITICAL_TEMP_ON_MUX";
+	case SKY_HW2_CRITICAL_TEMP_ON_SINK:
+		return "CRITICAL_TEMP_ON_SINK";
+	case SKY_HW2_INVAL_CHARGING_SETTINGS:
+		return "INVAL_CHARGING_SETTINGS";
+	case SKY_HW2_LOW_BATT_VOLTAGE:
+		return "LOW_BATT_VOLTAGE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+const char *
+sky_devstate_and_reason_to_str(enum sky_dev_type dev_type,
+			       enum sky_dev_state state,
+			       enum sky_dev_charging_finished_reason reason)
+{
+	if (dev_type == SKY_MUX_HW1)
+		return sky_hw1_devstate_to_str(state);
+
+	if (state != SKY_HW2_CHARGING_FINISHED)
+		return sky_hw2_devstate_to_str(state);
+
+	/*
+	 * NOTE: don't forget to change sky_devreason_to_str()
+	 */
+
+	switch(reason) {
+	case SKY_HW2_REACHED_CURRENT_CUTOFF:
+		return "CHARGING_FINISHED (REACHED_CURRENT_CUTOFF)";
+	case SKY_HW2_CHARGING_TIME_ELAPSED:
+		return "CHARGING_FINISHED (CHARGING_TIME_ELAPSED)";
+	case SKY_HW2_CHARGING_FORCIBLY_STOPPED:
+		return "CHARGING_FINISHED (CHARGING_FORCIBLY_STOPPED)";
+	case SKY_HW2_CRITICAL_TEMP_ON_MUX:
+		return "CHARGING_FINISHED (CRITICAL_TEMP_ON_MUX)";
+	case SKY_HW2_CRITICAL_TEMP_ON_SINK:
+		return "CHARGING_FINISHED (CRITICAL_TEMP_ON_SINK)";
+	case SKY_HW2_INVAL_CHARGING_SETTINGS:
+		return "CHARGING_FINISHED (INVAL_CHARGING_SETTINGS)";
+	case SKY_HW2_LOW_BATT_VOLTAGE:
+		return "CHARGING_FINISHED (LOW_BATT_VOLTAGE)";
+	default:
+		return "CHARGING_FINISHED";
+	}
 }
 
 static const char *sky_hw1_devparam_to_str(enum sky_dev_param param)

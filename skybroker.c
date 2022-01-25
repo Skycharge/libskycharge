@@ -535,6 +535,7 @@ static void db_update_charging_session(struct db_client *db_client, uuid_t devuu
 		                    "timestamp", "$$NOW",
 		                    "state", BCON_UTF8(sky_devstate_to_str(SKY_MUX_HW2,
 									   state->dev_hw_state)),
+		                    "reason", BCON_UTF8(sky_devreason_to_str(state->dev_hw_reason)),
                                     "current", BCON_DOUBLE(state->current_mA / 1000.0),
                                     "voltage", BCON_DOUBLE(state->voltage_mV / 1000.0),
 		                    "power", BCON_DOUBLE((double)state->voltage_mV * state->current_mA  / 1000000.0),
@@ -599,6 +600,7 @@ static void db_update_charger_device(struct db_client *db_client, uuid_t devuuid
 		        "updatedAt", "$$NOW",
 		        "state", BCON_UTF8(sky_devstate_to_str(SKY_MUX_HW2,
 							       state->dev_hw_state)),
+		        "reason", BCON_UTF8(sky_devreason_to_str(state->dev_hw_reason)),
 		        "muxHumidityPerc", BCON_INT32(state->mux_humidity_perc),
 		        "muxTemperature", BCON_INT32(state->mux_temperature_C),
 		    "}",
@@ -1242,7 +1244,8 @@ static int rsp_to_charging_state(zframe_t *rsp_frame,
 	memset(&rsp, 0, sizeof(rsp));
 	memcpy(&rsp, untrusty_rsp, min(zframe_size(rsp_frame), sizeof(rsp)));
 
-	state->dev_hw_state = le16toh(rsp.dev_hw_state);
+	state->dev_hw_state = rsp.dev_hw_state;
+	state->dev_hw_reason = rsp.dev_hw_reason;
 	state->voltage_mV = le16toh(rsp.voltage_mV);
 	state->current_mA = le16toh(rsp.current_mA);
 	state->state_of_charge = le16toh(rsp.state_of_charge);

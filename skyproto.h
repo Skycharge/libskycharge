@@ -282,7 +282,8 @@ struct sky_charging_state_rsp {
 	struct sky_rsp_hdr hdr;
 	le16 voltage_mV;
 	le16 current_mA;
-	le16 dev_hw_state;
+	uint8_t dev_hw_state;
+	uint8_t dev_hw_reason;
 	le16 state_of_charge; /* 0-100% */
 	le16 until_full_secs;
 	le16 charging_secs;

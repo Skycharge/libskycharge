@@ -138,11 +138,21 @@ enum sky_dev_state {
 	SKY_HW2_CHARGING_FINISHED		= 0x06,
 
 	/* HW2 error states */
-	SKY_HW2_ERR_INVAL_CHARGING_SETTINGS	= 0x80,
-	SKY_HW2_ERR_BAD_LINK			= 0x81,
-	SKY_HW2_ERR_LOW_BATT_VOLTAGE		= 0x82,
-	SKY_HW2_ERR_LOW_MUX_VOLTAGE		= 0x83,
-	SKY_HW2_ERR_VOLTAGE_ON_OUTPUT		= 0x84,
+	SKY_HW2_ERR_BAD_LINK			= 0x80,
+	SKY_HW2_ERR_LOW_MUX_VOLTAGE		= 0x81,
+	SKY_HW2_ERR_VOLTAGE_ON_OUTPUT		= 0x82,
+};
+
+
+enum sky_dev_charging_finished_reason {
+	SKY_HW2_UNKNOWN_REASON              = 0x00,
+	SKY_HW2_REACHED_CURRENT_CUTOFF      = 0x01,
+	SKY_HW2_CHARGING_TIME_ELAPSED       = 0x02,
+	SKY_HW2_CHARGING_FORCIBLY_STOPPED   = 0x03,
+	SKY_HW2_CRITICAL_TEMP_ON_MUX        = 0x04,
+	SKY_HW2_CRITICAL_TEMP_ON_SINK       = 0x05,
+	SKY_HW2_INVAL_CHARGING_SETTINGS     = 0x06,
+	SKY_HW2_LOW_BATT_VOLTAGE            = 0x07,
 };
 
 /**
@@ -388,7 +398,8 @@ struct sky_passthru_msg {
  * struct sky_charging_state - Charging device state.
  */
 struct sky_charging_state {
-	uint16_t dev_hw_state; /* enum sky_dev_state */
+	uint8_t  dev_hw_state;  /* enum sky_dev_state */
+	uint8_t  dev_hw_reason; /* enum sky_dev_charging_finished_reason */
 	uint16_t voltage_mV;
 	uint16_t current_mA;
 	uint16_t state_of_charge; /* 0-100% */
@@ -567,6 +578,19 @@ static inline const char *sky_devtype_to_str(enum sky_dev_type type)
  */
 const char *sky_devstate_to_str(enum sky_dev_type dev_type,
 				enum sky_dev_state state);
+
+/**
+ * Returns string representation of the device charging finished reason.
+ */
+const char *sky_devreason_to_str(enum sky_dev_charging_finished_reason reason);
+
+/**
+ * Returns string representation of the device state and charging
+ * finished reason.
+ */
+const char *sky_devstate_and_reason_to_str(enum sky_dev_type dev_type,
+					   enum sky_dev_state state,
+					   enum sky_dev_charging_finished_reason reason);
 
 /**
  * Returns string representation of the device param.

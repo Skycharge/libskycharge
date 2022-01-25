@@ -176,7 +176,8 @@ static void sky_on_charging_state(void *data, struct sky_charging_state *state)
 
 	rsp.hdr.type            = htole16(SKY_CHARGING_STATE_EV);
 	rsp.hdr.error           = 0;
-	rsp.dev_hw_state        = htole16(state->dev_hw_state);
+	rsp.dev_hw_state        = state->dev_hw_state;
+	rsp.dev_hw_reason       = state->dev_hw_reason;
 	rsp.current_mA          = htole16(state->current_mA);
 	rsp.voltage_mV          = htole16(state->voltage_mV);
 	rsp.state_of_charge     = htole16(state->state_of_charge);
@@ -634,7 +635,8 @@ static void sky_execute_cmd(struct sky_server *serv,
 		rsp->hdr.type  = htole16(SKY_CHARGING_STATE_RSP);
 		rsp->hdr.error = htole16(-rc);
 		if (!rc) {
-			rsp->dev_hw_state = htole32(state.dev_hw_state);
+			rsp->dev_hw_state = state.dev_hw_state;
+			rsp->dev_hw_reason = state.dev_hw_reason;
 			rsp->current_mA = htole16(state.current_mA);
 			rsp->voltage_mV = htole16(state.voltage_mV);
 			rsp->state_of_charge =

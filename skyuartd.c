@@ -325,7 +325,8 @@ static void uartd_charging_state_req(struct uartd *uartd)
 	uart_rsp.rsp.hdr.type  = htole16(SKY_CHARGING_STATE_RSP);
 	uart_rsp.rsp.hdr.error = htole16(-rc);
 	if (!rc) {
-		uart_rsp.rsp.dev_hw_state = htole32(state.dev_hw_state);
+		uart_rsp.rsp.dev_hw_state = state.dev_hw_state;
+		uart_rsp.rsp.dev_hw_reason = state.dev_hw_reason;
 		uart_rsp.rsp.current_mA = htole16(state.current_mA);
 		uart_rsp.rsp.voltage_mV = htole16(state.voltage_mV);
 		uart_rsp.rsp.state_of_charge = htole16(state.state_of_charge);

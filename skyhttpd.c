@@ -633,6 +633,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 	if (!rc) {
 		ret = snprintf_buffer(&buffer, &off, &size,
 				      "\t\t\t\"state\": \"%s\",\n"
+				      "\t\t\t\"reason\": \"%s\",\n"
 				      "\t\t\t\"voltage-mV\": %d,\n"
 				      "\t\t\t\"current-mA\": %d,\n"
 				      "\t\t\t\"charging-time-sec\": %d,\n"
@@ -653,6 +654,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 				      "\t\t\t}\n",
 				      sky_devstate_to_str(devdesc.dev_type,
 							  state->dev_hw_state),
+				      sky_devreason_to_str(state->dev_hw_reason),
 				      state->voltage_mV,
 				      state->current_mA,
 				      state->charging_secs,
