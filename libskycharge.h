@@ -204,10 +204,10 @@ enum sky_dev_param {
 
 /**
  * enum sky_sink_capabilities - Capabilities bits of the sink
- *     @SKY_SINK_CAPABILITIES param
  */
 enum sky_sink_capabilities {
-	SKY_CAP_PLC_WHILE_CHARGING   = 0,
+	SKY_CAP_PLC_WHILE_CHARGING = 0,
+	SKY_CAP_EXTENDED_PASSTHRU  = 1,
 };
 
 /**

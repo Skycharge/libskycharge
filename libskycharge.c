@@ -1346,7 +1346,9 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 			       enum sky_param_value_format value_format,
 			       char *buf, size_t size)
 {
+	char caps[256];
 	uint32_t v;
+	int off;
 
 	if (param >= SKY_SINK_NUM_DEVPARAM)
 		return -EINVAL;
@@ -1354,14 +1356,21 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 	v = params->dev_params[param];
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
+		off = 0;
+
+		snprintf(caps, sizeof(caps), "NIL");
+
+		if (v & (1 << SKY_CAP_PLC_WHILE_CHARGING))
+			off = snprintf(caps, sizeof(caps), "PLC_WHILE_CHARGING");
+		if (v & (1 << SKY_CAP_EXTENDED_PASSTHRU))
+			snprintf(caps + off, sizeof(caps) - off, "%sEXTENDED_PASSTHRU",
+				 off ? " | " : "");
+
 		if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
-			return snprintf(buf, size, "%s (0x%02x)",
-					v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
-					"PLC_WHILE_CHARGING" : "NIL", v);
+			return snprintf(buf, size, "%s (0x%02x)", caps, v);
 		else
-			return snprintf(buf, size, "%s",
-					v & (1 << SKY_CAP_PLC_WHILE_CHARGING) ?
-					"PLC_WHILE_CHARGING" : "NIL");
+			return snprintf(buf, size, "%s", caps);
+
 	case SKY_SINK_BATT_TYPE:
 		switch (v) {
 		case SKY_BATT_LIPO:
@@ -1417,14 +1426,19 @@ int sky_sinkparam_value_from_str(const char *str,
 
 	switch(param) {
 	case SKY_SINK_CAPABILITIES:
-		if (0 == strcasecmp(str, "PLC_WHILE_CHARGING")) {
+		if (strcasestr(str, "PLC_WHILE_CHARGING")) {
 			v |= (1 << SKY_CAP_PLC_WHILE_CHARGING);
-		} else if (0 == strcasecmp(str, "NIL")) {
+		}
+		if (strcasestr(str, "EXTENDED_PASSTHRU")) {
+			v |= (1 << SKY_CAP_EXTENDED_PASSTHRU);
+		}
+		if (0 == strcasecmp(str, "NIL")) {
 			v = 0;
-		} else {
+		} else if (!v) {
 			if (parse_unsigned(str, &v))
 				return -EINVAL;
-			if (v & ~(1 << SKY_CAP_PLC_WHILE_CHARGING))
+			if (v & ~((1 << SKY_CAP_PLC_WHILE_CHARGING) |
+				  (1 << SKY_CAP_EXTENDED_PASSTHRU)))
 				return -EINVAL;
 		}
 		break;

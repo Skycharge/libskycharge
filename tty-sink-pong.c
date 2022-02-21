@@ -51,6 +51,11 @@
 	fprintf(stderr, __FILE__ ":%s():" stringify(__LINE__) ": " fmt, \
 		__func__, ##__VA_ARGS__)
 
+enum passthru_mode {
+	TRANSPARENT_PASSTHRU = 0,
+	EXTENDED_PASSTHRU    = 1,
+};
+
 static int setup_termios(int fd, int speed)
 {
 	struct termios tty;
@@ -358,10 +363,12 @@ static int recv_sink_state(int fd, struct sink_state *state)
 	return 0;
 }
 
+static int passthru_mode = TRANSPARENT_PASSTHRU;
 static int report_time;
 
 static struct option long_options[] = {
 	{"report-time", no_argument, &report_time, 1},
+	{"passthru-mode", required_argument, 0, 'p'},
 	{0, 0, 0, 0}
 };
 
@@ -369,29 +376,13 @@ static void usage(void)
 {
 	printf("Usage: tty-sink-pong <tty-device> [OPTIONS]\n"
 	       "Options:\n"
-	       "   --report-time - sends time string to the MUX each second\n");
+	       "   --report-time  - sends time string to the MUX each second\n"
+	       "   --passthru-mode <transparent|extended> - passthru mode, 'transparent' is the default one\n");
 }
 
-int main(int argc, char *argv[])
+static int process_extended_passthru(int fd)
 {
-	int option_index = 0;
-	int rc, fd;
-
-	if (argc < 2) {
-		usage();
-		return -1;
-	}
-
-	(void)getopt_long(argc, argv, "", long_options, &option_index);
-
-	fd = open(argv[1], O_RDWR | O_NOCTTY | O_SYNC);
-	if (fd < 0) {
-		perror("open()");
-		return -1;
-	}
-	rc = setup_termios(fd, B9600);
-	if (rc)
-		return -1;
+	int rc;
 
 	rc = send_handshake(fd);
 	if (rc)
@@ -446,4 +437,106 @@ int main(int argc, char *argv[])
 	}
 
 	return 0;
+}
+
+static int process_transparent_passthru(int fd)
+{
+	unsigned char byte;
+	struct timeval tv;
+	int len, rc;
+	fd_set rdfs;
+
+
+	while (1) {
+		struct tm *tmp;
+		char timestr[30];
+		size_t timelen;
+		time_t t;
+
+		t = time(NULL);
+		tmp = localtime(&t);
+
+		timelen = strftime(timestr, sizeof(timestr),
+				   "%Y-%m-%d %H:%M:%S\n", tmp);
+
+		FD_ZERO(&rdfs);
+		FD_SET(fd, &rdfs);
+
+		tv.tv_sec = 1;
+		tv.tv_usec = 0;
+		rc = select(fd + 1, &rdfs, NULL, NULL, &tv);
+		if (rc == 1) {
+			len = read_tty(fd, &byte, 1);
+			if (len < 0) {
+				len = -errno;
+				perror("read()");
+				return len;
+			}
+			printf("%x ('%c')\n", byte, byte);
+
+			len = write(fd, &byte, 1);
+			if (len < 0) {
+				len = -errno;
+				perror("write()");
+				return len;
+			}
+		}
+		if (report_time) {
+			len = write(fd, timestr, timelen);
+			if (len < 0) {
+				len = -errno;
+				perror("write()");
+				return len;
+			}
+		}
+	}
+
+	return 0;
+}
+
+int main(int argc, char *argv[])
+{
+	int option_index = 0;
+	const char *dev;
+	int rc, fd, c;
+
+	if (argc < 2) {
+		usage();
+		return -1;
+	}
+	dev = argv[1];
+
+	while (1) {
+		c = getopt_long(argc, argv, "", long_options, &option_index);
+		if (c == -1)
+			break;
+
+		switch (c) {
+		case 'p':
+			if (!strcasecmp(optarg, "transparent")) {
+				passthru_mode = TRANSPARENT_PASSTHRU;
+			} else if (!strcasecmp(optarg, "extended")) {
+				passthru_mode = EXTENDED_PASSTHRU;
+			} else {
+				usage();
+				return -1;
+			}
+			break;
+		default:
+			break;
+		}
+	}
+
+	fd = open(dev, O_RDWR | O_NOCTTY | O_SYNC);
+	if (fd < 0) {
+		perror("open()");
+		return -1;
+	}
+	rc = setup_termios(fd, B115200);
+	if (rc)
+		return -1;
+
+	if (passthru_mode == EXTENDED_PASSTHRU)
+		return process_extended_passthru(fd);
+	return process_transparent_passthru(fd);
 }
