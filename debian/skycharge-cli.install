@@ -1,1 +1,2 @@
 skycharge-cli usr/bin
+sink-drivers/tinybms-s516-energusps.py usr/share/skycharge/sink-drivers/
