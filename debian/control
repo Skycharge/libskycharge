@@ -48,6 +48,8 @@ Depends: ${misc:Depends},
          libserialport0,
          libgps22,
          libelf1,
+         python3-serial,
+         python3-docopt,
 Replaces: skysense-cli (<< 2.0.0)
 Breaks: skysense-cli (<< 2.0.0)
 Description: command line utility to control charging pad
