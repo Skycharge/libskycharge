@@ -147,9 +147,10 @@ struct sky_hw2_charging_settings {
 				  * first phase */
 	uint16_t total_charge_secs; /* How many seconds do we charge in total, charging
 				     * stops when time elapses */
+	uint16_t padding;
+	union sky_uart_config user_uart_cfg; /* User UART port configuration */
 	uint8_t  user_data[16];
 };
-
 
 static inline int skyerrno_to_errno(enum sky_hw2_errno err)
 {

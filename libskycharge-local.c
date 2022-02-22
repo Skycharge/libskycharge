@@ -1108,6 +1108,10 @@ static int hw2_sky_get_sink_params(struct skyloc_dev *dev,
 			params->dev_params[p] =
 				chg_settings.total_charge_secs;
 			break;
+		case SKY_SINK_USER_UART_CONFIG:
+			params->dev_params[p] =
+				chg_settings.user_uart_cfg.cfg32b;
+			break;
 		case SKY_SINK_USER_DATA1:
 			user_data = (uint32_t *)chg_settings.user_data;
 			params->dev_params[p] = user_data[0];
@@ -1197,6 +1201,10 @@ static int hw2_sky_set_sink_params(struct skyloc_dev *dev,
 			break;
 		case SKY_SINK_TOTAL_CHARGE_SECS:
 			chg_settings.total_charge_secs =
+				params->dev_params[p];
+			break;
+		case SKY_SINK_USER_UART_CONFIG:
+			chg_settings.user_uart_cfg.cfg32b =
 				params->dev_params[p];
 			break;
 		case SKY_SINK_USER_DATA1:

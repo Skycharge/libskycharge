@@ -78,6 +78,34 @@ enum sky_batt_type {
 };
 
 /**
+ * enum sky_uart_config_enum - Sink user UART port configuration enum
+ */
+enum sky_uart_config_enum {
+	SKY_UART_CFG_WORDSIZE_8B = 0,
+	SKY_UART_CFG_WORDSIZE_9B = 1,
+
+	SKY_UART_CFG_STOPBITS_1  = 0,
+	SKY_UART_CFG_STOPBITS_2  = 1,
+
+	SKY_UART_CFG_PARITY_NONE = 0,
+	SKY_UART_CFG_PARITY_EVEN = 1,
+	SKY_UART_CFG_PARITY_ODD  = 3,
+};
+
+/**
+ * union sky_uart_config - Sink user UART port configuration
+ */
+union sky_uart_config {
+	uint32_t cfg32b;
+	struct {
+		uint32_t baud_rate:18;
+		uint32_t word_size:1;
+		uint32_t stop_bits:1;
+		uint32_t parity:2;
+	};
+};
+
+/**
  * enum sky_param_value_format - Specifies how parameter value should
  *                               be reprensented.
  */
@@ -226,10 +254,11 @@ enum sky_sink_param {
 	SKY_SINK_PRECHARGE_DELAY_SECS             = 9,
 	SKY_SINK_PRECHARGE_SECS                   = 10,
 	SKY_SINK_TOTAL_CHARGE_SECS                = 11,
-	SKY_SINK_USER_DATA1                       = 12,
-	SKY_SINK_USER_DATA2                       = 13,
-	SKY_SINK_USER_DATA3                       = 14,
-	SKY_SINK_USER_DATA4                       = 15,
+	SKY_SINK_USER_UART_CONFIG                 = 12,
+	SKY_SINK_USER_DATA1                       = 13,
+	SKY_SINK_USER_DATA2                       = 14,
+	SKY_SINK_USER_DATA3                       = 15,
+	SKY_SINK_USER_DATA4                       = 16,
 
 	SKY_SINK_NUM_DEVPARAM, /* Should be the last for sink */
 };
