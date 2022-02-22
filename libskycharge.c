@@ -351,6 +351,52 @@ static int parse_calib_point(const char *str, uint32_t *v)
 	return 0;
 }
 
+static int parse_uart_config(const char *str, uint32_t *v)
+{
+	unsigned baud_rate, word_size, stop_bits, parity;
+	char parity_ch;
+	int rc;
+
+	union sky_uart_config cfg;
+
+	rc = sscanf(str, "%u-%u-%c-%u", &baud_rate, &word_size,
+		    &parity_ch, &stop_bits);
+	if (rc != 4)
+		return -EINVAL;
+
+	if (word_size != 8 && word_size != 9)
+		return -EINVAL;
+
+	switch(parity_ch) {
+	case 'N':
+	case 'n':
+		parity = SKY_UART_CFG_PARITY_NONE;
+		break;
+	case 'O':
+	case 'o':
+		parity = SKY_UART_CFG_PARITY_ODD;
+		break;
+	case 'E':
+	case 'e':
+		parity = SKY_UART_CFG_PARITY_EVEN;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (stop_bits != 1 && stop_bits != 2)
+		return -EINVAL;
+
+	cfg.baud_rate = baud_rate;
+	cfg.word_size = word_size;
+	cfg.stop_bits = stop_bits;
+	cfg.parity    = parity;
+
+	*v = cfg.cfg32b;
+
+	return 0;
+}
+
 static char *devparam_to_config_str(enum sky_dev_type dev_type,
 				    enum sky_dev_param param,
 				    char *buf, size_t len)
@@ -654,6 +700,9 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 	} else if (parse_sinkparam(line, SKY_SINK_TOTAL_CHARGE_SECS,
 				   &cfg->sink_params, parse_unsigned, &ret)) {
+
+	} else if (parse_sinkparam(line, SKY_SINK_USER_UART_CONFIG,
+				   &cfg->sink_params, parse_uart_config, &ret)) {
 	}
 
 	/*
@@ -1311,6 +1360,8 @@ const char *sky_sinkparam_to_str(enum sky_sink_param param)
 		return "precharge-secs";
 	case SKY_SINK_TOTAL_CHARGE_SECS:
 		return "total-charge-secs";
+	case SKY_SINK_USER_UART_CONFIG:
+		return "user-uart-config";
 	case SKY_SINK_USER_DATA1:
 		return "user-data1";
 	case SKY_SINK_USER_DATA2:
@@ -1401,6 +1452,16 @@ int sky_sinkparam_value_to_str(enum sky_sink_param param,
 		return snprintf(buf, size, "%u", v);
 	case SKY_SINK_PRECHARGE_CURRENT_MA:
 		return snprintf(buf, size, "%u", v);
+	case SKY_SINK_USER_UART_CONFIG: {
+		union sky_uart_config cfg;
+		cfg.cfg32b = v;
+		return snprintf(buf, size, "%u-%u-%c-%u",
+				cfg.baud_rate,
+				cfg.word_size == SKY_UART_CFG_WORDSIZE_8B ? 8 : 9,
+				(cfg.parity == SKY_UART_CFG_PARITY_NONE ? 'N' :
+				 cfg.parity == SKY_UART_CFG_PARITY_ODD ? 'O' : 'E'),
+				(cfg.stop_bits == SKY_UART_CFG_STOPBITS_1 ? 1 : 2));
+	}
 	case SKY_SINK_USER_DATA1:
 	case SKY_SINK_USER_DATA2:
 	case SKY_SINK_USER_DATA3:
@@ -1473,6 +1534,9 @@ int sky_sinkparam_value_from_str(const char *str,
 		break;
 	case SKY_SINK_PRECHARGE_CURRENT_MA:
 		rc = parse_unsigned(str, &v);
+		break;
+	case SKY_SINK_USER_UART_CONFIG:
+		rc = parse_uart_config(str, &v);
 		break;
 	default:
 		return -EINVAL;
