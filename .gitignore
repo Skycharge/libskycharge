@@ -5,6 +5,7 @@ debian/*.debhelper.log
 debian/*.debhelper
 debian/*.substvars
 
+tty-sink-pong
 skycharge-cli
 skycharged
 skypsu
