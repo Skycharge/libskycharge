@@ -283,9 +283,10 @@ enum sky_drone_status {
  * enum sky_psu_type - Power supply unit type.
  */
 enum sky_psu_type {
-	SKY_PSU_UNKNOWN,
-	SKY_PSU_RSP_750_48,
-	SKY_PSU_RSP_1600_48
+	SKY_PSU_UNKNOWN     = 0,
+	SKY_PSU_RSP_750_48  = 1,
+	SKY_PSU_RSP_1600_48 = 2,
+	SKY_PSU_RSP_1600_24 = 3,
 };
 
 /**

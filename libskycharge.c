@@ -293,15 +293,14 @@ static int parse_unsigned(const char *str, unsigned int *val)
 static int parse_psu_type(const char *str, enum sky_psu_type *psu_type)
 {
 	if (0 == strcasecmp(str, "rsp-750-48") ||
-	    0 == strcasecmp(str, "rsp750-48") ||
-	    0 == strcasecmp(str, "rsp-750") ||
-	    0 == strcasecmp(str, "rsp750"))
+	    0 == strcasecmp(str, "rsp750-48"))
 		*psu_type = SKY_PSU_RSP_750_48;
 	else if (0 == strcasecmp(str, "rsp-1600-48") ||
-		 0 == strcasecmp(str, "rsp1600-48") ||
-		 0 == strcasecmp(str, "rsp-1600") ||
-		 0 == strcasecmp(str, "rsp1600"))
+		 0 == strcasecmp(str, "rsp1600-48"))
 		*psu_type = SKY_PSU_RSP_1600_48;
+	else if (0 == strcasecmp(str, "rsp-1600-24") ||
+		 0 == strcasecmp(str, "rsp1600-24"))
+		*psu_type = SKY_PSU_RSP_1600_24;
 	else
 		return -EINVAL;
 
@@ -1142,6 +1141,11 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 				return snprintf(buf, size, "RSP-750-48 (0x%02x)", v);
 			else
 				return snprintf(buf, size, "RSP-750-48");
+		case SKY_PSU_RSP_1600_24:
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "RSP-1600-24 (0x%02x)", v);
+			else
+				return snprintf(buf, size, "RSP-1600-24");
 		case SKY_PSU_RSP_1600_48:
 			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
 				return snprintf(buf, size, "RSP-1600-48 (0x%02x)", v);
@@ -1231,6 +1235,7 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 			if (parse_unsigned(str, &v))
 				return -EINVAL;
 			if (v != SKY_PSU_RSP_750_48 &&
+			    v != SKY_PSU_RSP_1600_24 &&
 			    v != SKY_PSU_RSP_1600_48)
 				return -EINVAL;
 		} else {
