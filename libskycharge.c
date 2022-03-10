@@ -896,6 +896,8 @@ static const char *sky_hw2_devstate_to_str(enum sky_dev_state state)
 		return "ERR_LOW_MUX_VOLTAGE";
 	case SKY_HW2_ERR_VOLTAGE_ON_OUTPUT:
 		return "ERR_VOLTAGE_ON_OUTPUT";
+	case SKY_HW2_ERR_SHORT_CIRCUIT:
+		return "ERR_SHORT_CIRCUIT";
 	default:
 		sky_err("unknown state: %d\n", state);
 		return "UNKNOWN";

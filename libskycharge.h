@@ -169,6 +169,7 @@ enum sky_dev_state {
 	SKY_HW2_ERR_BAD_LINK			= 0x80,
 	SKY_HW2_ERR_LOW_MUX_VOLTAGE		= 0x81,
 	SKY_HW2_ERR_VOLTAGE_ON_OUTPUT		= 0x82,
+	SKY_HW2_ERR_SHORT_CIRCUIT	        = 0x83,
 };
 
 
