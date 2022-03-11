@@ -1157,23 +1157,43 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 	} else if (cli.devinfo) {
-		printf("Source info:\n"
-		       "   FW:        v%d.%d.%d\n"
-		       "   HW:        v%d.%d.%d\n"
-		       "   PLC proto: v%d.%d.%d\n"
-		       "   UID:       %08x%08x%08x\n",
-		       version_major(devdesc->hw_info.fw_version),
-		       version_minor(devdesc->hw_info.fw_version),
-		       version_revis(devdesc->hw_info.fw_version),
-		       version_major(devdesc->hw_info.hw_version),
-		       version_minor(devdesc->hw_info.hw_version),
-		       version_revis(devdesc->hw_info.hw_version),
-		       version_major(devdesc->hw_info.plc_proto_version),
-		       version_minor(devdesc->hw_info.plc_proto_version),
-		       version_revis(devdesc->hw_info.plc_proto_version),
-		       devdesc->hw_info.uid.part1,
-		       devdesc->hw_info.uid.part2,
-		       devdesc->hw_info.uid.part3);
+		char fw_str[16];
+		char hw_str[16];
+		char plc_str[16];
+		char uid_str[32];
+
+		snprintf(fw_str, sizeof(fw_str), "%d.%d.%d",
+			 version_major(devdesc->hw_info.fw_version),
+			 version_minor(devdesc->hw_info.fw_version),
+			 version_revis(devdesc->hw_info.fw_version));
+		snprintf(hw_str, sizeof(hw_str), "%d.%d.%d",
+			 version_major(devdesc->hw_info.hw_version),
+			 version_minor(devdesc->hw_info.hw_version),
+			 version_revis(devdesc->hw_info.hw_version));
+		snprintf(plc_str, sizeof(plc_str), "%d.%d.%d",
+			 version_major(devdesc->hw_info.plc_proto_version),
+			 version_minor(devdesc->hw_info.plc_proto_version),
+			 version_revis(devdesc->hw_info.plc_proto_version));
+		snprintf(uid_str, sizeof(uid_str), "%08x%08x%08x",
+			 devdesc->hw_info.uid.part1,
+			 devdesc->hw_info.uid.part2,
+			 devdesc->hw_info.uid.part3);
+
+		if (cli.json) {
+			printf("{\n");
+			printf("\t\"fw-version\": \"%s\",\n", fw_str);
+			printf("\t\"hw-version\": \"%s\",\n", hw_str);
+			printf("\t\"plc-proto-version\": \"%s\",\n", plc_str);
+			printf("\t\"uid\": \"%s\"\n", uid_str);
+			printf("}\n");
+		} else {
+			printf("Source info:\n"
+			       "   FW:        v%s\n"
+			       "   HW:        v%s\n"
+			       "   PLC proto: v%s\n"
+			       "   UID:       %s\n",
+			       fw_str, hw_str, plc_str, uid_str);
+		}
 	} else if (cli.gpsinfo) {
 		struct sky_gpsdata gpsdata;
 
@@ -1186,6 +1206,10 @@ int main(int argc, char *argv[])
 		sky_print_gpsdata(&cli, &gpsdata);
 	} else if (cli.sinkinfo) {
 		struct sky_sink_info info;
+		char fw_str[16];
+		char hw_str[16];
+		char plc_str[16];
+		char uid_str[32];
 
 		rc = sky_sink_infoget(dev, &info);
 		if (rc) {
@@ -1193,24 +1217,38 @@ int main(int argc, char *argv[])
 			exit(-1);
 		}
 
-		printf("Sink info:\n"
-		       "   FW:        v%d.%d.%d\n"
-		       "   HW:        v%d.%d.%d\n"
-		       "   PLC proto: v%d.%d.%d\n"
-		       "   UID:       %08x%08x%08x\n",
-		       version_major(info.hw_info.fw_version),
-		       version_minor(info.hw_info.fw_version),
-		       version_revis(info.hw_info.fw_version),
-		       version_major(info.hw_info.hw_version),
-		       version_minor(info.hw_info.hw_version),
-		       version_revis(info.hw_info.hw_version),
-		       version_major(info.hw_info.plc_proto_version),
-		       version_minor(info.hw_info.plc_proto_version),
-		       version_revis(info.hw_info.plc_proto_version),
-		       info.hw_info.uid.part1,
-		       info.hw_info.uid.part2,
-		       info.hw_info.uid.part3);
+		snprintf(fw_str, sizeof(fw_str), "%d.%d.%d",
+			 version_major(info.hw_info.fw_version),
+			 version_minor(info.hw_info.fw_version),
+			 version_revis(info.hw_info.fw_version));
+		snprintf(hw_str, sizeof(hw_str), "%d.%d.%d",
+			 version_major(info.hw_info.hw_version),
+			 version_minor(info.hw_info.hw_version),
+			 version_revis(info.hw_info.hw_version));
+		snprintf(plc_str, sizeof(plc_str), "%d.%d.%d",
+			 version_major(info.hw_info.plc_proto_version),
+			 version_minor(info.hw_info.plc_proto_version),
+			 version_revis(info.hw_info.plc_proto_version));
+		snprintf(uid_str, sizeof(uid_str), "%08x%08x%08x",
+			 info.hw_info.uid.part1,
+			 info.hw_info.uid.part2,
+			 info.hw_info.uid.part3);
 
+		if (cli.json) {
+			printf("{\n");
+			printf("\t\"fw-version\": \"%s\",\n", fw_str);
+			printf("\t\"hw-version\": \"%s\",\n", hw_str);
+			printf("\t\"plc-proto-version\": \"%s\",\n", plc_str);
+			printf("\t\"uid\": \"%s\"\n", uid_str);
+			printf("}\n");
+		} else {
+			printf("Sink info:\n"
+			       "   FW:        v%s\n"
+			       "   HW:        v%s\n"
+			       "   PLC proto: v%s\n"
+			       "   UID:       %s\n",
+			       fw_str, hw_str, plc_str, uid_str);
+		}
 	} else if (cli.sinkstartcharge) {
 		rc = sky_sink_chargestart(dev);
 		if (rc) {
