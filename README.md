@@ -40,3 +40,25 @@ gateway to the Skycharge hardware.
 ## SDK documentation
 
 https://support.skycharge.de/docs/sdk
+
+## Building from sources (Debian Linux)
+
+You'll need to install several dependencies:
+
+```bash
+sudo apt update
+sudo apt install libelf-dev uuid-dev libserialport-dev libgps-dev libzmq3-dev
+sudo apt install libczmq-dev libavahi-client-dev libmicrohttpd-dev libmongoc-dev
+```
+
+From here it is simple:
+
+```bash
+# To build everything
+make
+
+# Build just the CLI
+make skycharge-cli
+```
+
+The executables will be available in the root of the repository.
