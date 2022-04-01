@@ -1,3 +1,10 @@
+skycharge (2.2.0) stretch; urgency=low
+  * README: Add skycharge-cli build instructions
+  * Refresh copyright for all the files
+  * skyhttpd: fix JSON output for the charging-state
+
+ -- Roman Pen <r.penyaev@gmail.com>  Fri, 1 Apr 2022 09:30:00 +0100
+
 skycharge (2.1.5) stretch; urgency=low
   * skyclient: show source % humidity data
   * tty-sink-pong: account a message length for return value, not a header
