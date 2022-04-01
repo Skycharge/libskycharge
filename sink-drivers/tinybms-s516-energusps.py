@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #
-# Copyright 2022 Skycharge GmbH, Roman Penyaev
+# Copyright (C) 2022 Skycharge GmbH
+# Author: Roman Penyaev <r.peniaev@gmail.com>
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
