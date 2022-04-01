@@ -651,8 +651,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 				      "\t\t\t\"rx-bytes\": %d,\n"
 				      "\t\t\t\"rx-packets\": %d,\n"
 				      "\t\t\t\"rx-err-bytes\": %d,\n"
-				      "\t\t\t\"rx-err-packets\": %d\n"
-				      "\t\t\t}\n",
+				      "\t\t\t\"rx-err-packets\": %d\n",
 				      sky_devstate_to_str(devdesc.dev_type,
 							  state->dev_hw_state),
 				      sky_devreason_to_str(state->dev_hw_reason),
