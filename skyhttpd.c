@@ -576,6 +576,8 @@ static void charging_params_skycompletion(struct sky_async_req *skyreq)
 
 	if (!rc) {
 		unsigned int nr_params;
+		const char *str;
+		char val[128];
 
 		if (devdesc.dev_type == SKY_MUX_HW1)
 			nr_params = SKY_HW1_NUM_DEVPARAM;
@@ -583,10 +585,13 @@ static void charging_params_skycompletion(struct sky_async_req *skyreq)
 			nr_params = SKY_HW2_NUM_DEVPARAM;
 
 		for (i = 0; i < nr_params; i++) {
+			str = sky_devparam_to_str(devdesc.dev_type, i);
+			sky_devparam_value_to_str(devdesc.dev_type, i, params,
+						  SKY_PARAM_VALUE_TEXT,
+						  val, sizeof(val));
 			ret = snprintf_buffer(&buffer, &off, &size,
-					      "\t\t\t\"%s\": %d%s\n",
-					      sky_devparam_to_str(devdesc.dev_type, i),
-					      params->dev_params[i],
+					      "\t\t\t\"%s\": \"%s\"%s\n",
+					      str, val,
 					      i + 1 < nr_params ? "," : "");
 			if (ret)
 				goto err;
