@@ -75,6 +75,13 @@
  *     /droneport-open           - sky_droneport_open()
  *     /droneport-close          - sky_droneport_close()
  *     /droneport-state          - sky_droneport_state()
+ *
+ * POST
+ * ----
+ * "user-uuid" is mandatory for the broker
+ * "device-uuid" is mandatory
+ *     /charging-params          - sky_paramsset()
+ *     /sink-charging-params     - sky_sink_paramsset()
  */
 
 #define HELP								\
@@ -148,6 +155,11 @@ typedef int (httpd_handler_t)(struct httpd *,
 static bool http_is_get(const char *method)
 {
 	return !strcmp(method, MHD_HTTP_METHOD_GET);
+}
+
+static bool http_is_put(const char *method)
+{
+	return !strcmp(method, MHD_HTTP_METHOD_PUT);
 }
 
 static int sky_find_and_open_dev(const struct sky_dev_desc *devdescs,
@@ -615,6 +627,39 @@ err:
 	goto out;
 }
 
+static void generic_skycompletion(struct sky_async_req *skyreq)
+{
+	struct sky_dev_desc devdesc;
+	struct httpd_request *req;
+	char *buffer = NULL;
+	int off = 0, size = 0;
+	int ret, rc;
+
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	if (!rc)
+		(void)sky_devinfo(skyreq->dev, &devdesc);
+	sky_devclose(skyreq->dev);
+
+	ret = snprintf_buffer(&buffer, &off, &size,
+			      "{\n\t\"errno\": \"%s\"\n}\n",
+			      errnoname_unsafe(-rc));
+	if (ret)
+		goto err;
+
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
+	free(req);
+	return;
+
+err:
+	free(buffer);
+	goto out;
+}
+
 static void sink_charging_params_skycompletion(struct sky_async_req *skyreq)
 {
 	struct sky_dev_params *params;
@@ -925,6 +970,107 @@ charging_params_create_request(struct httpd_request *devslist_req)
 	return 0;
 }
 
+struct parse_dev_arg {
+	struct httpd_request *req;
+	enum sky_dev_type    dev_type;
+	int rc;
+};
+
+#if MHD_VERSION >= 0x00097101
+static enum MHD_Result
+#else
+static int
+#endif
+parse_dev_charging_params(void *_arg, enum MHD_ValueKind kind,
+			  const char *param, const char *value)
+
+{
+	struct parse_dev_arg *arg = _arg;
+	struct httpd_request *req = arg->req;
+	unsigned i, nr_params;
+	int rc;
+
+	if (!strcmp(param, "user-uuid") ||
+	    !strcmp(param, "device-uuid"))
+		/* Don't parse uuids */
+		return MHD_YES;
+
+	if (arg->dev_type == SKY_MUX_HW1)
+		nr_params = SKY_HW1_NUM_DEVPARAM;
+	else
+		nr_params = SKY_HW2_NUM_DEVPARAM;
+
+	i = sky_devparam_from_str(arg->dev_type, param);
+	if (i == nr_params) {
+		arg->rc = -EINVAL;
+		return MHD_NO;
+	}
+	rc = sky_devparam_value_from_str(value, arg->dev_type,
+					 i, &req->skystruct.params);
+	if (rc) {
+		arg->rc = -EINVAL;
+		return MHD_NO;
+	}
+
+	return MHD_YES;
+}
+
+static int
+update_charging_params_create_request(struct httpd_request *devslist_req)
+{
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct sky_dev_desc devdesc;
+	struct httpd_request *req;
+	struct parse_dev_arg arg;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	(void)sky_devinfo(dev, &devdesc);
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
+
+	arg = (struct parse_dev_arg) {
+		.req = req,
+		.dev_type = devdesc.dev_type
+	};
+	rc = MHD_get_connection_values(req->httpcon, MHD_GET_ARGUMENT_KIND,
+				       parse_dev_charging_params, &arg);
+	if (rc == 0 || arg.rc) {
+		/* Nothing was parsed or error happened */
+		free(req);
+		sky_devclose(dev);
+		return -EINVAL;
+	}
+
+	rc = sky_asyncreq_paramsset(req->httpd->async, dev,
+				    &req->skystruct.params, &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, generic_skycompletion);
+	httpd_request_insert(req->httpd, req);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
+}
+
 static int
 sink_charging_params_create_request(struct httpd_request *devslist_req)
 {
@@ -962,6 +1108,99 @@ sink_charging_params_create_request(struct httpd_request *devslist_req)
 
 	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
 	sky_asyncreq_completionset(&req->skyreq, sink_charging_params_skycompletion);
+	httpd_request_insert(req->httpd, req);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
+}
+
+struct parse_sink_arg {
+	struct httpd_request *req;
+	int rc;
+};
+
+#if MHD_VERSION >= 0x00097101
+static enum MHD_Result
+#else
+static int
+#endif
+parse_sink_charging_params(void *_arg, enum MHD_ValueKind kind,
+			   const char *param, const char *value)
+
+{
+	struct parse_sink_arg *arg = _arg;
+	struct httpd_request *req = arg->req;
+	unsigned i, nr_params;
+	int rc;
+
+	if (!strcmp(param, "user-uuid") ||
+	    !strcmp(param, "device-uuid"))
+		/* Don't parse uuids */
+		return MHD_YES;
+
+	nr_params = SKY_SINK_NUM_DEVPARAM;
+
+	i = sky_sinkparam_from_str(param);
+	if (i == nr_params) {
+		arg->rc = -EINVAL;
+		return MHD_NO;
+	}
+	rc = sky_sinkparam_value_from_str(value, i, &req->skystruct.params);
+	if (rc) {
+		arg->rc = -EINVAL;
+		return MHD_NO;
+	}
+
+	return MHD_YES;
+}
+
+static int
+update_sink_charging_params_create_request(struct httpd_request *devslist_req)
+{
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct httpd_request *req;
+	struct parse_sink_arg arg;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
+
+	arg = (struct parse_sink_arg) {
+		.req = req
+	};
+	rc = MHD_get_connection_values(req->httpcon, MHD_GET_ARGUMENT_KIND,
+				       parse_sink_charging_params, &arg);
+	if (rc == 0 || arg.rc) {
+		/* Nothing was parsed or parse error happened */
+		free(req);
+		sky_devclose(dev);
+		return -EINVAL;
+	}
+
+	rc = sky_asyncreq_sink_paramsset(req->httpd->async, dev,
+					 &req->skystruct.params,
+					 &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, generic_skycompletion);
 	httpd_request_insert(req->httpd, req);
 	httpd_set_need_processing(req->httpd);
 
@@ -1099,6 +1338,17 @@ charging_params_http_handler(struct httpd *httpd,
 }
 
 static int
+update_charging_params_http_handler(struct httpd *httpd,
+				    struct MHD_Connection *con,
+				    const uuid_t user_uuid,
+				    const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  update_charging_params_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
 sink_charging_params_http_handler(struct httpd *httpd,
 				  struct MHD_Connection *con,
 				  const uuid_t user_uuid,
@@ -1106,6 +1356,17 @@ sink_charging_params_http_handler(struct httpd *httpd,
 {
 	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
 						  sink_charging_params_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
+update_sink_charging_params_http_handler(struct httpd *httpd,
+					 struct MHD_Connection *con,
+					 const uuid_t user_uuid,
+					 const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  update_sink_charging_params_create_request,
 						  devs_list_composite_skycompletion);
 }
 
@@ -1189,7 +1450,9 @@ droneport_close_http_handler(struct httpd *httpd,
 struct httpd_handler {
 	const char      *url;
 	httpd_handler_t *handler;
-} handlers[] = {
+};
+
+static struct httpd_handler GET_handlers[] = {
 	/* Status & state */
 	{ "/devs-list",              devs_list_http_handler            },
 	{ "/charging-params",        charging_params_http_handler      },
@@ -1203,6 +1466,12 @@ struct httpd_handler {
 	{ "/scan-stop",       scan_stop_http_handler       },
 	{ "/droneport-open",  droneport_open_http_handler  },
 	{ "/droneport-close", droneport_close_http_handler },
+};
+
+static struct httpd_handler PUT_handlers[] = {
+	/* Update parameters */
+	{ "/charging-params",        update_charging_params_http_handler      },
+	{ "/sink-charging-params",   update_sink_charging_params_http_handler },
 };
 
 static void httpd_insert_addr(struct httpd *httpd,
@@ -1414,6 +1683,33 @@ httpd_request_completed_call(void *arg,
 	*ctx = NULL;
 }
 
+static int
+httpd_find_and_call_handler(struct httpd_handler *handlers, size_t nr_handlers,
+			    struct httpd *httpd, struct MHD_Connection *con,
+			    const char *url, const char *method,
+			    const uuid_t user_uuid, const uuid_t device_uuid)
+{
+	int i;
+
+	for (i = 0; i < nr_handlers; i++) {
+		struct httpd_handler *h = &handlers[i];
+		int rc;
+
+		if (strcmp(h->url, url))
+			continue;
+
+		rc = h->handler(httpd, con, user_uuid, device_uuid);
+		if (rc)
+			httpd_queue_json_response(httpd, con, rc);
+		else
+			MHD_suspend_connection(con);
+
+		return MHD_YES;
+	}
+
+	return MHD_NO;
+}
+
 #if MHD_VERSION >= 0x00097101
 static enum MHD_Result
 #else
@@ -1437,16 +1733,11 @@ httpd_access_handler_call(void *arg,
 
 	uuid_t user_uuid = {}, device_uuid = {};
 	unsigned int http_status;
-	int i, ret;
+	int ret;
 
 	addr = httpd_get_or_create_con_addr(httpd, con);
 	if (!addr)
 		return MHD_NO;
-
-	if (!http_is_get(method)) {
-		http_status = MHD_HTTP_BAD_REQUEST;
-		goto err;
-	}
 
 	*ctx = addr;
 	user_uuid_str = MHD_lookup_connection_value(con, MHD_GET_ARGUMENT_KIND,
@@ -1466,21 +1757,19 @@ httpd_access_handler_call(void *arg,
 		http_status = MHD_HTTP_BAD_REQUEST;
 		goto err;
 	}
-	for (i = 0; i < ARRAY_SIZE(handlers); i++) {
-		struct httpd_handler *h = &handlers[i];
-		int rc;
 
-		if (strcmp(h->url, url))
-			continue;
-
-		rc = h->handler(httpd, con, user_uuid, device_uuid);
-		if (rc)
-			httpd_queue_json_response(httpd, con, rc);
-		else
-			MHD_suspend_connection(con);
-
-		return MHD_YES;
-	}
+	ret = MHD_NO;
+	if (http_is_get(method))
+		ret = httpd_find_and_call_handler(GET_handlers, ARRAY_SIZE(GET_handlers),
+						  httpd, con, url, method,
+						  user_uuid, device_uuid);
+	else if (http_is_put(method))
+		ret = httpd_find_and_call_handler(PUT_handlers, ARRAY_SIZE(PUT_handlers),
+						  httpd, con, url, method,
+						  user_uuid, device_uuid);
+	if (ret == MHD_YES)
+		/* Handler was invoked, continue processing */
+		return ret;
 
 	/* No url found, return HELP page */
 	resp = MHD_create_response_from_buffer(strlen(HELP), HELP,
