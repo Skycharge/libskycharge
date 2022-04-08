@@ -5,3 +5,6 @@ HTTP_PORT=8080
 
 SKY_ADDR=127.0.0.1
 SKY_PORT=5555
+
+# Adjust the rate accordingly, 0 is unlimited
+MAX_REQUESTS_RATE=0

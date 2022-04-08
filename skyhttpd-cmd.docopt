@@ -1,8 +1,14 @@
 Skycharge HTTP server.
 
 Usage:
-    skyhttpd <http_addr> <http_port> <sky_addr> <sky_port> [(--daemon (--pidfile <pidf>))]
+    skyhttpd <http_addr> <http_port> <sky_addr> <sky_port> [(--max-requests-rate <req_rate>)] [(--daemon (--pidfile <pidf>))]
 
 Options:
+    --daemon                        Run the HTTP server as a daemon
+    --pidfile                       Path to a pid file which will be generated on start
+    --max-requests-rate <req_rate>  Allowed requests rate per client. Default value is 0,
+                                    which means unlimited rate
+
+Description:
     Light and fast Skycharge HTTP server for serving JSON requests and forward
     them to Skycharge device or broker.

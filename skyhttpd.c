@@ -121,6 +121,7 @@ struct httpd {
 	struct rb_root       reqs_root;  /* requests to expire */
 	struct MHD_Response  *emergency_resp;
 	bool                 need_processing;
+	unsigned             max_requests_rate;
 };
 
 struct httpd_request;
@@ -1238,7 +1239,10 @@ static bool httpd_limit_requests_rate(struct httpd *httpd,
 {
 	unsigned long long period_ms, now = msecs_epoch();
 
-	period_ms = _1_SEC_IN_MS / MAX_REQUESTS_RATE;
+	period_ms = 0;
+
+	if (httpd->max_requests_rate)
+		period_ms = _1_SEC_IN_MS / httpd->max_requests_rate;
 	if (now < addr->last_access_ms + period_ms)
 		return true;
 
@@ -1475,6 +1479,8 @@ int main (int argc, char **argv)
 		sky_err("%s\n", cli_usage);
 		return 1;
 	}
+	if (httpd.cli.reqrate)
+		httpd.max_requests_rate = atoi(httpd.cli.reqrate);
 
 	httpd_prepare_sky_conf(&httpd);
 

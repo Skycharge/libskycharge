@@ -9,7 +9,7 @@ User=root
 Restart=always
 EnvironmentFile=-/etc/default/skyhttpd
 PIDFile=/var/run/skyhttpd.pid
-ExecStart=/usr/bin/skyhttpd $HTTP_ADDR $HTTP_PORT $SKY_ADDR $SKY_PORT --daemon --pidfile /var/run/skyhttpd.pid
+ExecStart=/usr/bin/skyhttpd $HTTP_ADDR $HTTP_PORT $SKY_ADDR $SKY_PORT --max-requests-rate $MAX_REQUESTS_RATE --daemon --pidfile /var/run/skyhttpd.pid
 
 [Install]
 WantedBy=multi-user.target
