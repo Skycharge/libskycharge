@@ -1,3 +1,11 @@
+skycharge (2.2.1) stretch; urgency=low
+  * skyhttpd: implement MAX_REQUESTS_RATE as a configurable parameter
+  * skyhttpd: make charging-params output more explicit
+  * skyhttpd: add sink-charging-params for getting sink configuration
+  * skyhttpd: implement PUT handlers for updating the charging-params and sink-charging-params
+
+ -- Roman Pen <r.penyaev@gmail.com>  Fri, 8 Apr 2022 17:45:00 +0100
+
 skycharge (2.2.0) stretch; urgency=low
   * README: Add skycharge-cli build instructions
   * Refresh copyright for all the files
