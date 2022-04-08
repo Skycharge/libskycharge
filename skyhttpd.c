@@ -66,14 +66,15 @@
  *
  * "user-uuid" is mandatory for the broker
  * "device-uuid" is mandatory
- *     /charging-params - sky_paramsget()
- *     /charging-state  - sky_chargingstate()
- *     /gps-data        - sky_gpsdata()
- *     /scan-resume     - sky_scanresume()
- *     /scan-stop       - sky_scanstop()
- *     /droneport-open  - sky_droneport_open()
- *     /droneport-close - sky_droneport_close()
- *     /droneport-state - sky_droneport_state()
+ *     /charging-params          - sky_paramsget()
+ *     /charging-state           - sky_chargingstate()
+ *     /gps-data                 - sky_gpsdata()
+ *     /scan-resume              - sky_scanresume()
+ *     /scan-stop                - sky_scanstop()
+ *     /sink-charging-params     - sky_sink_paramsget()
+ *     /droneport-open           - sky_droneport_open()
+ *     /droneport-close          - sky_droneport_close()
+ *     /droneport-state          - sky_droneport_state()
  */
 
 #define HELP								\
@@ -614,6 +615,64 @@ err:
 	goto out;
 }
 
+static void sink_charging_params_skycompletion(struct sky_async_req *skyreq)
+{
+	struct sky_dev_params *params;
+	struct sky_dev_desc devdesc;
+	struct httpd_request *req;
+	char *buffer = NULL;
+	int off = 0, size = 0;
+	int i, ret, rc;
+
+	req = container_of(skyreq, typeof(*req), skyreq);
+	rc = skyreq->out.rc;
+	if (!rc)
+		(void)sky_devinfo(skyreq->dev, &devdesc);
+	sky_devclose(skyreq->dev);
+
+	params = &req->skystruct.params;
+
+	ret = snprintf_buffer(&buffer, &off, &size,
+			      "{\n\t\"errno\": \"%s\",\n\t\"params\": {\n",
+			      errnoname_unsafe(-rc));
+	if (ret)
+		goto err;
+
+	if (!rc) {
+		unsigned int nr_params = SKY_SINK_NUM_DEVPARAM;
+		const char *str;
+		char val[128];
+
+		for (i = 0; i < nr_params; i++) {
+			str = sky_sinkparam_to_str(i);
+			sky_sinkparam_value_to_str(i, params,
+						   SKY_PARAM_VALUE_TEXT,
+						   val, sizeof(val));
+			ret = snprintf_buffer(&buffer, &off, &size,
+					      "\t\t\t\"%s\": \"%s\"%s\n",
+					      str, val,
+					      i + 1 < nr_params ? "," : "");
+			if (ret)
+				goto err;
+		}
+	}
+	ret = snprintf_buffer(&buffer, &off, &size, "\t}\n}\n");
+	if (ret)
+		goto err;
+
+	(void)httpd_queue_response_and_free_buffer(req->httpd, req->httpcon,
+						   buffer, off);
+out:
+	MHD_resume_connection(req->httpcon);
+	rb_erase(&req->tentry, &req->httpd->reqs_root);
+	free(req);
+	return;
+
+err:
+	free(buffer);
+	goto out;
+}
+
 static void charging_state_skycompletion(struct sky_async_req *skyreq)
 {
 	struct sky_charging_state *state;
@@ -867,6 +926,49 @@ charging_params_create_request(struct httpd_request *devslist_req)
 }
 
 static int
+sink_charging_params_create_request(struct httpd_request *devslist_req)
+{
+	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
+	struct httpd_request *req;
+	struct sky_dev *dev;
+	int rc;
+
+	rc = sky_find_and_open_dev(devdescs, devslist_req->device_uuid, &dev);
+	if (rc)
+		return rc;
+
+	req = calloc(1, sizeof(*req));
+	if (!req) {
+		sky_devclose(dev);
+		return -ENOMEM;
+	}
+
+	req->httpd   = devslist_req->httpd;
+	req->httpcon = devslist_req->httpcon;
+	memcpy(req->user_uuid, devslist_req->user_uuid, sizeof(uuid_t));
+	memcpy(req->device_uuid, devslist_req->device_uuid, sizeof(uuid_t));
+
+	/* Get all params */
+	req->skystruct.params.dev_params_bits = ~0;
+
+	rc = sky_asyncreq_sink_paramsget(req->httpd->async, dev,
+					 &req->skystruct.params,
+					 &req->skyreq);
+	if (rc) {
+		free(req);
+		sky_devclose(dev);
+		return rc;
+	}
+
+	sky_asyncreq_useruuidset(&req->skyreq, req->user_uuid);
+	sky_asyncreq_completionset(&req->skyreq, sink_charging_params_skycompletion);
+	httpd_request_insert(req->httpd, req);
+	httpd_set_need_processing(req->httpd);
+
+	return 0;
+}
+
+static int
 charging_state_create_request(struct httpd_request *devslist_req)
 {
 	struct sky_dev_desc *devdescs = devslist_req->skystruct.devdescs;
@@ -997,6 +1099,17 @@ charging_params_http_handler(struct httpd *httpd,
 }
 
 static int
+sink_charging_params_http_handler(struct httpd *httpd,
+				  struct MHD_Connection *con,
+				  const uuid_t user_uuid,
+				  const uuid_t device_uuid)
+{
+	return devs_list_create_composite_request(httpd, con, user_uuid, device_uuid,
+						  sink_charging_params_create_request,
+						  devs_list_composite_skycompletion);
+}
+
+static int
 charging_state_http_handler(struct httpd *httpd,
 			    struct MHD_Connection *con,
 			    const uuid_t user_uuid,
@@ -1078,11 +1191,12 @@ struct httpd_handler {
 	httpd_handler_t *handler;
 } handlers[] = {
 	/* Status & state */
-	{ "/devs-list",       devs_list_http_handler       },
-	{ "/charging-params", charging_params_http_handler },
-	{ "/charging-state",  charging_state_http_handler  },
-	{ "/droneport-state", droneport_state_http_handler },
-	{ "/gps-data",        gps_data_http_handler        },
+	{ "/devs-list",              devs_list_http_handler            },
+	{ "/charging-params",        charging_params_http_handler      },
+	{ "/sink-charging-params",   sink_charging_params_http_handler },
+	{ "/charging-state",         charging_state_http_handler       },
+	{ "/droneport-state",        droneport_state_http_handler      },
+	{ "/gps-data",               gps_data_http_handler             },
 
 	/* Commands */
 	{ "/scan-resume",     scan_resume_http_handler     },
