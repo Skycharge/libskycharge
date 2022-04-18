@@ -157,7 +157,7 @@ static void devunlock(struct skyloc_dev *dev)
 	pthread_mutex_unlock(&dev->mutex);
 }
 
-static int skycmd_arg_copy(va_list ap, int dir, void *buf,
+static int skycmd_arg_copy(va_list *ap, int dir, void *buf,
 			   size_t off, size_t maxlen)
 {
 	uint32_t val32, *val32p;
@@ -166,12 +166,12 @@ static int skycmd_arg_copy(va_list ap, int dir, void *buf,
 
 	uint8_t sz;
 
-	sz = va_arg(ap, int);
+	sz = va_arg(*ap, int);
 	switch (sz) {
 	case 0:
 		return -EINVAL;
 	case 2:
-		val16p = va_arg(ap, typeof(val16p));
+		val16p = va_arg(*ap, typeof(val16p));
 		if (off + 2 > maxlen)
 			return -EOVERFLOW;
 		if (dir == TO_BUF) {
@@ -184,7 +184,7 @@ static int skycmd_arg_copy(va_list ap, int dir, void *buf,
 
 		return 2;
 	case 4:
-		val32p = va_arg(ap, typeof(val32p));
+		val32p = va_arg(*ap, typeof(val32p));
 		if (off + 4 > maxlen)
 			return -EOVERFLOW;
 		if (dir == TO_BUF) {
@@ -198,7 +198,7 @@ static int skycmd_arg_copy(va_list ap, int dir, void *buf,
 		return 4;
 	default:
 		/* No attempt to do conversion between bytes order */
-		p = va_arg(ap, typeof(p));
+		p = va_arg(*ap, typeof(p));
 		if (off >= maxlen)
 			return -EOVERFLOW;
 		sz = min_t(size_t, sz, maxlen - off);
@@ -219,7 +219,7 @@ static int skycmd_args_inbytes(va_list ap, size_t num, size_t maxlen)
 
 	va_copy(ap_cpy, ap);
 	for (off = 0, i = 0; i < num; i++) {
-		rc = skycmd_arg_copy(ap_cpy, COUNT_SZ, NULL, off, maxlen);
+		rc = skycmd_arg_copy(&ap_cpy, COUNT_SZ, NULL, off, maxlen);
 		if (rc < 0) {
 			off = rc;
 			goto out;
@@ -249,7 +249,7 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 
 	va_copy(ap_cpy, ap);
 	for (len = 0, off = proto->req_data_off, args = 0; args < req_num; args++) {
-		rc = skycmd_arg_copy(ap_cpy, TO_BUF, cmd_buf, off,
+		rc = skycmd_arg_copy(&ap_cpy, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
 		if (rc < 0) {
 			va_end(ap_cpy);
@@ -372,7 +372,7 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 		for (off = proto->rsp_data_off, args = 0;
 		     off < rsp_len + proto->rsp_data_off && args < rsp_num;
 		     args++) {
-			rc = skycmd_arg_copy(ap_cpy, FROM_BUF, rsp_buf, off,
+			rc = skycmd_arg_copy(&ap_cpy, FROM_BUF, rsp_buf, off,
 					     rsp_len + proto->rsp_data_off);
 			if (rc < 0) {
 				if (rc != -EOVERFLOW) {
