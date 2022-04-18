@@ -1,3 +1,9 @@
+skycharge (2.2.2) stretch; urgency=low
+  * libskycharge-local: pass va_list by pointer, not by value
+  * libskycharge-local: don't copy va_args because we iterate over response as well
+
+ -- Roman Pen <r.penyaev@gmail.com>  Mon, 18 Apr 2022 21:40:00 +0100
+
 skycharge (2.2.1) stretch; urgency=low
   * skyhttpd: implement MAX_REQUESTS_RATE as a configurable parameter
   * skyhttpd: make charging-params output more explicit
