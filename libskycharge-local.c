@@ -252,14 +252,12 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 		rc = skycmd_arg_copy(&ap_cpy, TO_BUF, cmd_buf, off,
 				     sizeof(cmd_buf) - 1);
 		if (rc < 0) {
-			va_end(ap_cpy);
 			goto out;
 		}
 
 		len += rc;
 		off += rc;
 	}
-	va_end(ap_cpy);
 	proto->fill_cmd_hdr(cmd_buf, len, cmd);
 
 	rc = devlock(dev);
@@ -285,7 +283,7 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 		goto out_unlock;
 	}
 	if (rsp_num >= 0) {
-		rc = skycmd_args_inbytes(ap, rsp_num, sizeof(rsp_buf));
+		rc = skycmd_args_inbytes(ap_cpy, rsp_num, sizeof(rsp_buf));
 		if (rc < 0) {
 			sky_err("skycmd_args_inbytes(): %s\n", strerror(-rc));
 			goto out_unlock;
@@ -368,7 +366,6 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 		if (rc)
 			goto out_unlock;
 
-		va_copy(ap_cpy, ap);
 		for (off = proto->rsp_data_off, args = 0;
 		     off < rsp_len + proto->rsp_data_off && args < rsp_num;
 		     args++) {
@@ -378,7 +375,6 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 				if (rc != -EOVERFLOW) {
 					sky_err("skycmd_arg_copy(): %s\n",
 						strerror(-rc));
-					va_end(ap_cpy);
 					goto out_unlock;
 				}
 				/* Stop copying if no space for output */
@@ -386,13 +382,13 @@ static int skycmd_serial_cmd_vargs(struct skyloc_dev *dev,
 			}
 			off += rc;
 		}
-		va_end(ap_cpy);
 	}
 	rc = rsp_len;
 
 out_unlock:
 	devunlock(dev);
 out:
+	va_end(ap_cpy);
 
 	return rc;
 }
