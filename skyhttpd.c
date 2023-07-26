@@ -743,7 +743,7 @@ static void charging_state_skycompletion(struct sky_async_req *skyreq)
 
 	if (!rc) {
 		ret = snprintf_buffer(&buffer, &off, &size,
-				      "\t\t\t\"State\": \"%s\",\n"
+				      "\t\t\t\"state\": \"%s\",\n"
 				      "\t\t\t\"reason\": \"%s\",\n"
 				      "\t\t\t\"voltage-mV\": %d,\n"
 				      "\t\t\t\"current-mA\": %d,\n"
