@@ -1,40 +1,76 @@
-# Dockerfile for ARM/BeagleBone builds
-FROM --platform=linux/arm/v7 debian:bullseye
+# =============================================================================
+# ARM Cross-Compilation Docker Image for libskycharge
+# =============================================================================
+# This Dockerfile creates a Debian-based ARM build environment with all
+# dependencies needed to cross-compile libskycharge for BeagleBone devices.
+#
+# Target: ARM v7 (armhf) - Compatible with BeagleBone Black/Green
+# Base:   Debian Bullseye (provides stable, well-tested build tools)
+# =============================================================================
 
-# Install build dependencies
+FROM --platform=linux/arm/v7 debian:jessie
+
+# =============================================================================
+# SYSTEM DEPENDENCIES
+# =============================================================================
+# Install all build tools and libraries needed for libskycharge compilation
+
 RUN apt-get update && apt-get install -y \
+    # Core build tools
     build-essential \
+    git \
+    sed \
+    \
+    # Debian packaging tools
     debhelper \
     dh-autoreconf \
     dpkg-dev \
+    \
+    # Parser/lexer generators
     bison \
     flex \
+    \
+    # Core libraries
     zlib1g-dev \
     uuid-dev \
+    uuid-runtime \
+    \
+    # Networking and messaging
     libzmq3-dev \
     libczmq-dev \
-    libserialport-dev \
-    libgps-dev \
     libavahi-client-dev \
     libmicrohttpd-dev \
+    \
+    # Hardware interface libraries  
+    libserialport-dev \
+    libgps-dev \
     libsystemd-dev \
     libelf-dev \
-    sed \
-    uuid-runtime \
+    \
+    # Utilities
     gpw \
-    git \
+    \
+    # Clean up package cache to reduce image size
     && rm -rf /var/lib/apt/lists/*
 
-# Set up working directory
+# =============================================================================
+# ENVIRONMENT SETUP
+# =============================================================================
+
+# Set working directory where source code will be mounted
 WORKDIR /src
 
-# Copy source code (context is parent directory)
+# Copy source code (context is parent directory containing the project)
 COPY . .
 
-# Set environment variables for cross-compilation
+# Configure cross-compilation environment variables
 ENV CROSS_COMPILE=""
 ENV CC=gcc
 ENV ARCH=armhf
 
-# Build command will be provided at runtime
+# =============================================================================
+# CONTAINER CONFIGURATION
+# =============================================================================
+
+# Default command - provides interactive bash shell for build operations
 CMD ["bash"]

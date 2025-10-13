@@ -1,23 +1,40 @@
-version: '3.8'
+# =============================================================================
+# Docker Compose Configuration for libskycharge ARM Cross-Compilation
+# =============================================================================
+# This configures a Docker-based build environment for cross-compiling 
+# libskycharge to ARM/BeagleBone architecture while preserving the original
+# build system and file structure.
 
 services:
   build-arm:
+    # Build configuration
     build:
-      context: ..
-      dockerfile: docker/Dockerfile.arm
-    platform: linux/arm/v7
+      context: ..                      # Use parent directory as build context
+      dockerfile: docker/Dockerfile.arm # ARM cross-compilation Dockerfile
+    
+    # Target platform
+    platform: linux/arm/v7             # ARM v7 for BeagleBone compatibility
+    
+    # Volume mounts
     volumes:
-      - ..:/src
-      - ../builds:/builds
-      - build-cache:/tmp/build-cache
+      - ..:/src                        # Mount source code (read-write)
+      - ../builds:/builds              # Mount build output directory
+      - build-cache:/tmp/build-cache   # Persistent build cache
+    
+    # Interactive terminal support
     stdin_open: true 
     tty: true
     working_dir: /src
+    
+    # Cross-compilation environment
     environment:
-      - CROSS_COMPILE=
-      - CC=gcc
-      - ARCH=armhf
+      - CROSS_COMPILE=                 # No prefix (using native ARM tools in container)
+      - CC=gcc                         # Use GCC compiler
+      - ARCH=armhf                     # ARM hard-float architecture
+    
+    # Default command
     command: bash
 
+# Persistent volumes
 volumes:
-  build-cache:
+  build-cache:                         # Cache for faster rebuilds
