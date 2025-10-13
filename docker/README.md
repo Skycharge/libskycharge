@@ -1,11 +1,20 @@
 # Docker Build Environment for libskycharge
 
-This directory contains Docker configuration for cross-compiling libskycharge for ARM/BeagleBone devices using the **original build system** without modifications.
+**ARM cross-compilation for BeagleBone devices**
+
+This directory provides a Docker-based build system for cross-compiling libskycharge to ARM architecture while preserving the original build system and Makefile.
 
 ## Files
-- `docker-compose.yml` - Docker Compose configuration for ARM build environment
-- `Dockerfile.arm` - Docker image definition for ARM cross-compilation
-- `build.sh` - Automated build script
+
+| File | Purpose |
+|------|---------|
+| `build.sh` | Main build script |
+| `clean.sh` | Docker environment script |
+| `docker-compose.yml` | Docker service configuration |
+| `Dockerfile.arm` | ARM cross-compilation environment |
+| `README.md` | This documentation |
+
+## Quick Start
 
 ## Usage
 
@@ -104,6 +113,8 @@ scp ../builds/binaries/skyuartd root@beaglebone-ip:/usr/local/bin/
 scp ../builds/binaries/skycharged root@beaglebone-ip:/usr/local/bin/
 scp ../builds/binaries/skycharge.conf root@beaglebone-ip:/etc/
 # ... copy other files as needed
+# install
+scp ../builds/debian/*.deb root@skydevice.local:updates
 ```
 
 ## Build Output
@@ -157,7 +168,7 @@ The Docker image includes all necessary dependencies:
 Builds are configured for:
 - Platform: `linux/arm/v7`
 - Architecture: `armhf`
-- Target: BeagleBone/similar ARM devices
+- Target: BeagleBone
 
 ## Package Management on BeagleBone
 
@@ -241,29 +252,32 @@ rm -rf ../builds/
 - Check dependencies: `dpkg -I package.deb` shows requirements
 - Use `dpkg -l` to list installed packages
 
-## Version Tracking
+## Troubleshooting
 
-The project uses the existing versioning system from `debian/changelog`:
-- **Current version**: 2.2.2 (from `debian/changelog`)
-- **Auto-generation**: Makefile parses changelog and creates `version.h`
-- **Debian packages**: Inherit version from changelog automatically
-
-### Verify Version
+### Build Fails
 ```bash
-# View current version
-head -1 ../debian/changelog
+# Clean rebuild
+./build.sh --clean
 
-# After building, check generated version.h
-cat ../version.h
-
-# Example output:
-# #define SKY_VERSION     0x00020202
-# #define SKY_VERSION_STR "2.2.2"
+# Check Docker status
+docker-compose ps
 ```
 
-### Custom Version Example
+### Permission Issues
 ```bash
-./build.sh --debian --version 2.2.3-dev$(date +%Y%m%d)
-# Creates packages with version: 2.2.3-dev20251013
-# Original changelog remains unchanged
+# Fix ownership
+sudo chown -R $USER:$USER ../builds/
 ```
+
+### Docker Issues
+```bash
+# Deep clean and rebuild
+./clean.sh --deep
+./build.sh
+```
+
+## Notes
+
+- Original System Preserved: All changes are temporary during build
+- Cross-Platform: Builds on macOS, Linux, Windows (with WSL)
+- BeagleBone Ready: Outputs are compatible with BeagleBone Black ARM architecture
