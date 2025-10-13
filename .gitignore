@@ -18,3 +18,7 @@ version.h
 cscope.*
 *-cmd.*
 !*.docopt
+
+# Ignore MacOS system files
+.DS_Store
+
