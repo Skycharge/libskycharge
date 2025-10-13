@@ -53,3 +53,7 @@ docker/build-cache/
 ../*.dsc
 ../*.tar.gz
 ../*.tar.xz
+
+# Debian build artifacts
+debian/debhelper-build-stamp
+debian/*/
