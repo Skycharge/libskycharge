@@ -1,0 +1,40 @@
+# Dockerfile for ARM/BeagleBone builds
+FROM --platform=linux/arm/v7 debian:bullseye
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    debhelper \
+    dh-autoreconf \
+    dpkg-dev \
+    bison \
+    flex \
+    zlib1g-dev \
+    uuid-dev \
+    libzmq3-dev \
+    libczmq-dev \
+    libserialport-dev \
+    libgps-dev \
+    libavahi-client-dev \
+    libmicrohttpd-dev \
+    libsystemd-dev \
+    libelf-dev \
+    sed \
+    uuid-runtime \
+    gpw \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
+WORKDIR /src
+
+# Copy source code (context is parent directory)
+COPY . .
+
+# Set environment variables for cross-compilation
+ENV CROSS_COMPILE=""
+ENV CC=gcc
+ENV ARCH=armhf
+
+# Build command will be provided at runtime
+CMD ["bash"]

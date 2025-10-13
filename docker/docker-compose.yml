@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  build-arm:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.arm
+    platform: linux/arm/v7
+    volumes:
+      - ..:/src
+      - ../builds:/builds
+      - build-cache:/tmp/build-cache
+    stdin_open: true 
+    tty: true
+    working_dir: /src
+    environment:
+      - CROSS_COMPILE=
+      - CC=gcc
+      - ARCH=armhf
+    command: bash
+
+volumes:
+  build-cache:
