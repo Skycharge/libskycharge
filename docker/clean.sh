@@ -25,29 +25,15 @@ echo ""
 cd "$PROJECT_DIR"
 
 # Use the build script's clean function
-echo "Running build artifact cleanup..."
-if [ -f "docker/build.sh" ]; then
-    # Extract and run the clean function from build.sh
-    bash docker/build.sh --clean >/dev/null 2>&1 || echo "Build script cleanup had issues (this is normal)"
-else
-    echo "build.sh not found, performing manual cleanup..."
-    
-    # Fallback manual cleanup
-    docker-compose -f docker/docker-compose.yml run --rm build-arm make distclean 2>/dev/null || true
-    rm -rf builds/
-    docker-compose -f docker/docker-compose.yml run --rm build-arm bash -c "
-        rm -f debian/files debian/*.debhelper.log debian/*.debhelper debian/*.substvars
-        rm -f ../*.deb ../*.changes ../*.buildinfo ../*.dsc ../*.tar.gz ../*.tar.xz
-    " 2>/dev/null || true
-fi
+echo "Removing build artifacts..."
+rm -rf builds/
 
-# Deep clean option
-if [[ "$1" == "--deep" ]]; then
+# Deep clean option: remove the helper image and prune caches. Safe to skip if you want to keep caches.
+if [[ "${1:-}" == "--deep" ]]; then
     echo "Performing deep Docker cleanup..."
-    
-    echo "  - Stopping and removing containers..."
-    docker-compose -f docker/docker-compose.yml down -v --remove-orphans 2>/dev/null || true
-    
+    echo "  - Removing bone-runner image (if present)..."
+    docker rmi -f bone-runner 2>/dev/null || true
+
     echo "  - Removing Docker build cache..."
     docker system prune -f 2>/dev/null || true
     
@@ -63,4 +49,4 @@ fi
 
 echo ""
 echo "Cleanup completed successfully!"
-echo "Ready for fresh builds with: ./build.sh"
+echo "Ready for fresh builds with: ./build-bone.sh"
