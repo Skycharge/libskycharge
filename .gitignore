@@ -57,3 +57,6 @@ docker/build-cache/
 # Debian build artifacts
 debian/debhelper-build-stamp
 debian/*/
+
+# Image files
+*.img
