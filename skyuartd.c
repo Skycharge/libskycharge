@@ -479,7 +479,7 @@ static int do_some_tests(void)
 			struct uart_packet uart_hdr;
 			struct sky_req_hdr req;
 		} uart_req;
-		uart_req.req.type  = htole16(SKY_CHARGING_STATE_REQ);
+		uart_req.req.type  = htole16(SKY_STOP_SCAN_REQ);
 		(void)uartd_send_rsp(&uartd, &uart_req.uart_hdr, sizeof(uart_req.req));
 
 		struct {

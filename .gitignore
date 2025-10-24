@@ -18,3 +18,45 @@ version.h
 cscope.*
 *-cmd.*
 !*.docopt
+
+# Ignore MacOS system files
+.DS_Store
+
+# Built binaries
+tty-sink-pong
+skycharge-cli
+skycharged
+skypsu
+skybmsd
+skybroker
+skyhttpd
+skyuartd
+
+# Generated files
+docopt-gen
+version.h
+cscope.*
+*-cmd.*
+!*.docopt
+
+# Build output directories
+builds/
+build-cache/
+
+# Docker volumes
+docker/build-cache/
+
+# Debian package artifacts (generated in parent dir during dpkg-buildpackage)
+../*.deb
+../*.changes
+../*.buildinfo
+../*.dsc
+../*.tar.gz
+../*.tar.xz
+
+# Debian build artifacts
+debian/debhelper-build-stamp
+debian/*/
+
+# Image files
+*.img

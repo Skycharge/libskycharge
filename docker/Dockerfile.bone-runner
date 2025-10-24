@@ -1,0 +1,33 @@
+# Simple runner that uses host Linux tools to chroot into a BeagleBone image
+# and build packages inside that image (via qemu-user-static). This container
+# does NOT compile for ARM itself; it only provides tooling (qemu, mount,
+# binfmt) so we can execute ARM binaries from within the original image.
+
+FROM debian:bookworm-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
+    util-linux \
+    mount \
+    kmod \
+    procps \
+    coreutils \
+    tar \
+    xz-utils \
+    ca-certificates \
+    qemu-user-static \
+    binfmt-support \
+    debootstrap \
+    rsync \
+    && rm -rf /var/lib/apt/lists/*
+
+# Workdir is the project root (mounted)
+WORKDIR /workspace
+
+# Script that performs the chrooted build
+COPY inside-bone-build.sh /usr/local/bin/inside-bone-build.sh
+RUN chmod +x /usr/local/bin/inside-bone-build.sh
+
+CMD ["bash"]
