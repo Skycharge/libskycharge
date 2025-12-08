@@ -1891,7 +1891,7 @@ int main(int argc, char *argv[])
 
 		if (mux_params && mux_params->dev_params_bits) {
 			/* Apply MUX params */
-			rc = sky_paramsset(servdev->dev, mux_params);
+			rc = sky_paramsset(servdev->dev, mux_params);	// ← TRIGGERS RESET
 			if (rc) {
 				sky_err("sky_paramsset(): %s\n", strerror(-rc));
 				sky_devclose(servdev->dev);
