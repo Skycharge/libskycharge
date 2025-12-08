@@ -877,11 +877,12 @@ static int hw2_sky_get_params(struct skyloc_dev *dev,
 static int hw2_sky_set_params(struct skyloc_dev *dev,
 			      const struct sky_dev_params *params)
 {
-	struct sky_hw2_mux_settings settings;
+	struct sky_hw2_mux_settings settings, new_settings;
 	enum sky_hw2_mux_settings_bits bit;
 	int p, rc;
+	bool has_changes = false;
 
-	/* First retreive settings */
+	/* First retreive current settings */
 	memset(&settings, 0, sizeof(settings));
 	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
 			       SKY_HW2_GET_MUX_SETTINGS_CMD,
@@ -890,6 +891,9 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 	if (rc)
 		return rc;
 
+	/* Make a copy to modify */
+	memcpy(&new_settings, &settings, sizeof(new_settings));
+
 	for (p = 0; p < SKY_HW2_NUM_DEVPARAM; p++) {
 		if (!(params->dev_params_bits & (1<<p)))
 			continue;
@@ -897,119 +901,211 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 		switch (p) {
 		case SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS:
 			bit = SKY_HW2_IGNORE_INVAL_CHARGING_SETTINGS_BIT;
-			if (params->dev_params[p])
-				settings.bool_settings |= bit;
-			else
-				settings.bool_settings &= ~bit;
+			if (params->dev_params[p]) {
+				if (!(new_settings.bool_settings & bit)) {
+					has_changes = true;
+					sky_err("PARAM CHANGE: IGNORE_INVAL_CHARGING_SETTINGS bit changed\n");
+				}
+				new_settings.bool_settings |= bit;
+			} else {
+				if (new_settings.bool_settings & bit) {
+					has_changes = true;
+					sky_err("PARAM CHANGE: IGNORE_INVAL_CHARGING_SETTINGS bit changed\n");
+				}
+				new_settings.bool_settings &= ~bit;
+			}
 			break;
 		case SKY_HW2_IGNORE_LOW_BATT_VOLTAGE:
 			bit = SKY_HW2_IGNORE_LOW_BATT_VOLTAGE_BIT;
-			if (params->dev_params[p])
-				settings.bool_settings |= bit;
-			else
-				settings.bool_settings &= ~bit;
+			if (params->dev_params[p]) {
+				if (!(new_settings.bool_settings & bit))
+					has_changes = true;
+				new_settings.bool_settings |= bit;
+			} else {
+				if (new_settings.bool_settings & bit)
+					has_changes = true;
+				new_settings.bool_settings &= ~bit;
+			}
 			break;
 		case SKY_HW2_KEEP_SILENCE:
 			bit = SKY_HW2_KEEP_SILENCE_BIT;
-			if (params->dev_params[p])
-				settings.bool_settings |= bit;
-			else
-				settings.bool_settings &= ~bit;
+			if (params->dev_params[p]) {
+				if (!(new_settings.bool_settings & bit))
+					has_changes = true;
+				new_settings.bool_settings |= bit;
+			} else {
+				if (new_settings.bool_settings & bit)
+					has_changes = true;
+				new_settings.bool_settings &= ~bit;
+			}
 			break;
 		case SKY_HW2_USE_FIXED_V_I:
 			bit = SKY_HW2_USE_FIXED_V_I_BIT;
-			if (params->dev_params[p])
-				settings.bool_settings |= bit;
-			else
-				settings.bool_settings &= ~bit;
+			if (params->dev_params[p]) {
+				if (!(new_settings.bool_settings & bit))
+					has_changes = true;
+				new_settings.bool_settings |= bit;
+			} else {
+				if (new_settings.bool_settings & bit)
+				has_changes = true;
+				new_settings.bool_settings &= ~bit;
+			}
 			break;
 		case SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT:
 			bit = SKY_HW2_IGNORE_VOLTAGE_ON_OUTPUT_BIT;
-			if (params->dev_params[p])
-				settings.bool_settings |= bit;
-			else
-				settings.bool_settings &= ~bit;
+			if (params->dev_params[p]) {
+				if (!(new_settings.bool_settings & bit))
+					has_changes = true;
+				new_settings.bool_settings |= bit;
+			} else {
+				if (new_settings.bool_settings & bit)
+					has_changes = true;
+				new_settings.bool_settings &= ~bit;
+			}
 			break;
 		case SKY_HW2_PSU_TYPE:
-			settings.psu_type =
-				params->dev_params[p];
+			if (new_settings.psu_type != params->dev_params[p]) {
+				has_changes = true;
+				sky_err("PARAM CHANGE: PSU_TYPE changed from %u to %u\n",
+					new_settings.psu_type, params->dev_params[p]);
+				new_settings.psu_type = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_DETECT_MODE:
-			settings.detect_mode =
-				params->dev_params[p];
+			if (new_settings.detect_mode != params->dev_params[p]) {
+				has_changes = true;
+				sky_err("PARAM CHANGE: DETECT_MODE changed from %u to %u\n",
+					new_settings.detect_mode, params->dev_params[p]);
+				new_settings.detect_mode = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_PSU_FIXED_VOLTAGE_MV:
-			settings.psu_fixed_voltage_mV =
-				params->dev_params[p];
+			if (new_settings.psu_fixed_voltage_mV != params->dev_params[p]) {
+				has_changes = true;
+				sky_err("PARAM CHANGE: PSU_FIXED_VOLTAGE_MV changed from %u to %u\n",
+					new_settings.psu_fixed_voltage_mV, params->dev_params[p]);
+				new_settings.psu_fixed_voltage_mV = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_PSU_FIXED_CURRENT_MA:
-			settings.psu_fixed_current_mA =
-				params->dev_params[p];
+			if (new_settings.psu_fixed_current_mA != params->dev_params[p]) {
+				has_changes = true;
+				sky_err("PARAM CHANGE: PSU_FIXED_CURRENT_MA changed from %u to %u\n",
+					new_settings.psu_fixed_current_mA, params->dev_params[p]);
+				new_settings.psu_fixed_current_mA = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_NR_BAD_HEARTBEATS:
-			settings.nr_bad_heartbeats =
-				params->dev_params[p];
+			if (new_settings.nr_bad_heartbeats != params->dev_params[p]) {
+				has_changes = true;
+				new_settings.nr_bad_heartbeats = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_ERROR_INDICATION_TIMEOUT_SECS:
-			settings.error_indication_timeout_secs =
-				params->dev_params[p];
+			if (new_settings.error_indication_timeout_secs != params->dev_params[p]) {
+				has_changes = true;
+				new_settings.error_indication_timeout_secs = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_MIN_SENSE_CURRENT_MA:
-			settings.min_sense_current_mA =
-				params->dev_params[p];
+			if (new_settings.min_sense_current_mA != params->dev_params[p]) {
+				has_changes = true;
+				new_settings.min_sense_current_mA = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_REPEAT_CHARGE_AFTER_MINS:
-			settings.repeat_charge_after_mins =
-				params->dev_params[p];
+			if (new_settings.repeat_charge_after_mins != params->dev_params[p]) {
+				has_changes = true;
+				new_settings.repeat_charge_after_mins = params->dev_params[p];
+			}
 			break;
 		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT1_MV:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.sense_calib.voltage_p1_mV.set,
-					      &settings.sense_calib.voltage_p1_mV.read);
+					      &new_settings.sense_calib.voltage_p1_mV.set,
+					      &new_settings.sense_calib.voltage_p1_mV.read);
+			if (memcmp(&settings.sense_calib.voltage_p1_mV,
+				   &new_settings.sense_calib.voltage_p1_mV,
+				   sizeof(settings.sense_calib.voltage_p1_mV)))
+				has_changes = true;
 			break;
 		case SKY_HW2_SENSE_VOLTAGE_CALIB_POINT2_MV:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.sense_calib.voltage_p2_mV.set,
-					      &settings.sense_calib.voltage_p2_mV.read);
+					      &new_settings.sense_calib.voltage_p2_mV.set,
+					      &new_settings.sense_calib.voltage_p2_mV.read);
+			if (memcmp(&settings.sense_calib.voltage_p2_mV,
+				   &new_settings.sense_calib.voltage_p2_mV,
+				   sizeof(settings.sense_calib.voltage_p2_mV)))
+				has_changes = true;
 			break;
 		case SKY_HW2_SENSE_CURRENT_CALIB_POINT1_MA:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.sense_calib.current_p1_mA.set,
-					      &settings.sense_calib.current_p1_mA.read);
+					      &new_settings.sense_calib.current_p1_mA.set,
+					      &new_settings.sense_calib.current_p1_mA.read);
+			if (memcmp(&settings.sense_calib.current_p1_mA,
+				   &new_settings.sense_calib.current_p1_mA,
+				   sizeof(settings.sense_calib.current_p1_mA)))
+				has_changes = true;
 			break;
 		case SKY_HW2_SENSE_CURRENT_CALIB_POINT2_MA:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.sense_calib.current_p2_mA.set,
-					      &settings.sense_calib.current_p2_mA.read);
+					      &new_settings.sense_calib.current_p2_mA.set,
+					      &new_settings.sense_calib.current_p2_mA.read);
+			if (memcmp(&settings.sense_calib.current_p2_mA,
+				   &new_settings.sense_calib.current_p2_mA,
+				   sizeof(settings.sense_calib.current_p2_mA)))
+				has_changes = true;
 			break;
 		case SKY_HW2_PSU_VOLTAGE_CALIB_POINT1_MV:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.psu_calib.voltage_p1_mV.set,
-					      &settings.psu_calib.voltage_p1_mV.read);
+					      &new_settings.psu_calib.voltage_p1_mV.set,
+					      &new_settings.psu_calib.voltage_p1_mV.read);
+			if (memcmp(&settings.psu_calib.voltage_p1_mV,
+				   &new_settings.psu_calib.voltage_p1_mV,
+				   sizeof(settings.psu_calib.voltage_p1_mV)))
+				has_changes = true;
 			break;
 		case SKY_HW2_PSU_VOLTAGE_CALIB_POINT2_MV:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.psu_calib.voltage_p2_mV.set,
-					      &settings.psu_calib.voltage_p2_mV.read);
+					      &new_settings.psu_calib.voltage_p2_mV.set,
+					      &new_settings.psu_calib.voltage_p2_mV.read);
+			if (memcmp(&settings.psu_calib.voltage_p2_mV,
+				   &new_settings.psu_calib.voltage_p2_mV,
+				   sizeof(settings.psu_calib.voltage_p2_mV)))
+				has_changes = true;
 			break;
 		case SKY_HW2_PSU_CURRENT_CALIB_POINT1_MA:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.psu_calib.current_p1_mA.set,
-					      &settings.psu_calib.current_p1_mA.read);
+					      &new_settings.psu_calib.current_p1_mA.set,
+					      &new_settings.psu_calib.current_p1_mA.read);
+			if (memcmp(&settings.psu_calib.current_p1_mA,
+				   &new_settings.psu_calib.current_p1_mA,
+				   sizeof(settings.psu_calib.current_p1_mA)))
+				has_changes = true;
 			break;
 		case SKY_HW2_PSU_CURRENT_CALIB_POINT2_MA:
 			uint32_to_calib_point(params->dev_params[p],
-					      &settings.psu_calib.current_p2_mA.set,
-					      &settings.psu_calib.current_p2_mA.read);
+					      &new_settings.psu_calib.current_p2_mA.set,
+					      &new_settings.psu_calib.current_p2_mA.read);
+			if (memcmp(&settings.psu_calib.current_p2_mA,
+				   &new_settings.psu_calib.current_p2_mA,
+				   sizeof(settings.psu_calib.current_p2_mA)))
+				has_changes = true;
 			break;
 		}
 	}
 
+	/* Skip update if nothing changed - AVOIDS MUX RESET */
+	if (!has_changes) {
+		sky_err("hw2_sky_set_params(): No changes detected, skipping MUX update to avoid reset\n");
+		return 0;
+	}
+
 	/* Commit changed settings */
+	sky_err("hw2_sky_set_params(): Changes detected, sending SKY_HW2_SET_MUX_SETTINGS_CMD (WILL RESET MUX)\n");
 	return skycmd_serial_cmd(dev, &hw2_sky_serial,
 				 SKY_HW2_SET_MUX_SETTINGS_CMD,
 				 1, 0,
-				 sizeof(settings), &settings);
+				 sizeof(new_settings), &new_settings);
 }
 
 static int hw2_sky_get_state(struct skyloc_dev *dev,
