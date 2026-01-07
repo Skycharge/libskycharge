@@ -315,6 +315,8 @@ struct sky_conf {
 
 	enum sky_con_type     contype;
 
+	unsigned auto_resume_after_restart; /**< Auto-resume scanning after restart (default: 1) */
+
 	enum sky_dev_type     mux_type;
 	char                  mux_dev[32];
 	struct sky_dev_params mux_hw1_params;

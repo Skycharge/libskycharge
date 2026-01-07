@@ -540,6 +540,13 @@ static int parse_line(char *line, struct sky_conf *cfg)
 
 		cfg->subport = cfg->srvport + 1;
 		cfg->pubport = cfg->cliport + 1;
+
+	} else if ((str = strstr(line, "auto-resume-after-restart="))) {
+		unsigned auto_resume;
+		rc = parse_bool(str + 26, &auto_resume);
+		if (rc)
+			return -ENODATA;
+		cfg->auto_resume_after_restart = auto_resume;
 	}
 
 	/*
@@ -1605,6 +1612,7 @@ const char *sky_gpsmode_to_str(enum sky_gps_mode mode)
 void sky_confinit(struct sky_conf *cfg)
 {
 	memset(cfg, 0, sizeof(*cfg));
+	cfg->auto_resume_after_restart = 1; /* Enabled by default */
 }
 
 static int validate_conf(struct sky_conf *cfg)
