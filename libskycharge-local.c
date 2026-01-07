@@ -874,6 +874,8 @@ static int hw2_sky_get_params(struct skyloc_dev *dev,
 	return 0;
 }
 
+static int hw2_sky_scan(struct skyloc_dev *dev, unsigned do_resume);
+
 static int hw2_sky_set_params(struct skyloc_dev *dev,
 			      const struct sky_dev_params *params)
 {
