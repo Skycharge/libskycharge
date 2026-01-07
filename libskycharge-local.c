@@ -1013,10 +1013,27 @@ static int hw2_sky_set_params(struct skyloc_dev *dev,
 	 * will preserve the current state (stopped/scanning). No unwanted
 	 * auto-resume happens - firmware requires explicit RESUME command.
 	 */
-	return skycmd_serial_cmd(dev, &hw2_sky_serial,
+	rc = skycmd_serial_cmd(dev, &hw2_sky_serial,
 				 SKY_HW2_SET_MUX_SETTINGS_CMD,
 				 1, 0,
 				 sizeof(new_settings), &new_settings);
+	if (rc)
+		return rc;
+	
+	/*
+	 * Add to /etc/skycharge/skycharge.conf:
+	 *   auto-resume-after-restart = true   (Auto-resume enabled, default behavior, also when the parameter is missing)
+	 *   auto-resume-after-restart = false  (Keep MUX state unchanged)
+	 */
+	
+	/* Auto-resume scanning: enabled by default when parameter is missing or set to true */
+	if (dev->dev.devdesc.conf.auto_resume_after_restart != 0) {
+		rc = hw2_sky_scan(dev, 1);
+		if (rc)
+			sky_err("Auto-resume failed: %s\n", strerror(-rc));
+	}
+
+	return 0;
 }
 
 static int hw2_sky_get_state(struct skyloc_dev *dev,
@@ -1579,6 +1596,14 @@ static int skyloc_devopen(const struct sky_dev_desc *devdesc,
 	rc = devopen(devdesc, &dev, false);
 	if (rc)
 		return rc;
+
+	/* Auto-resume scanning on startup if not explicitly disabled */
+	if (devdesc->conf.auto_resume_after_restart != 0 && 
+	    devdesc->dev_type == SKY_MUX_HW2) {
+		rc = hw2_sky_scan(dev, 1);
+		if (rc)
+			sky_err("Auto-resume on startup failed: %s\n", strerror(-rc));
+	}
 
 	*dev_ = &dev->dev;
 
