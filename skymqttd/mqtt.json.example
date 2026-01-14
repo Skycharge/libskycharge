@@ -1,0 +1,18 @@
+{
+  "_comment": "Skycharge MQTT Bridge Configuration",
+  
+  "device_id": "skycharge-XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+  
+  "endpoint": "xxxxxxxxxxxxx.iot.us-east-1.amazonaws.com",
+  "port": 8883,
+  
+  "cert_file": "/etc/skycharge/certs/device-cert.pem",
+  "key_file": "/etc/skycharge/certs/device-key.pem",
+  "ca_file": "/etc/skycharge/certs/AmazonRootCA1.pem",
+  
+  "skycharged_endpoint": "tcp://localhost:21103",
+  
+  "keep_alive": 60,
+  "status_interval": 30,
+  "telemetry_interval": 10
+}

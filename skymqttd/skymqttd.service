@@ -1,0 +1,20 @@
+[Unit]
+Description=Skycharge MQTT Bridge
+After=network.target skycharged.service
+Wants=skycharged.service
+
+[Service]
+Type=forking
+PIDFile=/var/run/skymqttd.pid
+ExecStart=/usr/bin/skymqttd --config /etc/skycharge/mqtt.json --daemon
+Restart=on-failure
+RestartSec=10
+User=root
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=skymqttd
+
+[Install]
+WantedBy=multi-user.target

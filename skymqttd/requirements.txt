@@ -1,0 +1,8 @@
+# Python requirements for skymqttd
+# Compatible with Python 3.5+
+
+# MQTT client for AWS IoT Core
+paho-mqtt>=1.5.0
+
+# Note: zmq and docopt are installed as system packages:
+# apt-get install python3-zmq python3-docopt
