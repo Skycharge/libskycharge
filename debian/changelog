@@ -1,3 +1,16 @@
+skycharge (2.2.3) stretch; urgency=low
+  * libskycharge-local: add auto-resume-after-restart functionality (enabled by default)
+  * libskycharge-local: fix MUX parameter update race condition using new_settings copy - restart issue
+  * libskycharge-local: add hw2_sky_scan function forward declaration
+  * docker: add complete BeagleBone build system using chroot and qemu
+  * docker: add build-bone.sh, Dockerfile.bone-runner, inside-bone-build.sh
+  * scripts: add build-for-arm-docker.sh for Docker-optimized ARM builds
+  * docker: add cleanup script and comprehensive README documentation
+  * gitignore: add macOS system files, built binaries, build artifacts, and image files
+  * skyuartd: fix test request type from SKY_CHARGING_STATE_REQ to SKY_STOP_SCAN_REQ
+
+ -- Grzegorz Zajac <grzegorz.zajac@me.com>  Wed, 19 Mar 2026 12:00:00 +0100
+
 skycharge (2.2.2) stretch; urgency=low
   * libskycharge-local: pass va_list by pointer, not by value
   * libskycharge-local: don't copy va_args because we iterate over response as well
