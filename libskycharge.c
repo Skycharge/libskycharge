@@ -305,6 +305,13 @@ static int parse_psu_type(const char *str, enum sky_psu_type *psu_type)
 	else if (0 == strcasecmp(str, "rsp-1600-48") ||
 		 0 == strcasecmp(str, "rsp1600-48"))
 		*psu_type = SKY_PSU_RSP_1600_48;
+	else if (0 == strcasecmp(str, "xp-1500-48") ||
+		 0 == strcasecmp(str, "xp1500-48"))
+		*psu_type = SKY_PSU_XP_1500_48;
+	else if (0 == strcasecmp(str, "tf1500a60k"))
+		*psu_type = SKY_PSU_TF1500A60K;
+	else if (0 == strcasecmp(str, "tf3000a60k"))
+		*psu_type = SKY_PSU_TF3000A60K;
 	else
 		return -EINVAL;
 
@@ -1169,6 +1176,21 @@ sky_hw2_devparam_value_to_str(enum sky_dev_param param,
 				return snprintf(buf, size, "RSP-1600-48 (0x%02x)", v);
 			else
 				return snprintf(buf, size, "RSP-1600-48");
+		case SKY_PSU_XP_1500_48:
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "XP-1500-48 (0x%02x)", v);
+			else
+				return snprintf(buf, size, "XP-1500-48");
+		case SKY_PSU_TF1500A60K:
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "TF1500A60K (0x%02x)", v);
+			else
+				return snprintf(buf, size, "TF1500A60K");
+		case SKY_PSU_TF3000A60K:
+			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
+				return snprintf(buf, size, "TF3000A60K (0x%02x)", v);
+			else
+				return snprintf(buf, size, "TF3000A60K");
 		default:
 			if (value_format == SKY_PARAM_VALUE_TEXT_AND_NUMERIC)
 				return snprintf(buf, size, "unknown psu (0x%02x)", v);
@@ -1255,7 +1277,10 @@ static int sky_hw2_devparam_value_from_str(const char *str,
 			if (v != SKY_PSU_RSP_750_24 &&
 			    v != SKY_PSU_RSP_750_48 &&
 			    v != SKY_PSU_RSP_1600_24 &&
-			    v != SKY_PSU_RSP_1600_48)
+			    v != SKY_PSU_RSP_1600_48 &&
+			    v != SKY_PSU_XP_1500_48 &&
+			    v != SKY_PSU_TF1500A60K &&
+			    v != SKY_PSU_TF3000A60K)
 				return -EINVAL;
 		} else {
 			v = psu_type;
