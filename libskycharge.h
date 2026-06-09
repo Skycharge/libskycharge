@@ -290,6 +290,9 @@ enum sky_psu_type {
 	SKY_PSU_RSP_1600_48 = 2,
 	SKY_PSU_RSP_1600_24 = 3,
 	SKY_PSU_RSP_750_24  = 4,
+	SKY_PSU_XP_1500_48  = 5,
+	SKY_PSU_TF1500A60K  = 6,
+	SKY_PSU_TF3000A60K  = 7,
 };
 
 /**
