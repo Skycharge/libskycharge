@@ -5,6 +5,11 @@ Build Debian packages inside the original BeagleBone Debian 9.4 (2018-06-17) ima
 ## Prerequisites
 - Download and uncompress the IoT image into this folder:
 	- https://files.beagle.cc/file/beagleboard-public-2021/images/bone-debian-9.4-iot-armhf-2018-06-17-4gb.img.xz
+	```bash
+	curl -L -C - -o bone-debian-9.4-iot-armhf-2018-06-17-4gb.img.xz \
+  	https://files.beagle.cc/file/beagleboard-public-2021/images/bone-debian-9.4-iot-armhf-2018-06-17-4gb.img.xz
+	unxz bone-debian-9.4-iot-armhf-2018-06-17-4gb.img.xz
+  	```
 	- Result: `docker/bone-debian-9.4-iot-armhf-2018-06-17-4gb.img`
 
 ## Quick start
