@@ -1,3 +1,10 @@
+skycharge (2.2.4) stretch; urgency=low
+  * libskycharge: add XP-1500-48, TF1500A60K and TF3000A60K PSU types (align enum with MUX firmware)
+  * libskycharge: parse, format and validate new PSU types on the HW2 path
+  * skycharge.conf: document supported mux-hw2-psu-type values
+
+ -- Grzegorz Zajac <grzegorz.zajac@me.com>  Tue, 09 Jun 2026 12:00:00 +0100
+
 skycharge (2.2.3) stretch; urgency=low
   * libskycharge-local: add auto-resume-after-restart functionality (enabled by default)
   * libskycharge-local: fix MUX parameter update race condition using new_settings copy - restart issue
