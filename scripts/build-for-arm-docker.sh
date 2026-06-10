@@ -149,3 +149,35 @@ find $BBB_DIR/work -maxdepth 1 -type f -print0 | xargs -0 -I {} cp -a "{}" "$OUT
 
 # Unmount and cleanup the temporary writable rootfs
 sudo bash -c "$CLEAN_FUNC; cleanup_rootfs $TMPDIR $BBB_DIR"
+
+# Verify produced .deb artifacts before declaring success.
+#
+# History: flaky macOS<->Docker shared-volume copies and partial builds have
+# silently produced .debs containing 0-byte config files (e.g. an empty
+# /etc/default/skyuart-config left the UART pinmux unconfigured) or missing
+# binaries. debhelper (compat 10) ships such files without erroring, so the
+# breakage only surfaced on-device. Fail loudly here instead.
+echo "--- verifying produced packages in $OUTDIR ---"
+VERIFY_BAD=0
+shopt -s nullglob
+DEBS=("$OUTDIR"/*.deb)
+shopt -u nullglob
+if [ ${#DEBS[@]} -eq 0 ]; then
+	echo "ERROR: no .deb artifacts were produced in $OUTDIR" >&2
+	exit 1
+fi
+for deb in "${DEBS[@]}"; do
+	# List package contents; flag any regular file (perms not starting with 'd'
+	# or 'l') whose size (field 3) is 0 bytes.
+	zero=$(dpkg-deb -c "$deb" | awk '$1 !~ /^[dl]/ && $3 == 0 { print $NF }')
+	if [ -n "$zero" ]; then
+		echo "ERROR: $(basename "$deb") contains zero-byte file(s):" >&2
+		echo "$zero" | sed 's/^/    /' >&2
+		VERIFY_BAD=1
+	fi
+done
+if [ "$VERIFY_BAD" -ne 0 ]; then
+	echo "ERROR: package verification failed; not a shippable build." >&2
+	exit 1
+fi
+echo "--- package verification OK ---"
